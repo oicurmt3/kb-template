@@ -905,22 +905,26 @@
         if (Array.isArray(obj.suggestions)) suggestions = obj.suggestions;
         const notes = Array.isArray(obj.web_notes) ? obj.web_notes : [];
         const faithCorrected = notes.some((n) => /Faithfulness:\s*corrected/i.test(String(n || '')));
+        // Pull related-question chips from the streamed marker block if server omitted them
+        const streamedParsed = parseFollowupsClient(accumulated);
+        if (streamedParsed.suggestions.length && (!suggestions || !suggestions.length)) {
+          suggestions = streamedParsed.suggestions;
+        }
         if (typeof obj.content === 'string' && obj.content.length) {
           const prevVisible = visibleAnswer(accumulated);
-          accumulated = obj.content;
-          const parsed = parseFollowupsClient(accumulated);
-          if (parsed.suggestions.length && (!suggestions || !suggestions.length)) {
-            suggestions = parsed.suggestions;
-          }
-          const nextVisible = visibleAnswer(parsed.content || accumulated);
-          setMessageText(assistantEl, nextVisible);
-          if (faithCorrected || (prevVisible && nextVisible && prevVisible !== nextVisible)) {
+          const serverVisible = visibleAnswer(obj.content);
+          if (faithCorrected) {
+            // Only faithfulness may replace the bubble the user already read
+            accumulated = obj.content;
+            setMessageText(assistantEl, serverVisible);
             setMessageNote(
               assistantEl,
-              faithCorrected
-                ? 'Updated after faithfulness check: the draft was revised so claims match your documents and any allowlisted web/URL sources used this turn.'
-                : 'Answer updated after final processing.'
+              'Updated after faithfulness check: the draft was revised so claims match your documents and any allowlisted web/URL sources used this turn.'
             );
+          } else {
+            // Follow-up strip / whitespace cleanup must not shrink or rewrite a good streamed answer
+            setMessageText(assistantEl, prevVisible || serverVisible);
+            accumulated = prevVisible || obj.content;
           }
         } else {
           setMessageText(assistantEl, visibleAnswer(accumulated));
