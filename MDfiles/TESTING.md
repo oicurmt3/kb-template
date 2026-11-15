@@ -9,7 +9,7 @@
    - Ask a section-level question → Sources appear (if enabled); allowlisted web may enrich
    - Ask a vague follow-up → rewrite should still retrieve sensible chunks
 5. WorkCover **off** → general reply, no Sources; optional standalone Web.
-6. HQ **on** after a WorkCover answer → notes may show `HQ check: ok` / `corrected` / `kept draft` / `skipped (DeepSeek Files…)`; web-supported claims should remain under complement.
+6. WorkCover (or standalone Web) answer with grounding → notes may show `Faithfulness: ok` / `corrected` / `kept draft` / `skipped (DeepSeek Files…)`; web-supported claims should remain under complement. HQ only changes language richness; Deep only enables API thinking.
 7. Web **on** (WorkCover off) with allowed host only; disallowed URL rejected.
 8. Admin → Export settings → Import same file → forms reload with same values.
 9. Admin → Export chunks → JSON has `documents` + `chunks` counts.
@@ -44,8 +44,9 @@ php -l includes/Settings.php
 
 ## Regression watch
 
-- HQ off still Simple/Basic (not “force plain” legacy)
-- HQ on + complement must not wipe allowlisted web enrichment; oversized “corrections” keep the draft
+- HQ off still Simple/Basic (not “force plain” legacy); HQ does not gate faithfulness
+- Faithfulness + complement must not wipe allowlisted web enrichment; oversized “corrections” keep the draft
+- Plain chat with no web/URL/attach → no `Faithfulness:` note
 - Citation numbers must not appear in bubble text
 - Pasted ingest appears in Documents list
 - WorkCover on must not hide allowlisted web enrichment; standalone Web only when WorkCover off

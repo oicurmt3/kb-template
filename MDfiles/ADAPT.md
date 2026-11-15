@@ -13,7 +13,7 @@ Related: [ACCURACY.md](ACCURACY.md) (how grounding works), [DEPLOY.md](DEPLOY.md
 | PHP chat + SSE streaming | App name, intro, logos/copy |
 | MariaDB conversations / docs / chunks | Uploaded corpus (policies, manuals, FAQs) |
 | Retrieval, Adaptive RAG, weak-hit grounding | Synonym map, tag synonyms, source hierarchy wording |
-| HQ faithfulness check | `system_prompt` / `rag_system_prompt` |
+| Automatic faithfulness check + HQ style / Deep thinking | `system_prompt` / `rag_system_prompt` |
 | Admin ingest, tags, Retrieval test, settings export/import | Web allowlist hosts |
 | Feature toggles (Default / Show-Hide), RAG↔Web mix | Label “WorkCover” → your product mode name (optional code tweak) |
 
@@ -164,7 +164,7 @@ Keep the “plain text / no citation numbers” rules.
 
 ### 5.5 HQ + Basic instructions
 
-`Settings.php` → `hqInstruction()` / `simpleExplainInstruction()` — swap “legal/technical” wording for “policy/product” if needed. HQ verify stays valuable for any entity: it prefers `OK`, packs docs+web+attach with a reserved web budget, rejects harmful shrinks, and skips when DeepSeek Files are attached.
+`Settings.php` → `hqInstruction()` / `simpleExplainInstruction()` — swap “legal/technical” wording for “policy/product” if needed. Automatic faithfulness (`verifyGroundedAnswer`) stays valuable for any entity: prefers `OK`, packs docs+web+attach with a reserved web budget, rejects harmful shrinks, skips when DeepSeek Files are attached. Deep = optional API thinking only.
 
 ---
 
@@ -209,7 +209,7 @@ Keep the “plain text / no citation numbers” rules.
 5. Soft-rename WorkCover label in UI strings.  
 6. Adjust `buildContext` / `rag_system_prompt` hierarchy.  
 7. Retrieval test 20 real questions; fix tags/synonyms until scores are strong.  
-8. Smoke: RAG on/off, HQ check, Sources, kiosk history off.  
+8. Smoke: RAG on/off, Faithfulness notes, HQ style, Deep thinking, Sources, kiosk history off.  
 9. Lock installer; rotate admin password; confirm `config.php` not in git.
 
 ---

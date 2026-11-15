@@ -325,7 +325,7 @@ class Retrieval {
     }
 
     /**
-     * Pack docs + web + extra into a fixed HQ SOURCE MATERIAL budget.
+     * Pack docs + web + extra into a fixed faithfulness SOURCE MATERIAL budget.
      * Reserves space for web/URL and attach text so large RAG context cannot crowd them out.
      *
      * @param array{docs?:string,web?:string,extra?:string} $parts
@@ -358,8 +358,9 @@ class Retrieval {
     }
 
     /**
-     * HQ faithfulness check — hallucination brake, not an editor.
-     * Prefer OK; only rewrite clear inventions. Rejects harmful shrinks.
+     * Post-stream faithfulness check — hallucination brake, not an editor.
+     * Runs whenever grounding exists (WorkCover docs and/or allowlisted web/URL and/or attach).
+     * Independent of HQ (style) and Deep (API thinking). Prefer OK; reject harmful shrinks.
      *
      * @param array<string,mixed> $deepseekCfg
      * @param array{mode?:string,degree?:int}|array<string,mixed> $mixOpts

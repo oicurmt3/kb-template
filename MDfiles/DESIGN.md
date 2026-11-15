@@ -19,8 +19,9 @@ Touch targets ~44px minimum on mobile.
 
 - Sidebar: conversation list (when history enabled)
 - Main: messages + composer
-- Composer toolbar: WorkCover / HQ / Deep / Web (+ tags, URL, file when shown)
-- Sources and related chips below assistant messages when enabled
+- Composer toolbar: WorkCover / HQ (language) / Deep (API thinking) / Web (+ tags, URL, file when shown)
+- Sources and Related questions chips below assistant messages when enabled
+- Optional note under assistant bubble when faithfulness revises the streamed draft
 - Clear-input control sits left of the textarea scrollbar (no heavy background)
 
 ## Responsive

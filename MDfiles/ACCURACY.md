@@ -35,15 +35,25 @@ User message
     │
     ├─► buildContext → DOCUMENT EXCERPTS + mandatory grounding rules
     │
-    ├─► Style layer: answer length + HQ or Basic (simple explain)
+    ├─► Style layer: answer length + HQ (richer language) or Basic (simple explain)
     │
     ├─► Optional: URL fetch / file paste / web search (allowed hosts)
     │
-    ├─► Stream answer (DeepSeek) ── optional Deep thinking
+    ├─► Stream answer (DeepSeek) ── optional Deep (API thinking / CoT)
     │
-    └─► If HQ on: verifyGroundedAnswer → may replace final text
+    └─► If any grounding (docs and/or web/URL and/or attach):
+         verifyGroundedAnswer (faithfulness) → may replace final text
          Client applies done.content (replaces streamed bubble)
 ```
+
+### Roles at a glance (do not confuse)
+
+| Control | What it does | What it does **not** do |
+|---------|----------------|-------------------------|
+| **HQ** | Richer / more precise wording in the first answer | Post-stream rewrite; faithfulness |
+| **Deep** | DeepSeek API `thinking: enabled` (chain-of-thought before answer) | Source faithfulness audit |
+| **Faithfulness** | Automatic second flash call vs packed sources when grounding exists | Style / “make language fancier” |
+| **WorkCover** | RAG + allowlisted web (Docs mode) | — |
 
 ### Stage details
 
@@ -100,35 +110,42 @@ Injects excerpts with **mandatory grounding rules**:
 
 Citations for the UI are built here (`sources` with `chunk_count` for “Title (n)” style chips).
 
-#### E. Style layer (after retrieval)
+#### E. Style layer (after retrieval) — HQ / Basic
 
 Always applied:
 
 - **Answer length** (admin: short / medium / long) → length instruction.
-- **HQ on** → precise legal wording instruction + (later) faithfulness check.
+- **HQ on** → precise / richer legal wording (`hqInstruction`) only — **no** post-stream rewrite.
 - **HQ off** → “explain like a {age} year old” Basic mode (admin age 5–18).
 - **Related questions** (if visible) → follow-up chip instruction; stripped from stored/display text.
 
-#### F. HQ faithfulness check (`verifyGroundedAnswer`)
+#### E2. Deep thinking (optional, during stream)
 
-Runs when **HQ** is on and there is grounding text, after the stream finishes. Designed as a **hallucination brake**, not an editor (prefer `OK` over rewrite).
+When **Deep** is on, the chat request sets DeepSeek API `"thinking": { "type": "enabled" }` ([Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode/)). The model produces chain-of-thought (`reasoning_content`) then the user answer (`content`). WANDA streams the answer content to the UI. Deep improves careful reasoning; it does **not** replace the faithfulness audit below.
 
-- Flash model sees **SOURCE MATERIAL** packed by `Retrieval::packHqGrounding()`:
+#### F. Faithfulness check (`verifyGroundedAnswer`) — automatic
+
+Runs **whenever grounding exists** after the stream finishes — WorkCover docs **and/or** allowlisted web/URL **and/or** pasted file/attach text. **Not** gated on HQ or Deep. Designed as a **hallucination brake**, not an editor (prefer `OK` over rewrite).
+
+Who runs it: WANDA PHP calls DeepSeek **flash** (`chatComplete`) with packed sources + draft.
+
+- **SOURCE MATERIAL** packed by `Retrieval::packHqGrounding()`:
   - uploaded document excerpts
   - allowlisted web search / URL text (budget reserved so long RAG cannot crowd web out)
   - user-provided file/text attach context
-- Claims supported by docs **or** allowlisted web/URL (and attach text) are allowed under the active **RAG↔Web mix** hint (`ragWebMixHqHint`).
+- Claims supported by docs **or** allowlisted web/URL (and attach text) under the active **RAG↔Web mix** hint (`ragWebMixHqHint`).
 - Prefer exact `OK` for minor wording differences; rewrite only clear inventions (fake sections, duties, facts).
 - Under **complement**: must not strip web-backed enrichment present in SOURCE MATERIAL.
-- If a “correction” shrinks a ≥200-char draft to &lt;50% length → **keep the streamed draft** (`HQ check: kept draft`).
-- **Skipped** when DeepSeek Files are attached this turn (file body is not in the grounding window) → `HQ check: skipped (…)`.
+- If a “correction” shrinks a ≥200-char draft to &lt;50% length → **keep the streamed draft** (`Faithfulness: kept draft`).
+- **Skipped** when DeepSeek Files are attached this turn (file body is not in the grounding window) → `Faithfulness: skipped (…)`.
+- **Skipped** when there is no grounding (plain general chat with no web/URL/attach).
 - Corrected text (when accepted) is saved and sent as SSE `done.content`; `chat.js` replaces the assistant bubble and shows a short note when the text changed.
 
-Cost: one extra non-streaming call (when not skipped). Benefit: catches unsupported claims without deleting good Docs+web answers.
+Cost: one extra non-streaming flash call (when not skipped). Benefit: catches unsupported claims without deleting good Docs+web answers.
 
 **Note:** Live web still only hits admin-allowlisted hosts. WorkCover mode always tries to enrich RAG with that web (when `web.enabled` in config). Off-topic questions only work if those hosts have the content, or you turn WorkCover off and use standalone Web / general chat.
 
-**Admin → RAG ↔ Web mix:** `complement` (default) | `docs_first` | `web_first` | `compete`, plus **degree** 0–100. Instructs the model (and HQ check) how to blend uploaded docs with allowlisted live web. See `AppSettings::ragWebMixInstruction()`.
+**Admin → RAG ↔ Web mix:** `complement` (default) | `docs_first` | `web_first` | `compete`, plus **degree** 0–100. Instructs the model (and faithfulness check) how to blend uploaded docs with allowlisted live web. See `AppSettings::ragWebMixInstruction()`.
 
 ---
 
@@ -143,10 +160,11 @@ When **Show**: user’s toggle wins for that request.
 
 | Feature | Default meaning | Effect on accuracy / relevance |
 |---------|-----------------|--------------------------------|
-| **WorkCover** | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts (web **adds to** docs; HQ must not strip web-supported claims). Off = no doc retrieval. Standalone **Web** toggle only appears when WorkCover is off. |
-| **HQ** | On = high-quality; Off = Basic | Style + conservative post-stream faithfulness (docs + web + attach; reserved web budget; reject harmful shrinks; skip if DeepSeek Files attached). |
-| **Deep thinking** | Extra reasoning before answer | Can improve structure and careful reading of long excerpts; also increases latency/cost. Does not replace retrieval. Leave off unless answers feel shallow on complex multi-section questions. |
-| **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. When WorkCover is on, that same search is automatic inside Docs mode. |
+| **WorkCover** | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts. Off = no doc retrieval. Standalone **Web** toggle only appears when WorkCover is off. Triggers faithfulness when excerpts (and/or web) exist. |
+| **HQ** | On = richer language; Off = Basic | **Style only** (`hqInstruction` vs simple explain). Does **not** run the post-stream faithfulness check. |
+| **Deep thinking** | DeepSeek API thinking / CoT | Careful reasoning during generation; extra latency/cost. Does **not** replace faithfulness. Leave off unless answers feel shallow on complex multi-section questions. |
+| **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. Still provides grounding → faithfulness runs. When WorkCover is on, that same search is automatic inside Docs mode. |
+| **Faithfulness** | *(not a user toggle)* | Automatic when docs and/or web/URL and/or attach grounding exists. Pack + prefer OK; reject harmful shrinks; skip DeepSeek Files. |
 
 ### 3.2 Visibility-only features (Show / Hide only)
 
@@ -215,9 +233,9 @@ These often matter **more** than toggles:
 
 ### Staff / legal support desk
 
-- WorkCover: Default **on**  
-- HQ: Default **on** (faithfulness check + precise terms)  
-- Deep: **on** for hard multi-instrument questions  
+- WorkCover: Default **on** (faithfulness automatic)  
+- HQ: Default **on** (precise language)  
+- Deep: **on** for hard multi-instrument questions (API thinking)  
 - Web: **on** with tight hosts for site procedures  
 - Tags: **Show**; keep corpus tags tidy  
 - Adaptive RAG: **on**  
@@ -225,10 +243,10 @@ These often matter **more** than toggles:
 
 ### Maximum anti-hallucination
 
-1. WorkCover **on**  
+1. WorkCover **on** (faithfulness runs on docs+web grounding)  
 2. Adaptive RAG **on**  
-3. HQ **on** (faithfulness pass)  
-4. Web **off** unless needed  
+3. HQ **on** for precise terms (optional style)  
+4. Deep **on** for hard questions (optional API thinking)  
 5. Well-tagged Act/Regs corpus  
 6. Retrieval test until top scores are strong for sample questions  
 7. Sources **shown** so humans can verify  
@@ -237,14 +255,15 @@ These often matter **more** than toggles:
 
 ## 5. What each mode combination does
 
-| WorkCover | HQ | Standalone Web | Result |
-|-----------|----|----------------|--------|
-| Off | * | Off | General chat; no docs |
-| Off | * | On | General chat + allowlisted web |
-| On | Off | *(folded in)* | RAG + live allowlisted web, Basic language |
-| On | On | *(folded in)* | RAG + live web, precise style, HQ on combined sources |
+| WorkCover | HQ | Deep | Standalone Web | Result |
+|-----------|----|------|----------------|--------|
+| Off | * | * | Off | General chat; no faithfulness (no grounding) |
+| Off | * | * | On | Web grounding + **faithfulness** on web text |
+| On | Off | Off | *(folded in)* | RAG+web, Basic language, **faithfulness** |
+| On | On | Off | *(folded in)* | RAG+web, precise style, **faithfulness** |
+| On | * | On | *(folded in)* | Same + DeepSeek API thinking, then **faithfulness** |
 
-Deep thinking can combine with any row; it does not change retrieval.
+Faithfulness is independent of HQ/Deep whenever grounding exists.
 
 ---
 
@@ -252,9 +271,9 @@ Deep thinking can combine with any row; it does not change retrieval.
 
 1. **Admin → Retrieval test** — same rewrite → synonyms → tags → search path; inspect search query, quality score, weak flag, and each **matched chunk** (title, header_path, score, text).  
 2. Chat with WorkCover on — expand Sources; check titles and excerpt counts.  
-3. Read SSE / UI notes when exposed (`Query rewrite`, `Auto tags`, `Retrieval: weak`, `HQ check: corrected`).  
+3. Read SSE / UI notes when exposed (`Query rewrite`, `Auto tags`, `Retrieval: weak`, `Faithfulness: ok|corrected|kept draft|skipped`).  
 4. If wrong section: improve document tags/titles, or ask with section number (legal-ref bonus).  
-5. If invented law: confirm WorkCover was on; check weak/no-hit notes; turn HQ on and re-ask.  
+5. If invented law: confirm WorkCover (or web grounding) was on; check weak/no-hit notes; confirm `Faithfulness:` ran; optionally turn Deep on for harder reasoning.  
 6. If follow-up missed context: ensure chat history messages exist (same conversation); rewrite needs prior user turns.
 
 For systematic fixes, use **§7** (tune corpus → tags → synonyms → tag inference). Prefer that over adding embeddings.
@@ -343,7 +362,7 @@ Then in chat: Sources match that doc; nonsense questions stay weak/hedged.
 
 ### 7.8 Don’t confuse with toggles
 
-Synonyms / tags / corpus change **what is retrieved**. HQ, Deep, and answer length change **how the answer is written**. Adaptive RAG **on** helps once tags and scores are already sharp.
+Synonyms / tags / corpus change **what is retrieved**. HQ and answer length change **how the answer is written**. Deep changes **how hard the model thinks** while writing. Faithfulness **audits** grounded answers after the stream. Adaptive RAG **on** helps once tags and scores are already sharp.
 
 For retargeting the same loop to another business, see [ADAPT.md](ADAPT.md).
 
@@ -630,8 +649,9 @@ After merge with keyword \(w_c=1.5\) and alsoQuery \(w_q=1.15\): \(S \approx 8.1
 
 ### 9.13 What is *not* weighted numerically
 
-- HQ vs Basic — prompt style (+ optional faithfulness LLM), not retrieval scores  
-- Deep thinking — model reasoning flag  
+- HQ vs Basic — prompt style only, not retrieval scores and not faithfulness
+- Deep thinking — DeepSeek API thinking / CoT flag
+- Faithfulness — automatic post-stream source check when grounding exists
 - Answer length — prompt instruction only  
 - Web / URL / file context — concatenated into the system prompt after retrieval; they do not change chunk \(S\)  
 - Sources visibility — UI only  

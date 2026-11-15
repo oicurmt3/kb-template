@@ -56,13 +56,13 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m-8 11H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11zm7-1c0 .55-.45 1-1 1h-.75v1.5h-1.5V15H14c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1zm-3.5-.5h2v-3h-2z"/></svg>
               </span>
-              <span><strong>HQ</strong> — off = Basic (plain language); on = high-quality, more precise answers (checks docs <em>and</em> allowlisted web together).</span>
+              <span><strong>HQ</strong> — off = Basic (plain language); on = richer, more precise wording. Style only — does not change facts after the answer.</span>
             </li>
             <li>
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M9 21h6v-1.5H9V21zm3-19C7.03 2 3.2 5.6 3.02 10.5c-.1 2.7 1.1 5.1 3.1 6.6.6.45.9 1.1.9 1.9V19h10v-.01c0-.8.3-1.44.9-1.89 2-1.5 3.2-3.9 3.1-6.6C20.8 5.6 16.97 2 12 2zm0 15c-.55 0-1-.45-1-1h2c0 .55-.45 1-1 1zm4.05-3.35c-.7.52-1.2 1.2-1.4 1.95h-5.3c-.2-.75-.7-1.43-1.4-1.95C6.6 12.5 5.9 11 6 9.35 6.15 6.4 8.7 4 12 4s5.85 2.4 6 5.35c.1 1.65-.6 3.15-1.95 4.3z"/></svg>
               </span>
-              <span><strong>Deep</strong> — slower, deeper reasoning.</span>
+              <span><strong>Deep</strong> — DeepSeek API thinking (chain-of-thought) before the answer; slower, often more careful reasoning.</span>
             </li>
             <li>
               <span class="help-icon tool-btn is-on" aria-hidden="true">
@@ -83,8 +83,12 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
           <p>When WorkCover is on, open <strong>More</strong> (or use Focus tags on desktop) to narrow retrieval to topics like act, regulations, worker, or employer.</p>
         </section>
         <section>
+          <h3>Faithfulness check</h3>
+          <p>When the answer used uploaded documents, allowlisted web/URL, or attached file text, WANDA automatically runs a second source check after streaming. It prefers to keep the draft (<code>OK</code>) and only revises clear inventions. This is separate from HQ and Deep.</p>
+        </section>
+        <section>
           <h3>Sources &amp; related questions</h3>
-          <p>After an answer, expand <strong>sources</strong> to see which documents were used. Linked titles open in a new tab when a source URL is set. Expand <strong>related questions</strong> to paste a follow-up into the box.</p>
+          <p>After an answer, expand <strong>Sources</strong> to see which documents were used. Linked titles open in a new tab when a source URL is set. Expand <strong>Related questions</strong> to paste a follow-up into the box.</p>
         </section>
         <section>
           <h3>Chat history</h3>
@@ -167,11 +171,11 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>
           <span class="tool-label">WorkCover</span>
         </button>
-        <button type="button" class="tool-btn" id="tool-hq" data-for="mode-hq" aria-pressed="false" title="HQ mode (off = Basic)">
+        <button type="button" class="tool-btn" id="tool-hq" data-for="mode-hq" aria-pressed="false" title="HQ language (off = Basic)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m-8 11H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11zm7-1c0 .55-.45 1-1 1h-.75v1.5h-1.5V15H14c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1zm-3.5-.5h2v-3h-2z"/></svg>
           <span class="tool-label">HQ</span>
         </button>
-        <button type="button" class="tool-btn" id="tool-think" data-for="deep-thinking" aria-pressed="false" title="Deep thinking">
+        <button type="button" class="tool-btn" id="tool-think" data-for="deep-thinking" aria-pressed="false" title="Deep thinking (DeepSeek API)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6v-1.5H9V21zm3-19C7.03 2 3.2 5.6 3.02 10.5c-.1 2.7 1.1 5.1 3.1 6.6.6.45.9 1.1.9 1.9V19h10v-.01c0-.8.3-1.44.9-1.89 2-1.5 3.2-3.9 3.1-6.6C20.8 5.6 16.97 2 12 2zm0 15c-.55 0-1-.45-1-1h2c0 .55-.45 1-1 1zm4.05-3.35c-.7.52-1.2 1.2-1.4 1.95h-5.3c-.2-.75-.7-1.43-1.4-1.95C6.6 12.5 5.9 11 6 9.35 6.15 6.4 8.7 4 12 4s5.85 2.4 6 5.35c.1 1.65-.6 3.15-1.95 4.3z"/></svg>
           <span class="tool-label">Deep</span>
         </button>

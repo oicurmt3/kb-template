@@ -4,18 +4,35 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
-## 2026-11-15 — HQ verify hardened + docs
+## 2026-11-15 — HQ / Deep / faithfulness roles split
+
+**Done**
+
+- Faithfulness runs automatically when grounding exists (docs and/or web/URL/attach); notes `Faithfulness: …`.
+- HQ = style only; Deep = DeepSeek API `thinking.enabled` only.
+- Help (`index.php`), admin labels, chat.js bubble note updated.
+- Docs: ACCURACY roles + §E/E2/F, handover, README, TESTING, ARCHITECTURE, CHANGELOG, this log.
+
+**Product contract**
+
+| Toggle | Behaviour |
+|--------|-----------|
+| HQ | `hqInstruction` vs Basic explain — no verify |
+| Deep | API thinking CoT |
+| Faithfulness | Auto auditor via `verifyGroundedAnswer` |
+
+---
+
+## 2026-11-15 — Faithfulness brake hardened + docs
 
 **Done**
 
 - `Retrieval::packHqGrounding` + conservative `verifyGroundedAnswer` (prefer OK, reject shrinks, complement keeps web).
-- `api/chat.php` passes docs/web/extra parts; skips HQ when DeepSeek Files attached.
-- Mix HQ hints softened (`ragWebMixHqHint`).
-- MD updated: ACCURACY §F, handover, ARCHITECTURE, TESTING, CHANGELOG, this log.
+- Mix hints softened (`ragWebMixHqHint`).
 
 **Notes**
 
-- `web_notes` may include `HQ check: kept draft (correction too short)` or `HQ check: skipped (DeepSeek Files…)`.
+- `web_notes` use `Faithfulness: ok|corrected|kept draft|skipped…` (formerly `HQ check:`).
 
 ---
 

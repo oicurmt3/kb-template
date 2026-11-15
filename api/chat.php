@@ -43,7 +43,8 @@ try {
     $webCfg = AppSettings::mergeWebConfig($config['web'] ?? []);
     $webSearch = AppSettings::uiFeatureActive('web_search', !empty($body['web_search']));
     $deepThinking = AppSettings::uiFeatureActive('deep_thinking', !empty($body['deep_thinking']));
-    // HQ on → high-quality answers; HQ off (default) → Basic / plain-language answers
+    // HQ on → precise/richer language only; HQ off → Basic / plain-language.
+    // Faithfulness check is separate: runs whenever grounding exists (not tied to HQ/Deep).
     $hqMode = AppSettings::uiFeatureActive(
         'hq',
         !empty($body['hq_mode']) || !empty($body['hq'])
@@ -263,16 +264,16 @@ try {
                 . ". Treat those attached file contents as authoritative for those sources.";
             $webNotes[] = 'DeepSeek files: ' . count($dsFiles);
         }
-        // HQ faithfulness parts — packed later with reserved web/extra budget
-        $hqDocsGrounding = $built['context'];
-        $hqWebGrounding = '';
-        $hqExtraGrounding = '';
+        // Faithfulness grounding parts — packed later with reserved web/extra budget
+        $faithDocsGrounding = $built['context'];
+        $faithWebGrounding = '';
+        $faithExtraGrounding = '';
         $groundingForCheck = $built['context'];
     } else {
         $dsFiles = [];
-        $hqDocsGrounding = '';
-        $hqWebGrounding = '';
-        $hqExtraGrounding = '';
+        $faithDocsGrounding = '';
+        $faithWebGrounding = '';
+        $faithExtraGrounding = '';
         $groundingForCheck = '';
     }
 
@@ -308,11 +309,11 @@ try {
                 if (!isset($groundingForCheck)) {
                     $groundingForCheck = '';
                 }
-                if (!isset($hqWebGrounding)) {
-                    $hqWebGrounding = '';
+                if (!isset($faithWebGrounding)) {
+                    $faithWebGrounding = '';
                 }
                 $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $urlBlock;
-                $hqWebGrounding .= ($hqWebGrounding !== '' ? "\n\n" : '') . $urlBlock;
+                $faithWebGrounding .= ($faithWebGrounding !== '' ? "\n\n" : '') . $urlBlock;
                 $webNotes[] = 'DeepSeek Fetch: ' . $contextUrl;
                 $citations[] = [
                     'n' => count($citations) + 1,
@@ -336,10 +337,10 @@ try {
         $label = $contextLabel !== '' ? $contextLabel : 'attachment';
         $extraBlock = "USER-PROVIDED FILE/TEXT CONTEXT ({$label}):\n" . $extraContext;
         $systemPrompt .= "\n\n" . $extraBlock;
-        if (!isset($hqExtraGrounding)) {
-            $hqExtraGrounding = '';
+        if (!isset($faithExtraGrounding)) {
+            $faithExtraGrounding = '';
         }
-        $hqExtraGrounding .= ($hqExtraGrounding !== '' ? "\n\n" : '') . $extraBlock;
+        $faithExtraGrounding .= ($faithExtraGrounding !== '' ? "\n\n" : '') . $extraBlock;
         if (!isset($groundingForCheck)) {
             $groundingForCheck = '';
         }
@@ -380,11 +381,11 @@ try {
                 if (!isset($groundingForCheck)) {
                     $groundingForCheck = '';
                 }
-                if (!isset($hqWebGrounding)) {
-                    $hqWebGrounding = '';
+                if (!isset($faithWebGrounding)) {
+                    $faithWebGrounding = '';
                 }
                 $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $webBlock;
-                $hqWebGrounding .= ($hqWebGrounding !== '' ? "\n\n" : '') . $webBlock;
+                $faithWebGrounding .= ($faithWebGrounding !== '' ? "\n\n" : '') . $webBlock;
                 foreach ($sr['results'] as $i => $hit) {
                     $citations[] = [
                         'n' => count($citations) + 1,
@@ -514,36 +515,34 @@ try {
             $suggestions = [];
         }
 
-        // HQ faithfulness pass — brake on inventions; skip when DeepSeek Files body isn't in grounding
-        if ($hqMode && $finalContent !== '' && !empty($dsFiles)) {
-            $webNotes[] = 'HQ check: skipped (DeepSeek Files attached; file body not in grounding window)';
-        } elseif (
-            $hqMode
-            && $finalContent !== ''
-            && (
-                (isset($hqDocsGrounding) && $hqDocsGrounding !== '')
-                || (isset($hqWebGrounding) && $hqWebGrounding !== '')
-                || (isset($hqExtraGrounding) && $hqExtraGrounding !== '')
-                || (isset($groundingForCheck) && is_string($groundingForCheck) && $groundingForCheck !== '')
-            )
-        ) {
+        // Faithfulness pass — automatic when any grounding exists (docs and/or web/URL and/or attach).
+        // Not tied to HQ (style) or Deep (API thinking). Skip when DeepSeek Files body isn't in grounding.
+        $hasFaithGrounding = (
+            (isset($faithDocsGrounding) && $faithDocsGrounding !== '')
+            || (isset($faithWebGrounding) && $faithWebGrounding !== '')
+            || (isset($faithExtraGrounding) && $faithExtraGrounding !== '')
+            || (isset($groundingForCheck) && is_string($groundingForCheck) && $groundingForCheck !== '')
+        );
+        if ($finalContent !== '' && !empty($dsFiles)) {
+            $webNotes[] = 'Faithfulness: skipped (DeepSeek Files attached; file body not in grounding window)';
+        } elseif ($finalContent !== '' && $hasFaithGrounding) {
             $verified = Retrieval::verifyGroundedAnswer(
                 $finalContent,
                 isset($groundingForCheck) && is_string($groundingForCheck) ? $groundingForCheck : '',
                 $config['deepseek'] ?? [],
                 $ragWebMix,
                 [
-                    'docs' => $hqDocsGrounding ?? '',
-                    'web' => $hqWebGrounding ?? '',
-                    'extra' => $hqExtraGrounding ?? '',
+                    'docs' => $faithDocsGrounding ?? '',
+                    'web' => $faithWebGrounding ?? '',
+                    'extra' => $faithExtraGrounding ?? '',
                 ]
             );
             if (!empty($verified['rejected']) && $verified['rejected'] === 'shrink') {
-                $webNotes[] = 'HQ check: kept draft (correction too short)';
+                $webNotes[] = 'Faithfulness: kept draft (correction too short)';
             } elseif (!empty($verified['checked'])) {
                 $webNotes[] = !empty($verified['changed'])
-                    ? 'HQ check: corrected'
-                    : 'HQ check: ok';
+                    ? 'Faithfulness: corrected'
+                    : 'Faithfulness: ok';
                 if (!empty($verified['changed']) && trim((string)$verified['content']) !== '') {
                     $finalContent = (string)$verified['content'];
                 }

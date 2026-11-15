@@ -2,18 +2,19 @@
 
 ## What this app is
 
-WANDA answers WA workers compensation questions. **WorkCover mode** retrieves chunks from uploaded documents (Act, Regulations, guides, fact sheets) **and** enrichs with allowlisted live web; DeepSeek answers are grounded on those sources. Blend behaviour is controlled by **Admin → RAG ↔ Web mix**. Without WorkCover it is a general chat (optional standalone Web) with the configured system prompt.
+WANDA answers WA workers compensation questions. **WorkCover mode** retrieves chunks from uploaded documents (Act, Regulations, guides, fact sheets) **and** enriches with allowlisted live web; DeepSeek answers are grounded on those sources. Blend behaviour is controlled by **Admin → RAG ↔ Web mix**. Without WorkCover it is a general chat (optional standalone Web) with the configured system prompt.
 
 ## Do not break
 
 - **Grounding contract** in `Retrieval::buildContext()` — answers must stay excerpt-bound when WorkCover is on.
-- **HQ vs Basic** — HQ off means `simpleExplain` (plain language by admin age); HQ on adds precision + optional post-stream faithfulness check. Do not invert that again (legacy “Plain” was removed).
-- **HQ is a brake, not an editor** — prefer `OK`; pack docs+web+extra via `packHqGrounding` (web budget reserved); reject harmful shrinks; skip check when DeepSeek Files are attached (body not in grounding). Do not strip allowlisted web under complement.
+- **HQ vs Basic** — HQ = richer/precise language only (`hqInstruction`). HQ off = `simpleExplain` by admin age. Do **not** hang the post-stream faithfulness rewrite on HQ (legacy “Plain” was removed; faithfulness is separate).
+- **Faithfulness is automatic** when docs and/or allowlisted web/URL and/or attach grounding exists — prefer `OK`, pack via `packHqGrounding`, reject harmful shrinks, skip DeepSeek Files. Do not strip allowlisted web under complement.
+- **Deep** = DeepSeek API `"thinking": {"type":"enabled"}` only — not the faithfulness auditor.
 - **No citation numbers in model text** — sources render in the UI from `citations` / `sources` blocks.
 - **Web search is host-restricted** — never enable unrestricted DeepSeek open-web search; use `WebFetch` + allowed hosts.
 - **Session isolation** — conversations are keyed by `session_id` cookie; do not leak across sessions.
 - **Secrets** stay in `includes/config.php` (gitignored). Never commit API keys or DB dumps.
-- **Settings import** only restores whitelisted keys via `AppSettings::importSettingsExport` — do not blindly write arbitrary `settings` rows from uploads.
+- **Settings import** only restores whitelisted keys via `AppSettings::importSettingsExport`.
 
 ## Accuracy stack (see MDfiles/ACCURACY.md)
 
@@ -23,22 +24,25 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 4. Adaptive slim retrieval when admin Adaptive RAG is on  
 5. Weak-hit / no-hit prompt hardening  
 6. Allowlisted web enrichment + RAG↔Web mix instructions  
-7. HQ faithfulness pass after stream (conservative; may replace bubble via `done.content`, or keep draft / skip)
+7. Style: HQ (richer) or Basic (simple explain)  
+8. Optional DeepSeek API thinking (Deep toggle)  
+9. **Faithfulness** after stream when grounding exists (may replace bubble via `done.content`)
 
 ## Key files
 
 | File | Role |
 |------|------|
-| `api/chat.php` | SSE chat; wires modes, RAG, web, mix, HQ verify |
+| `api/chat.php` | SSE chat; wires modes, RAG, web, mix, HQ style, Deep thinking, faithfulness |
 | `api/export.php` | GET export settings/chunks; POST import settings |
-| `includes/Retrieval.php` | Search, rewrite, synonyms, tags, quality, verify |
+| `includes/Retrieval.php` | Search, rewrite, synonyms, tags, quality, `verifyGroundedAnswer` |
 | `includes/Settings.php` | UI features, adaptive RAG, answer length, hosts, mix, import |
 | `includes/Ingest.php` / `Chunker.php` | Upload / paste → chunks |
 | `includes/DeepSeek.php` | Completions + stream + OCR/Files |
 | `includes/WebFetch.php` | Allowed-host fetch/search |
-| `assets/chat.js` | Composer toggles, SSE, sources, HQ replace on done |
+| `assets/chat.js` | Composer toggles, SSE, sources, faithfulness replace on done |
 | `assets/admin.js` | Collapsible cards, staged upload, export/import, settings |
 | `admin.php` | Admin shell (all cards `<details>`, closed by default) |
+| `index.php` | Chat help copy for HQ / Deep / faithfulness |
 
 ## Secrets & config
 
@@ -55,17 +59,18 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 - Paste ingest uses the same Document details fields as file upload; empty title → AI title
 - File upload is **staged** (drop/browse) then **Upload** button — not auto-upload on select
 - DeepSeek has **no embeddings API** in this stack — retrieval is lexical/FULLTEXT, not vector hybrid
-- Chunks are identifiable (`id`, `document_id`, `chunk_index`, `chunk_key`, `header_path`); Retrieval test lists matched chunks; document Chunks panel lists all for one doc
+- Chunks are identifiable (`id`, `document_id`, `chunk_index`, `chunk_key`, `header_path`)
 - Settings export JSON round-trips via Import; chunks export is download-only
 
 ## Admin knobs that matter most for accuracy
 
 | Setting | Prefer for accuracy |
 |---------|---------------------|
-| WorkCover default **on**, visible | Users stay in Docs mode (RAG + allowlisted web) |
+| WorkCover default **on**, visible | Docs mode + automatic faithfulness when grounded |
 | Adaptive RAG **on** | Focused context, less noise |
 | RAG↔Web mix **complement** ~50 | Blend docs + web; use docs_first if Act text must dominate |
-| HQ default **off** for public kiosks; **on** for staff | HQ adds faithfulness check |
+| HQ default **off** for public kiosks; **on** for staff | Style only (precise vs Basic) |
+| Deep **off** by default; **on** for hard questions | API thinking cost/latency |
 | Tags **shown** + docs well-tagged | Better focus + auto-tags |
 | Answer length **medium** | Enough room for legal nuance |
 | Web hosts = WorkCover domains only | Avoid off-topic / wrong-jurisdiction pages |
@@ -74,6 +79,7 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 
 - No automated eval suite yet — use Admin → Retrieval test + manual chat scripts (see TESTING.md)
 - Query rewrite costs an extra flash call on follow-ups
-- HQ verify costs a second flash call after the stream
+- Faithfulness costs a second flash call after grounded streams
+- DeepSeek API thinking adds CoT cost when Deep is on
 - Chunk import not built (export only)
 - Admin-editable synonyms / tag-inference maps still backlog (see HANDOFF.md)

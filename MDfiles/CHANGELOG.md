@@ -1,11 +1,17 @@
 # Changelog
 
-## 2026-11-15 — HQ faithfulness as brake (not editor)
+## 2026-11-15 — Split HQ / Deep / automatic faithfulness
 
-- `packHqGrounding`: docs + reserved web/URL budget + file/extra attach in HQ SOURCE MATERIAL
+- **HQ** = richer language only (no post-stream rewrite)
+- **Deep** = DeepSeek API thinking / CoT only
+- **Faithfulness** = automatic whenever docs and/or web/URL and/or attach grounding exists (`Faithfulness: ok|corrected|…`)
+- Help + admin labels updated; ACCURACY roles table + pipeline; handover / TESTING / ARCHITECTURE / README / HANDOFF
+
+## 2026-11-15 — Faithfulness brake hardening (then retargeted off HQ)
+
+- `packHqGrounding`: docs + reserved web/URL budget + file/extra attach
 - Softer verify prompt (prefer `OK`); mix hints prefer OK over aggressive trimming
-- Reject corrections that shrink a long draft to &lt;50% length; skip HQ rewrite when DeepSeek Files attached
-- Docs: ACCURACY §F, handover, ARCHITECTURE, TESTING, HANDOFF
+- Reject corrections that shrink a long draft to &lt;50% length; skip when DeepSeek Files attached
 
 ## 2026-11-15 — Admin export/import + collapsible UI
 

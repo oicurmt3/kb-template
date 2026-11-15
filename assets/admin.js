@@ -47,8 +47,8 @@
 
   const UI_FEATURE_LABELS = {
     workcover: 'WorkCover (docs + live allowlisted web)',
-    hq: 'HQ mode (off = Basic)',
-    deep_thinking: 'Deep thinking',
+    hq: 'HQ language (off = Basic; style only)',
+    deep_thinking: 'Deep thinking (DeepSeek API CoT)',
     web_search: 'Web only (when WorkCover off)',
     tags: 'Focus tags',
     url_context: 'URL context',

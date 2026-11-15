@@ -325,7 +325,7 @@
       try { localStorage.setItem(HQ_KEY, $modeHq.checked ? '1' : '0'); } catch { /* ignore */ }
       const hqBtn = document.getElementById('tool-hq');
       if (hqBtn) {
-        hqBtn.title = $modeHq.checked ? 'HQ mode on' : 'HQ mode off (Basic)';
+        hqBtn.title = $modeHq.checked ? 'HQ language on' : 'HQ language off (Basic)';
       }
       syncToolButtons();
     });
@@ -752,7 +752,7 @@
     body.textContent = text;
   }
 
-  /** Note under an assistant bubble (e.g. HQ replaced the streamed draft). */
+  /** Note under an assistant bubble (e.g. faithfulness check replaced the streamed draft). */
   function setMessageNote(el, text) {
     let note = el.querySelector('.msg-note');
     if (!text) {
@@ -904,7 +904,7 @@
         if (obj.citations) citations = obj.citations;
         if (Array.isArray(obj.suggestions)) suggestions = obj.suggestions;
         const notes = Array.isArray(obj.web_notes) ? obj.web_notes : [];
-        const hqCorrected = notes.some((n) => /HQ check:\s*corrected/i.test(String(n || '')));
+        const faithCorrected = notes.some((n) => /Faithfulness:\s*corrected/i.test(String(n || '')));
         if (typeof obj.content === 'string' && obj.content.length) {
           const prevVisible = visibleAnswer(accumulated);
           accumulated = obj.content;
@@ -914,11 +914,11 @@
           }
           const nextVisible = visibleAnswer(parsed.content || accumulated);
           setMessageText(assistantEl, nextVisible);
-          if (hqCorrected || (prevVisible && nextVisible && prevVisible !== nextVisible)) {
+          if (faithCorrected || (prevVisible && nextVisible && prevVisible !== nextVisible)) {
             setMessageNote(
               assistantEl,
-              hqCorrected
-                ? 'Updated after HQ check: the draft was revised so claims match your documents and any allowlisted web/URL sources used this turn.'
+              faithCorrected
+                ? 'Updated after faithfulness check: the draft was revised so claims match your documents and any allowlisted web/URL sources used this turn.'
                 : 'Answer updated after final processing.'
             );
           }

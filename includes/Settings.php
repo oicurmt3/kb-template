@@ -459,7 +459,10 @@ class AppSettings {
             . "do not invent rules — but avoid jargon unless you briefly define it.";
     }
 
-    /** HQ mode: fuller, more precise answers (when the HQ toolbar toggle is on). */
+    /**
+     * HQ mode: richer / more precise language only (no post-stream rewrite).
+     * Faithfulness is a separate automatic check when grounding exists.
+     */
     public static function hqInstruction(): string {
         return "Answer in high-quality mode: be precise and thorough. Use correct legal "
             . "and technical terms when the excerpts support them, name section/regulation "

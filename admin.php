@@ -168,7 +168,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
           <span class="admin-card-summary-title">Chat UI &amp; features</span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">Intro message for new chats, chat history (turn off for multi-user kiosks), and feature controls. <strong>WorkCover / HQ / Deep / Web</strong>: Default + Show/Hide. HQ Default off = Basic language; Default on = HQ. <strong>Tags / URL / File / Sources / Related</strong>: Show or Hide only.</p>
+          <p class="hint">Intro message for new chats, chat history (turn off for multi-user kiosks), and feature controls. <strong>WorkCover / HQ / Deep / Web</strong>: Default + Show/Hide. <strong>HQ</strong> = richer language only (off = Basic). <strong>Deep</strong> = DeepSeek API thinking. <strong>Faithfulness</strong> (source check) runs automatically whenever docs/web/URL/attach grounding exists — not a toggle. <strong>Tags / URL / File / Sources / Related</strong>: Show or Hide only.</p>
           <label class="hint" for="ui-intro">Intro message</label>
           <textarea id="ui-intro" class="settings-textarea" rows="3" placeholder="Welcome message shown at the start of every new chat"></textarea>
           <div class="inline" style="margin-top:10px" role="group" aria-label="Chat history">
