@@ -62,7 +62,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M9 21h6v-1.5H9V21zm3-19C7.03 2 3.2 5.6 3.02 10.5c-.1 2.7 1.1 5.1 3.1 6.6.6.45.9 1.1.9 1.9V19h10v-.01c0-.8.3-1.44.9-1.89 2-1.5 3.2-3.9 3.1-6.6C20.8 5.6 16.97 2 12 2zm0 15c-.55 0-1-.45-1-1h2c0 .55-.45 1-1 1zm4.05-3.35c-.7.52-1.2 1.2-1.4 1.95h-5.3c-.2-.75-.7-1.43-1.4-1.95C6.6 12.5 5.9 11 6 9.35 6.15 6.4 8.7 4 12 4s5.85 2.4 6 5.35c.1 1.65-.6 3.15-1.95 4.3z"/></svg>
               </span>
-              <span><strong>Deep</strong> — DeepSeek API thinking (chain-of-thought) before the answer; slower, often more careful reasoning.</span>
+              <span><strong>Deep</strong> — DeepSeek API thinking (chain-of-thought) before the answer; slower, often more careful. Admin may auto-enable Deep on hard questions; your toggle forces it on.</span>
             </li>
             <li>
               <span class="help-icon tool-btn is-on" aria-hidden="true">

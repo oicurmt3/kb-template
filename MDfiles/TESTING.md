@@ -9,11 +9,12 @@
    - Ask a section-level question → Sources appear (if enabled); allowlisted web may enrich
    - Ask a vague follow-up → rewrite should still retrieve sensible chunks
 5. WorkCover **off** → general reply, no Sources; optional standalone Web.
-6. WorkCover (or standalone Web) answer with grounding → notes may show `Faithfulness: ok` / `corrected` / `kept draft` / `skipped (DeepSeek Files…)`; web-supported claims should remain under complement. HQ only changes language richness; Deep only enables API thinking.
+6. WorkCover (or standalone Web) answer with grounding → notes may show `Faithfulness: ok` / `corrected` / `kept draft` / `skipped (DeepSeek Files…)`; web-supported claims should remain under complement. HQ = language only. Deep follows admin policy (default auto) — notes may show `Deep: on|off (…)`.
 7. Web **on** (WorkCover off) with allowed host only; disallowed URL rejected.
 8. Admin → Export settings → Import same file → forms reload with same values.
 9. Admin → Export chunks → JSON has `documents` + `chunks` counts.
 10. Upload: select files → pending list → **Upload** (not auto); paste still **Add & chunk**.
+11. Admin → Deep thinking: save Auto + max 3; ask a long multi-part WorkCover question → `Deep: on (auto_on…)`; Reset Deep stats clears counters.
 
 ## Accuracy checklist
 
@@ -51,3 +52,4 @@ php -l includes/Settings.php
 - Pasted ingest appears in Documents list
 - WorkCover on must not hide allowlisted web enrichment; standalone Web only when WorkCover off
 - Settings import rejects chunks export files; unknown keys ignored
+- Deep cap: after max Deep turns in one chat, notes show `Deep: off (capped…)` until a new chat

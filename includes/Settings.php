@@ -16,10 +16,262 @@ class AppSettings {
     public const DEFAULT_RAG_WEB_MODE = 'complement';
     public const DEFAULT_RAG_WEB_DEGREE = 50;
     public const KEY_UI = 'ui_features';
+    public const KEY_DEEP_POLICY = 'deep_thinking_policy';
+    public const DEFAULT_DEEP_MODE = 'auto';
+    public const DEFAULT_DEEP_MAX_PER_CHAT = 3;
+    public const KEY_DEEP_STATS = 'deep_thinking_stats';
 
     /** @return list<string> */
     public static function ragWebMixModes(): array {
         return ['complement', 'docs_first', 'web_first', 'compete'];
+    }
+
+    /** @return list<string> */
+    public static function deepThinkingModes(): array {
+        return ['manual', 'auto', 'always'];
+    }
+
+    /**
+     * Admin Deep policy: manual (user toggle), auto (heuristics; toggle forces on), always (until cap).
+     * @return array{mode:string,max_per_chat:int,source:string}
+     */
+    public static function deepThinkingPolicy(): array {
+        $defaults = [
+            'mode' => self::DEFAULT_DEEP_MODE,
+            'max_per_chat' => self::DEFAULT_DEEP_MAX_PER_CHAT,
+            'source' => 'default',
+        ];
+        $raw = self::get(self::KEY_DEEP_POLICY);
+        if ($raw === null || $raw === '') {
+            return $defaults;
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return $defaults;
+        }
+        $mode = strtolower(trim((string)($decoded['mode'] ?? self::DEFAULT_DEEP_MODE)));
+        if (!in_array($mode, self::deepThinkingModes(), true)) {
+            $mode = self::DEFAULT_DEEP_MODE;
+        }
+        $max = isset($decoded['max_per_chat']) && is_numeric($decoded['max_per_chat'])
+            ? (int)$decoded['max_per_chat']
+            : self::DEFAULT_DEEP_MAX_PER_CHAT;
+        $max = max(0, min(50, $max));
+        return ['mode' => $mode, 'max_per_chat' => $max, 'source' => 'admin'];
+    }
+
+    /**
+     * @param array{mode?:mixed,max_per_chat?:mixed} $input
+     * @return array{mode:string,max_per_chat:int,source:string}
+     */
+    public static function saveDeepThinkingPolicy(array $input): array {
+        $mode = strtolower(trim((string)($input['mode'] ?? self::DEFAULT_DEEP_MODE)));
+        if (!in_array($mode, self::deepThinkingModes(), true)) {
+            $mode = self::DEFAULT_DEEP_MODE;
+        }
+        $max = isset($input['max_per_chat']) && is_numeric($input['max_per_chat'])
+            ? (int)$input['max_per_chat']
+            : self::DEFAULT_DEEP_MAX_PER_CHAT;
+        $max = max(0, min(50, $max));
+        self::set(
+            self::KEY_DEEP_POLICY,
+            json_encode(['mode' => $mode, 'max_per_chat' => $max], JSON_UNESCAPED_SLASHES)
+        );
+        return ['mode' => $mode, 'max_per_chat' => $max, 'source' => 'admin'];
+    }
+
+    /**
+     * @return array{
+     *   on:int,off:int,auto_on:int,auto_off:int,manual_on:int,manual_off:int,
+     *   user_force:int,always:int,capped:int,total:int
+     * }
+     */
+    public static function deepThinkingStats(): array {
+        $defaults = [
+            'on' => 0,
+            'off' => 0,
+            'auto_on' => 0,
+            'auto_off' => 0,
+            'manual_on' => 0,
+            'manual_off' => 0,
+            'user_force' => 0,
+            'always' => 0,
+            'capped' => 0,
+            'total' => 0,
+        ];
+        $raw = self::get(self::KEY_DEEP_STATS);
+        if ($raw === null || $raw === '') {
+            return $defaults;
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return $defaults;
+        }
+        foreach ($defaults as $k => $v) {
+            if (isset($decoded[$k]) && is_numeric($decoded[$k])) {
+                $defaults[$k] = max(0, (int)$decoded[$k]);
+            }
+        }
+        return $defaults;
+    }
+
+    public static function recordDeepThinkingStat(bool $enabled, string $reason): void {
+        $stats = self::deepThinkingStats();
+        $stats['total']++;
+        if ($enabled) {
+            $stats['on']++;
+        } else {
+            $stats['off']++;
+        }
+        $key = match ($reason) {
+            'auto_on' => 'auto_on',
+            'auto_off' => 'auto_off',
+            'manual_on' => 'manual_on',
+            'manual_off' => 'manual_off',
+            'user_force' => 'user_force',
+            'always' => 'always',
+            'capped' => 'capped',
+            default => null,
+        };
+        if ($key !== null) {
+            $stats[$key]++;
+        }
+        self::set(self::KEY_DEEP_STATS, json_encode($stats, JSON_UNESCAPED_SLASHES));
+    }
+
+    public static function resetDeepThinkingStats(): array {
+        $empty = [
+            'on' => 0,
+            'off' => 0,
+            'auto_on' => 0,
+            'auto_off' => 0,
+            'manual_on' => 0,
+            'manual_off' => 0,
+            'user_force' => 0,
+            'always' => 0,
+            'capped' => 0,
+            'total' => 0,
+        ];
+        self::set(self::KEY_DEEP_STATS, json_encode($empty, JSON_UNESCAPED_SLASHES));
+        return $empty;
+    }
+
+    /**
+     * Heuristic: turn Deep on for hard / multi-step questions.
+     *
+     * @param array{weak?:bool,hit_count?:int,max_score?:float,rewritten?:bool} $ctx
+     */
+    public static function shouldAutoDeepThinking(string $message, string $mode, array $ctx = []): bool {
+        $msg = trim($message);
+        $len = mb_strlen($msg);
+        if ($len >= 160) {
+            return true;
+        }
+        $lower = mb_strtolower($msg);
+        if (preg_match(
+            '/\b(compare|difference|versus|vs\.?|both|unless|except|however|step by step|carefully|in detail|explain how|what happens if|if .+ then)\b/u',
+            $lower
+        )) {
+            return true;
+        }
+        if (substr_count($lower, '?') >= 2) {
+            return true;
+        }
+        if (preg_match('/\b(and|or)\b/u', $lower) && $len >= 80) {
+            return true;
+        }
+        if (!empty($ctx['rewritten']) && $len < 100) {
+            return true;
+        }
+        if ($mode === 'rag') {
+            if (!empty($ctx['weak'])) {
+                return true;
+            }
+            $hits = isset($ctx['hit_count']) ? (int)$ctx['hit_count'] : 0;
+            if ($hits >= 5) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Resolve whether Deep thinking runs this turn.
+     *
+     * @param array{weak?:bool,hit_count?:int,max_score?:float,rewritten?:bool} $ctx
+     * @return array{enabled:bool,reason:string,policy:string,used_in_chat:int,max_per_chat:int}
+     */
+    public static function resolveDeepThinking(
+        bool $userAsked,
+        string $message,
+        string $mode,
+        int $conversationId,
+        array $ctx = []
+    ): array {
+        $policy = self::deepThinkingPolicy();
+        $policyMode = $policy['mode'];
+        $maxPerChat = (int)$policy['max_per_chat'];
+        $used = self::countDeepThinkingInConversation($conversationId);
+        $enabled = false;
+        $reason = 'manual_off';
+
+        if ($policyMode === 'always') {
+            $enabled = true;
+            $reason = 'always';
+        } elseif ($policyMode === 'manual') {
+            $enabled = $userAsked;
+            $reason = $userAsked ? 'manual_on' : 'manual_off';
+        } else {
+            // auto: user toggle forces on; otherwise heuristics
+            if ($userAsked) {
+                $enabled = true;
+                $reason = 'user_force';
+            } else {
+                $enabled = self::shouldAutoDeepThinking($message, $mode, $ctx);
+                $reason = $enabled ? 'auto_on' : 'auto_off';
+            }
+        }
+
+        if ($enabled && $maxPerChat > 0 && $used >= $maxPerChat) {
+            $enabled = false;
+            $reason = 'capped';
+        }
+
+        self::recordDeepThinkingStat($enabled, $reason);
+
+        return [
+            'enabled' => $enabled,
+            'reason' => $reason,
+            'policy' => $policyMode,
+            'used_in_chat' => $used,
+            'max_per_chat' => $maxPerChat,
+        ];
+    }
+
+    public static function countDeepThinkingInConversation(int $conversationId): int {
+        if ($conversationId <= 0) {
+            return 0;
+        }
+        try {
+            $rows = DB::all(
+                'SELECT blocks FROM messages WHERE conversation_id = ? AND role = "assistant"',
+                [$conversationId]
+            );
+        } catch (Throwable $e) {
+            return 0;
+        }
+        $n = 0;
+        foreach ($rows as $row) {
+            $raw = $row['blocks'] ?? null;
+            if (!is_string($raw) || $raw === '') {
+                continue;
+            }
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded) && !empty($decoded['deep_thinking'])) {
+                $n++;
+            }
+        }
+        return $n;
     }
 
     /** @return list<string> */
@@ -243,6 +495,7 @@ class AppSettings {
             self::KEY_ANSWER_LENGTH,
             self::KEY_ADAPTIVE_RETRIEVAL,
             self::KEY_RAG_WEB_MIX,
+            self::KEY_DEEP_POLICY,
             self::KEY_UI,
         ];
     }
@@ -342,6 +595,11 @@ class AppSettings {
             $updated[] = 'rag_web_mix';
         }
 
+        if (isset($effective['deep_thinking_policy']) && is_array($effective['deep_thinking_policy'])) {
+            self::saveDeepThinkingPolicy($effective['deep_thinking_policy']);
+            $updated[] = 'deep_thinking_policy';
+        }
+
         if (isset($effective['ui']) && is_array($effective['ui'])) {
             self::saveUiConfig($effective['ui']);
             $updated[] = 'ui';
@@ -366,6 +624,7 @@ class AppSettings {
                 'answer_length' => self::answerLength(),
                 'adaptive_retrieval' => self::adaptiveRetrievalEnabled([]),
                 'rag_web_mix' => self::ragWebMix(),
+                'deep_thinking_policy' => self::deepThinkingPolicy(),
                 'ui' => self::uiConfig(),
                 'chat_limits' => self::chatLimits($appCfg),
             ],
@@ -417,6 +676,12 @@ class AppSettings {
             $decoded = json_decode($map[self::KEY_RAG_WEB_MIX], true);
             if (is_array($decoded)) {
                 $out['rag_web_mix'] = $decoded;
+            }
+        }
+        if (isset($map[self::KEY_DEEP_POLICY])) {
+            $decoded = json_decode($map[self::KEY_DEEP_POLICY], true);
+            if (is_array($decoded)) {
+                $out['deep_thinking_policy'] = $decoded;
             }
         }
         if (isset($map[self::KEY_UI])) {

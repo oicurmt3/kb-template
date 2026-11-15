@@ -9,7 +9,7 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 - **Grounding contract** in `Retrieval::buildContext()` — answers must stay excerpt-bound when WorkCover is on.
 - **HQ vs Basic** — HQ = richer/precise language only (`hqInstruction`). HQ off = `simpleExplain` by admin age. Do **not** hang the post-stream faithfulness rewrite on HQ (legacy “Plain” was removed; faithfulness is separate).
 - **Faithfulness is automatic** when docs and/or allowlisted web/URL and/or attach grounding exists — prefer `OK`, pack via `packHqGrounding`, reject harmful shrinks, skip DeepSeek Files. Do not strip allowlisted web under complement.
-- **Deep** = DeepSeek API `"thinking": {"type":"enabled"}` only — not the faithfulness auditor.
+- **Deep** = DeepSeek API `"thinking": {"type":"enabled"}` only — not the faithfulness auditor. Admin policy `manual` / `auto` / `always` + max per chat; auto uses heuristics (toggle forces on).
 - **No citation numbers in model text** — sources render in the UI from `citations` / `sources` blocks.
 - **Web search is host-restricted** — never enable unrestricted DeepSeek open-web search; use `WebFetch` + allowed hosts.
 - **Session isolation** — conversations are keyed by `session_id` cookie; do not leak across sessions.
@@ -25,7 +25,7 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 5. Weak-hit / no-hit prompt hardening  
 6. Allowlisted web enrichment + RAG↔Web mix instructions (**first pass**)  
 7. Style: HQ (richer) or Basic (simple explain)  
-8. Optional DeepSeek API thinking (Deep toggle)  
+8. DeepSeek API thinking — resolved by admin Deep policy (manual / auto heuristics / always) + per-chat cap; notes `Deep: on|off (…)`  
 9. **Faithfulness** after stream when grounding exists — same mix mode+degree policy via `ragWebMixHqHint` (may replace bubble via `done.content`)
 
 See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, shared mix rules; prefer OK; shrink guard).
@@ -37,7 +37,7 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 | `api/chat.php` | SSE chat; wires modes, RAG, web, mix, HQ style, Deep thinking, faithfulness |
 | `api/export.php` | GET export settings/chunks; POST import settings |
 | `includes/Retrieval.php` | Search, rewrite, synonyms, tags, quality, `verifyGroundedAnswer` |
-| `includes/Settings.php` | UI features, adaptive RAG, answer length, hosts, mix, import |
+| `includes/Settings.php` | UI features, adaptive RAG, answer length, hosts, mix, Deep policy/stats, import |
 | `includes/Ingest.php` / `Chunker.php` | Upload / paste → chunks |
 | `includes/DeepSeek.php` | Completions + stream + OCR/Files |
 | `includes/WebFetch.php` | Allowed-host fetch/search |

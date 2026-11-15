@@ -141,6 +141,33 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
     <section class="card admin-collapse-card">
       <details class="admin-card-details">
         <summary class="admin-card-summary">
+          <span class="admin-card-summary-title">Deep thinking</span>
+          <span id="deep-policy-summary-hint" class="admin-card-summary-hint"></span>
+        </summary>
+        <div class="admin-card-body">
+          <p class="hint"><strong>Manual</strong> — composer Deep toggle only. <strong>Auto</strong> (default) — server turns Deep on for hard questions (long/multi-part, weak retrieval, many hits, follow-ups); toggle <em>forces on</em>. <strong>Always</strong> — Deep every turn until the per-chat cap. Cap <strong>0</strong> = unlimited. Stats count on vs off decisions (and why).</p>
+          <div class="inline" style="margin-top:10px;flex-wrap:wrap" role="group" aria-label="Deep thinking policy">
+            <label class="mode-toggle"><input type="radio" name="deep-policy-mode" id="deep-policy-manual" value="manual"> <span>Manual</span></label>
+            <label class="mode-toggle"><input type="radio" name="deep-policy-mode" id="deep-policy-auto" value="auto" checked> <span>Auto</span></label>
+            <label class="mode-toggle"><input type="radio" name="deep-policy-mode" id="deep-policy-always" value="always"> <span>Always</span></label>
+          </div>
+          <div class="inline" style="margin-top:12px;align-items:center;gap:12px;flex-wrap:wrap">
+            <label class="hint" for="deep-max-per-chat">Max Deep per chat</label>
+            <input type="number" id="deep-max-per-chat" min="0" max="50" step="1" value="3" style="width:5rem" title="0 = unlimited">
+            <button type="button" id="save-deep-policy" class="btn btn-primary">Save Deep policy</button>
+            <span id="deep-policy-status" class="hint" aria-live="polite"></span>
+          </div>
+          <p id="deep-stats" class="hint" style="margin-top:12px" aria-live="polite"></p>
+          <div class="inline" style="margin-top:8px">
+            <button type="button" id="reset-deep-stats" class="btn btn-ghost">Reset Deep stats</button>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card admin-collapse-card">
+      <details class="admin-card-details">
+        <summary class="admin-card-summary">
           <span class="admin-card-summary-title">RAG ↔ Web mix</span>
         </summary>
         <div class="admin-card-body">

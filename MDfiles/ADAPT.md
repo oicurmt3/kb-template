@@ -70,7 +70,7 @@ Edit `includes/config.php` → `app`:
 | Intro message | Welcome in their voice; say what docs the bot uses |
 | WorkCover (RAG) | Default **on**, Show (or Hide + default on for kiosks) |
 | HQ | Off for public/simple; On for staff/compliance |
-| Deep / Web | Off unless needed |
+| Deep / Web | Deep: admin auto default; Web off unless needed |
 | Tags / Sources / Related | Show |
 | Chat history | Off on shared tablets |
 | Adaptive RAG | **On** |
@@ -164,7 +164,7 @@ Keep the “plain text / no citation numbers” rules.
 
 ### 5.5 HQ + Basic instructions
 
-`Settings.php` → `hqInstruction()` / `simpleExplainInstruction()` — swap “legal/technical” wording for “policy/product” if needed. Automatic faithfulness (`verifyGroundedAnswer`) stays valuable for any entity: prefers `OK`, packs docs+web+attach with a reserved web budget, rejects harmful shrinks, skips when DeepSeek Files are attached. Deep = optional API thinking only.
+`Settings.php` → `hqInstruction()` / `simpleExplainInstruction()` — swap “legal/technical” wording for “policy/product” if needed. Automatic faithfulness (`verifyGroundedAnswer`) stays valuable for any entity: prefers `OK`, packs docs+web+attach with a reserved web budget, rejects harmful shrinks, skips when DeepSeek Files are attached. Deep = API thinking via admin policy (manual / auto / always) + per-chat cap.
 
 ---
 

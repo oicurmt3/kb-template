@@ -28,6 +28,9 @@ try {
             'adaptive_retrieval_source' => AppSettings::adaptiveRetrievalSource($ragCfg),
             'rag_web_mix' => AppSettings::ragWebMix(),
             'rag_web_mix_modes' => AppSettings::ragWebMixModes(),
+            'deep_thinking_policy' => AppSettings::deepThinkingPolicy(),
+            'deep_thinking_modes' => AppSettings::deepThinkingModes(),
+            'deep_thinking_stats' => AppSettings::deepThinkingStats(),
             'ui' => AppSettings::uiConfig(),
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
             'ui_feature_keys' => AppSettings::uiFeatureKeys(),
@@ -57,14 +60,22 @@ try {
         $hasLength = array_key_exists('answer_length', $body);
         $hasAdaptive = array_key_exists('adaptive_retrieval', $body);
         $hasRagWebMix = array_key_exists('rag_web_mix', $body);
+        $hasDeepPolicy = array_key_exists('deep_thinking_policy', $body);
+        $hasDeepStatsReset = !empty($body['reset_deep_thinking_stats']);
         $hasUi = array_key_exists('ui', $body);
         $ui = AppSettings::uiConfig();
         $updatedUi = false;
         $ragWebMix = AppSettings::ragWebMix();
         $updatedRagWebMix = false;
+        $deepPolicy = AppSettings::deepThinkingPolicy();
+        $updatedDeepPolicy = false;
+        $deepStats = AppSettings::deepThinkingStats();
 
-        if (!$hasHosts && !$hasAge && !$hasLength && !$hasAdaptive && !$hasRagWebMix && !$hasUi) {
-            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, and/or ui');
+        if (
+            !$hasHosts && !$hasAge && !$hasLength && !$hasAdaptive && !$hasRagWebMix
+            && !$hasDeepPolicy && !$hasDeepStatsReset && !$hasUi
+        ) {
+            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, deep_thinking_policy, reset_deep_thinking_stats, and/or ui');
         }
 
         if ($hasHosts) {
@@ -118,6 +129,20 @@ try {
             $updatedRagWebMix = true;
         }
 
+        if ($hasDeepPolicy) {
+            if (!is_array($body['deep_thinking_policy'])) {
+                json_error('deep_thinking_policy must be an object with mode and max_per_chat');
+            }
+            $deepPolicy = AppSettings::saveDeepThinkingPolicy($body['deep_thinking_policy']);
+            $updatedDeepPolicy = true;
+        }
+
+        if ($hasDeepStatsReset) {
+            $deepStats = AppSettings::resetDeepThinkingStats();
+        } else {
+            $deepStats = AppSettings::deepThinkingStats();
+        }
+
         if ($hasUi) {
             if (!is_array($body['ui'])) {
                 json_error('ui must be an object');
@@ -148,6 +173,9 @@ try {
             'adaptive_retrieval_source' => AppSettings::adaptiveRetrievalSource($ragCfg),
             'rag_web_mix' => $ragWebMix,
             'rag_web_mix_modes' => AppSettings::ragWebMixModes(),
+            'deep_thinking_policy' => $deepPolicy,
+            'deep_thinking_modes' => AppSettings::deepThinkingModes(),
+            'deep_thinking_stats' => $deepStats,
             'ui' => $ui,
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
             'updated_hosts' => $updatedHosts,
@@ -155,6 +183,7 @@ try {
             'updated_length' => $updatedLength,
             'updated_adaptive' => $updatedAdaptive,
             'updated_rag_web_mix' => $updatedRagWebMix,
+            'updated_deep_thinking_policy' => $updatedDeepPolicy,
             'updated_ui' => $updatedUi,
         ]);
     }

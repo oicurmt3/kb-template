@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-15 — Auto Deep thinking + admin stats
+
+- Admin **Deep thinking** policy: `manual` / `auto` (default) / `always`, plus **max Deep per chat** (0 = unlimited)
+- Auto heuristics: long/multi-part questions, weak retrieval, many hits, rewritten follow-ups; composer toggle forces on under auto
+- Per-chat cap counted from assistant `blocks.deep_thinking`; SSE notes `Deep: on|off (reason; …)`
+- Usage stats in settings (`deep_thinking_stats`) with Admin reset; export/import includes policy
+- ACCURACY §E2 / toggles updated
+
 ## 2026-11-15 — Mix degree in faithfulness + process docs
 
 - `ragWebMixHqHint` now includes mode **and** degree (lightly/moderately/strongly) so the auditor follows the same mix lean as the first pass

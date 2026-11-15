@@ -37,6 +37,7 @@ try {
                     'answer_length' => AppSettings::answerLength(),
                     'adaptive_retrieval' => AppSettings::adaptiveRetrievalEnabled($ragCfg),
                     'rag_web_mix' => AppSettings::ragWebMix(),
+                    'deep_thinking_policy' => AppSettings::deepThinkingPolicy(),
                     'ui' => AppSettings::uiConfig(),
                     'chat_limits' => AppSettings::chatLimits($appCfg),
                 ],

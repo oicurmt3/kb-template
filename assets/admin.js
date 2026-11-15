@@ -35,6 +35,12 @@
   const $saveRagWebMix = document.getElementById('save-rag-web-mix');
   const $ragWebMixStatus = document.getElementById('rag-web-mix-status');
   const $ragWebMixHint = document.getElementById('rag-web-mix-hint');
+  const $deepMaxPerChat = document.getElementById('deep-max-per-chat');
+  const $saveDeepPolicy = document.getElementById('save-deep-policy');
+  const $deepPolicyStatus = document.getElementById('deep-policy-status');
+  const $deepPolicySummaryHint = document.getElementById('deep-policy-summary-hint');
+  const $deepStats = document.getElementById('deep-stats');
+  const $resetDeepStats = document.getElementById('reset-deep-stats');
   const $uiIntro = document.getElementById('ui-intro');
   const $uiFeaturesList = document.getElementById('ui-features-list');
   const $saveUiFeatures = document.getElementById('save-ui-features');
@@ -48,7 +54,7 @@
   const UI_FEATURE_LABELS = {
     workcover: 'WorkCover (docs + live allowlisted web)',
     hq: 'HQ language (off = Basic; style only)',
-    deep_thinking: 'Deep thinking (DeepSeek API CoT)',
+    deep_thinking: 'Deep thinking toggle (policy may auto-on)',
     web_search: 'Web only (when WorkCover off)',
     tags: 'Focus tags',
     url_context: 'URL context',
@@ -638,6 +644,68 @@
     $ragWebMixStatus.classList.toggle('ok', !!msg && !isErr);
   }
 
+  function setDeepPolicyStatus(msg, isErr) {
+    if (!$deepPolicyStatus) return;
+    $deepPolicyStatus.textContent = msg || '';
+    $deepPolicyStatus.classList.toggle('err', !!isErr);
+    $deepPolicyStatus.classList.toggle('ok', !!msg && !isErr);
+  }
+
+  function applyDeepPolicy(policy) {
+    const p = policy && typeof policy === 'object' ? policy : {};
+    const mode = ['manual', 'auto', 'always'].includes(p.mode) ? p.mode : 'auto';
+    const el = document.getElementById('deep-policy-' + mode);
+    if (el) el.checked = true;
+    if ($deepMaxPerChat) {
+      const max = Number.isFinite(Number(p.max_per_chat)) ? Number(p.max_per_chat) : 3;
+      $deepMaxPerChat.value = String(Math.max(0, Math.min(50, max)));
+    }
+    if ($deepPolicySummaryHint) {
+      const max = Number($deepMaxPerChat && $deepMaxPerChat.value) || 0;
+      $deepPolicySummaryHint.textContent =
+        mode + (max > 0 ? ' · max ' + max + '/chat' : ' · unlimited');
+    }
+  }
+
+  function selectedDeepPolicy() {
+    const el = document.querySelector('input[name="deep-policy-mode"]:checked');
+    const mode = el ? el.value : 'auto';
+    let max = $deepMaxPerChat ? parseInt($deepMaxPerChat.value, 10) : 3;
+    if (!Number.isFinite(max)) max = 3;
+    max = Math.max(0, Math.min(50, max));
+    return { mode, max_per_chat: max };
+  }
+
+  function renderDeepStats(stats) {
+    if (!$deepStats) return;
+    const s = stats && typeof stats === 'object' ? stats : {};
+    const n = (k) => (Number.isFinite(Number(s[k])) ? Number(s[k]) : 0);
+    const total = n('total');
+    if (total <= 0) {
+      $deepStats.textContent = 'Stats: no Deep decisions recorded yet.';
+      return;
+    }
+    $deepStats.textContent =
+      'Stats: ' +
+      n('on') +
+      ' on / ' +
+      n('off') +
+      ' off (total ' +
+      total +
+      ') — auto on ' +
+      n('auto_on') +
+      ', auto off ' +
+      n('auto_off') +
+      ', toggle force ' +
+      n('user_force') +
+      ', manual on ' +
+      n('manual_on') +
+      ', always ' +
+      n('always') +
+      ', capped ' +
+      n('capped');
+  }
+
   function degreeBand(degree) {
     if (degree <= 25) return 'light';
     if (degree <= 60) return 'medium';
@@ -831,7 +899,16 @@
   }
 
   async function loadWebHosts() {
-    if (!$webHosts && !$simpleAge && !$saveAnswerLength && !$saveAdaptive && !$saveUiFeatures) return;
+    if (
+      !$webHosts &&
+      !$simpleAge &&
+      !$saveAnswerLength &&
+      !$saveAdaptive &&
+      !$saveDeepPolicy &&
+      !$saveUiFeatures
+    ) {
+      return;
+    }
     try {
       const r = await fetch(api('settings.php')).then((x) => x.json());
       if (r.error) {
@@ -839,6 +916,7 @@
         setSimpleAgeStatus(r.error, true);
         setAnswerLengthStatus(r.error, true);
         setAdaptiveStatus(r.error, true);
+        setDeepPolicyStatus(r.error, true);
         setUiFeaturesStatus(r.error, true);
         return;
       }
@@ -880,6 +958,18 @@
           ')'
         );
       }
+      if (r.deep_thinking_policy) {
+        applyDeepPolicy(r.deep_thinking_policy);
+        setDeepPolicyStatus(
+          (r.deep_thinking_policy.mode || 'auto') +
+          ' · max ' +
+          (r.deep_thinking_policy.max_per_chat ?? 3) +
+          '/chat (' +
+          (r.deep_thinking_policy.source || 'default') +
+          ')'
+        );
+      }
+      renderDeepStats(r.deep_thinking_stats);
       if (r.ui) {
         applyUiConfig(r.ui);
         setUiFeaturesStatus(r.ui_source === 'admin' ? 'Loaded (admin)' : 'Loaded (defaults)');
@@ -893,6 +983,7 @@
       setAnswerLengthStatus(e.message || 'Failed to load', true);
       setAdaptiveStatus(e.message || 'Failed to load', true);
       setRagWebMixStatus(e.message || 'Failed to load', true);
+      setDeepPolicyStatus(e.message || 'Failed to load', true);
       setUiFeaturesStatus(e.message || 'Failed to load', true);
     }
   }
@@ -1005,6 +1096,54 @@
         setRagWebMixStatus('Saved: ' + (m.mode || 'complement') + ' · degree ' + (m.degree ?? 50));
       } catch (e) {
         setRagWebMixStatus(e.message || 'Save failed', true);
+      }
+    });
+  }
+
+  if ($saveDeepPolicy) {
+    $saveDeepPolicy.addEventListener('click', async () => {
+      await refreshCsrf();
+      setDeepPolicyStatus('Saving…');
+      try {
+        const r = await fetch(api('settings.php'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf(),
+          },
+          body: JSON.stringify({ deep_thinking_policy: selectedDeepPolicy() }),
+        }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        applyDeepPolicy(r.deep_thinking_policy || selectedDeepPolicy());
+        const p = r.deep_thinking_policy || {};
+        setDeepPolicyStatus(
+          'Saved: ' + (p.mode || 'auto') + ' · max ' + (p.max_per_chat ?? 3) + '/chat'
+        );
+        if (r.deep_thinking_stats) renderDeepStats(r.deep_thinking_stats);
+      } catch (e) {
+        setDeepPolicyStatus(e.message || 'Save failed', true);
+      }
+    });
+  }
+
+  if ($resetDeepStats) {
+    $resetDeepStats.addEventListener('click', async () => {
+      await refreshCsrf();
+      setDeepPolicyStatus('Resetting stats…');
+      try {
+        const r = await fetch(api('settings.php'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf(),
+          },
+          body: JSON.stringify({ reset_deep_thinking_stats: true }),
+        }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        renderDeepStats(r.deep_thinking_stats);
+        setDeepPolicyStatus('Deep stats reset');
+      } catch (e) {
+        setDeepPolicyStatus(e.message || 'Reset failed', true);
       }
     });
   }

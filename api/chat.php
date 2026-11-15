@@ -42,7 +42,10 @@ try {
 
     $webCfg = AppSettings::mergeWebConfig($config['web'] ?? []);
     $webSearch = AppSettings::uiFeatureActive('web_search', !empty($body['web_search']));
-    $deepThinking = AppSettings::uiFeatureActive('deep_thinking', !empty($body['deep_thinking']));
+    // User Deep toggle (force-on under auto policy). Final resolve happens after retrieval.
+    $deepUserAsked = AppSettings::uiFeatureActive('deep_thinking', !empty($body['deep_thinking']));
+    $deepThinking = false;
+    $deepResolve = null;
     // HQ on → precise/richer language only; HQ off → Basic / plain-language.
     // Faithfulness check is separate: runs whenever grounding exists (not tied to HQ/Deep).
     $hqMode = AppSettings::uiFeatureActive(
@@ -149,6 +152,8 @@ try {
     $systemPrompt = $config['app']['system_prompt'];
     $citations = [];
     $webNotes = [];
+    $prep = ['rewritten' => false, 'inferred_tags' => [], 'query' => $message];
+    $quality = ['weak' => false, 'hit_count' => 0, 'max_score' => 0.0];
 
     if ($mode === 'rag') {
         $systemPrompt = $config['app']['rag_system_prompt'] ?? (
@@ -444,11 +449,33 @@ try {
         $citations = [];
     }
 
+    // Deep policy: manual / auto (heuristics; toggle forces on) / always — then per-chat cap
+    $deepCtx = [
+        'rewritten' => !empty($prep['rewritten'] ?? false),
+        'weak' => !empty($quality['weak'] ?? false),
+        'hit_count' => (int)($quality['hit_count'] ?? 0),
+        'max_score' => (float)($quality['max_score'] ?? 0),
+    ];
+    $deepResolve = AppSettings::resolveDeepThinking(
+        $deepUserAsked,
+        $message,
+        $mode,
+        $convId,
+        $deepCtx
+    );
+    $deepThinking = !empty($deepResolve['enabled']);
+    $webNotes[] = 'Deep: ' . ($deepThinking ? 'on' : 'off')
+        . ' (' . (string)($deepResolve['reason'] ?? 'unknown')
+        . '; policy=' . (string)($deepResolve['policy'] ?? 'auto')
+        . '; chat=' . (int)($deepResolve['used_in_chat'] ?? 0)
+        . '/' . (int)($deepResolve['max_per_chat'] ?? 0) . ')';
+
     sse('meta', [
         'conversation_id' => $convId,
         'mode' => $mode,
         'answer_length' => $answerLength,
         'deep_thinking' => $deepThinking,
+        'deep_reason' => $deepResolve['reason'] ?? null,
         'hq_mode' => $hqMode,
         'citations' => $citations,
         'web_notes' => $webNotes,
@@ -468,11 +495,10 @@ try {
         $streamOpts['tools'] = $uniqueTools;
     }
 
-    // Deep thinking uses injected host-scoped search results (no open-web tool)
-    // @see https://api-docs.deepseek.com/guides/web_tools/
+    // DeepSeek API thinking mode
+    // @see https://api-docs.deepseek.com/guides/thinking_mode/
     if ($deepThinking) {
         $streamOpts['thinking'] = ['type' => 'enabled'];
-        $webNotes[] = 'Deep thinking enabled';
     }
 
     // Flash required for Files API / web tools / titles / deep thinking
@@ -552,6 +578,10 @@ try {
         $blocksPayload = [];
         if ($citations !== []) $blocksPayload['citations'] = $citations;
         if ($suggestions !== []) $blocksPayload['suggestions'] = $suggestions;
+        if ($deepThinking) {
+            $blocksPayload['deep_thinking'] = true;
+            $blocksPayload['deep_reason'] = $deepResolve['reason'] ?? 'on';
+        }
         $blocksJson = $blocksPayload !== []
             ? json_encode($blocksPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
             : null;

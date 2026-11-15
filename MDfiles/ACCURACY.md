@@ -119,9 +119,19 @@ Always applied:
 - **HQ off** → “explain like a {age} year old” Basic mode (admin age 5–18).
 - **Related questions** (if visible) → follow-up chip instruction; stripped from stored/display text.
 
-#### E2. Deep thinking (optional, during stream)
+#### E2. Deep thinking (during stream; admin policy)
 
-When **Deep** is on, the chat request sets DeepSeek API `"thinking": { "type": "enabled" }` ([Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode/)). The model produces chain-of-thought (`reasoning_content`) then the user answer (`content`). WANDA streams the answer content to the UI. Deep improves careful reasoning; it does **not** replace the faithfulness audit below.
+When Deep is **enabled for the turn**, the chat request sets DeepSeek API `"thinking": { "type": "enabled" }` ([Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode/)). The model produces chain-of-thought (`reasoning_content`) then the user answer (`content`). WANDA streams the answer content to the UI. Deep improves careful reasoning; it does **not** replace the faithfulness audit below.
+
+Admin **Deep thinking** policy (`deep_thinking_policy` in settings):
+
+| Mode | Behaviour |
+|------|-----------|
+| **manual** | Composer Deep toggle only |
+| **auto** (default) | Server turns Deep on for hard questions (long / multi-part, weak retrieval, many hits, rewritten follow-ups); user toggle **forces on** |
+| **always** | Deep every turn until the per-chat cap |
+
+**Max Deep per chat** (0 = unlimited, default 3) caps how many assistant turns in one conversation may use Deep. Decisions are counted in `deep_thinking_stats` (on/off, auto_on, user_force, capped, …) and shown in Admin. SSE / notes: `Deep: on|off (reason; policy=…; chat=used/max)`.
 
 #### F. Faithfulness check (`verifyGroundedAnswer`) — automatic QA after the mix
 
@@ -216,7 +226,7 @@ When **Show**: user’s toggle wins for that request.
 |---------|-----------------|--------------------------------|
 | **WorkCover** | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts. Off = no doc retrieval. Standalone **Web** toggle only appears when WorkCover is off. Triggers faithfulness when excerpts (and/or web) exist. |
 | **HQ** | On = richer language; Off = Basic | **Style only** (`hqInstruction` vs simple explain). Does **not** run the post-stream faithfulness check. |
-| **Deep thinking** | DeepSeek API thinking / CoT | Careful reasoning during generation; extra latency/cost. Does **not** replace faithfulness. Leave off unless answers feel shallow on complex multi-section questions. |
+| **Deep thinking** | Composer toggle + admin policy (manual / auto / always) + per-chat cap | DeepSeek API thinking / CoT when the turn resolves on. Extra latency/cost. Does **not** replace faithfulness. Auto mode turns Deep on for hard / weak-retrieval turns; toggle forces on under auto. |
 | **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. Still provides grounding → faithfulness runs. When WorkCover is on, that same search is automatic inside Docs mode. |
 | **Faithfulness** | *(not a user toggle)* | Automatic when docs and/or web/URL and/or attach grounding exists. Pack + prefer OK; reject harmful shrinks; skip DeepSeek Files. |
 
@@ -327,7 +337,7 @@ Faithfulness is independent of HQ/Deep whenever grounding exists.
 2. Chat with WorkCover on — expand Sources; check titles and excerpt counts.  
 3. Read SSE / UI notes when exposed (`Query rewrite`, `Auto tags`, `Retrieval: weak`, `Faithfulness: ok|corrected|kept draft|skipped`).  
 4. If wrong section: improve document tags/titles, or ask with section number (legal-ref bonus).  
-5. If invented law: confirm WorkCover (or web grounding) was on; check weak/no-hit notes; confirm `Faithfulness:` ran; optionally turn Deep on for harder reasoning.  
+5. If invented law: confirm WorkCover (or web grounding) was on; check weak/no-hit notes; confirm `Faithfulness:` ran; check `Deep:` note / admin Deep policy (auto may already be on for hard questions).  
 6. If follow-up missed context: ensure chat history messages exist (same conversation); rewrite needs prior user turns.
 
 For systematic fixes, use **§7** (tune corpus → tags → synonyms → tag inference). Prefer that over adding embeddings.
@@ -704,7 +714,7 @@ After merge with keyword \(w_c=1.5\) and alsoQuery \(w_q=1.15\): \(S \approx 8.1
 ### 9.13 What is *not* weighted numerically
 
 - HQ vs Basic — prompt style only, not retrieval scores and not faithfulness
-- Deep thinking — DeepSeek API thinking / CoT flag
+- Deep thinking — API CoT; admin policy manual/auto/always + max per chat + stats
 - Faithfulness — automatic post-stream source check when grounding exists
 - Answer length — prompt instruction only  
 - Web / URL / file context — concatenated into the system prompt after retrieval; they do not change chunk \(S\)  

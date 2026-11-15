@@ -4,6 +4,24 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-15 — Auto Deep + admin stats
+
+**Done**
+
+- `AppSettings::resolveDeepThinking` / `shouldAutoDeepThinking` / stats + cap
+- Admin Deep card: mode, max/chat, stats + reset; settings GET/POST; export/import policy
+- Chat notes `Deep: on|off (reason; policy=…; chat=used/max)`
+
+**Policy**
+
+| Mode | Behaviour |
+|------|-----------|
+| manual | Toggle only |
+| auto | Heuristics; toggle forces on |
+| always | Every turn until cap |
+
+---
+
 ## 2026-11-15 — Faithfulness follows mix mode + degree
 
 **Done**
