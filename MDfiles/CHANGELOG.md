@@ -9,6 +9,7 @@
 - Adaptive RAG hint updated; full MD documentation suite added (`MDfiles/ACCURACY.md` etc.)
 - `ACCURACY.md` §7: how to tune synonyms / tags / corpus; pointers from `ADAPT.md` / `TESTING.md`
 - Backlog (not built): admin-editable search synonyms setting — see `HANDOFF.md`
+- Plan only: science teacher ↔ lab-tech coordinator — `MDfiles/PLAN-science-lab-coordinator.md`
 
 ## Earlier (same project arc)
 

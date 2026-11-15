@@ -39,6 +39,7 @@ Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → ground
 | [handover.md](handover.md) | Decisions, quirks, do-not-break |
 | [MDfiles/ACCURACY.md](MDfiles/ACCURACY.md) | How answers stay accurate; every setting’s effect |
 | [MDfiles/ADAPT.md](MDfiles/ADAPT.md) | Retarget this shell to any other business or entity |
+| [MDfiles/PLAN-science-lab-coordinator.md](MDfiles/PLAN-science-lab-coordinator.md) | Plan: teacher ↔ lab-tech lesson/prep coordinator (not built) |
 | [MDfiles/ARCHITECTURE.md](MDfiles/ARCHITECTURE.md) | Stack, data flow, storage |
 | [MDfiles/DESIGN.md](MDfiles/DESIGN.md) | Theme and UI patterns |
 | [MDfiles/SECURITY.md](MDfiles/SECURITY.md) | Auth, CSRF, rate limits |
