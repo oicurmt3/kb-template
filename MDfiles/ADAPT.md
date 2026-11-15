@@ -120,7 +120,7 @@ Optional CSS: accent colour in `assets/style.css` variables to match brand (keep
 
 ## 5. Domain tuning (accuracy for *their* language)
 
-Without this, retrieval still works but misses slang and house terms. See [ACCURACY.md §8](ACCURACY.md).
+Without this, retrieval still works but misses slang and house terms. Use the same **corpus → tags → synonyms → tag inference** loop as [ACCURACY.md §7](ACCURACY.md); score math is in [ACCURACY.md §9](ACCURACY.md).
 
 ### 5.1 Synonym map
 

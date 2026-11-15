@@ -1,4 +1,4 @@
-# How WANDA keeps answers accurate and relevant
+﻿# How WANDA keeps answers accurate and relevant
 
 This doc explains the full path from a user question to a grounded answer, and **how every admin / composer setting changes that path**.
 
@@ -61,11 +61,11 @@ Rewrite **fails soft**: if the API fails or JSON is bad, the synonym-expanded ba
 #### B. Retrieval (`searchWithMeta`)
 
 - Query order into the merger: **`alsoQuery` first** (weight 1.15), then rewritten/expanded query (weight 0.9) if different — so the raw latest phrasing is slightly preferred.
-- Multiple search channels merge into one chunk score (see **§8** for every weight).
+- Multiple search channels merge into one chunk score (see **§9** for every weight).
 - Focus tags multiply/add score; Adaptive RAG may slim to activated docs.
 - Diversification caps chunks per document (`max_per_document` / slim variants).
 
-There is **no embedding / vector** path — DeepSeek does not expose embeddings here. Relevance is lexical + structure. Full formulas: **§8**.
+There is **no embedding / vector** path — DeepSeek does not expose embeddings here. Relevance is lexical + structure. Full formulas: **§9**.
 
 #### C. Quality gate (`hitQuality`)
 
@@ -245,23 +245,114 @@ Deep thinking can combine with any row; it does not change retrieval.
 5. If invented law: confirm WorkCover was on; check weak/no-hit notes; turn HQ on and re-ask.  
 6. If follow-up missed context: ensure chat history messages exist (same conversation); rewrite needs prior user turns.
 
+For systematic fixes, use **§7** (tune corpus → tags → synonyms → tag inference). Prefer that over adding embeddings.
+
 ---
 
-## 7. Limits (honest)
+## 7. Tuning synonyms, tags, and corpus
+
+Lexical retrieval improves most when the **right text exists**, is **tagged**, and everyday questions **expand into document vocabulary**. Use this loop before changing score weights (§9).
+
+### 7.1 The loop
+
+1. Collect **20–40 real questions** in everyday words (not Act jargon).  
+2. Run each in **Admin → Retrieval test** (same path as chat).  
+3. For each miss, fix **one** layer — in order: **corpus → tags → synonyms → tag inference**.  
+4. Re-test until the top hit is the right Act/Regs/guide section.  
+5. Spot-check the same prompts in chat with WorkCover on and Sources on.
+
+### 7.2 Corpus (biggest lever)
+
+| Do | Why |
+|----|-----|
+| Prefer **OCR → chunks** for Act/Regs PDFs | Search needs chunk text; Files-parse stubs rank poorly |
+| Clear **titles** (`WCIM Act 2023`, not `scan_final2`) | Title hits score +4; `documentKind` uses title/filename/tags |
+| Set **source URL** | Transparency in Sources chips |
+| Keep Act and Regulations as **separate** ready docs | Quota + ×1.25 kind boost need both kinds |
+| Preserve headings when pasting/chunking | `header_path` drives section-ref bonuses |
+| Confirm status **ready** and skim chunks after ingest | Bad OCR = bad retrieval |
+
+**Failure sign:** weak/no hits, or a long guide ranks above the Act rule → missing/mis-chunked Act text or title doesn’t look like an act.
+
+### 7.3 Tags (admin, no code)
+
+**Where:** upload/paste Document details, or edit tags on each Documents row.
+
+- Keep a **small fixed vocabulary** (~10–20), lowercase, hyphenated — e.g. `act`, `regulations`, `weekly-payments`, `return-to-work`, `claim`, `employer`, `worker`, `insurer`, `medical`, `dispute`.  
+- Apply **multiple tags** when a doc spans topics.  
+- Keep Chat UI **Tags = Show** so users can focus; auto-tags only work if those strings exist on ready docs.  
+- Hidden Tags feature forces `focusTags` empty (no user tags **and** no auto-tags).
+
+**Failure sign:** RTW-style question hits random docs → missing `return-to-work` (or similar) on the right documents.
+
+### 7.4 Synonyms (code)
+
+**Where:** `includes/Retrieval.php` → `expandQuerySynonyms()` `$map`.
+
+| Step | Action |
+|------|--------|
+| 1 | Note the user phrase that failed Retrieval test |
+| 2 | Open the **correct chunk** and copy 2–5 words that actually appear there |
+| 3 | Map phrase → those words (document vocabulary, not a new paraphrase) |
+| 4 | Prefer multi-word keys (`time off work`) over ultra-short ones (`pay`) that fire too often |
+
+Example shape already in code: `'light duties' => 'return to work suitable employment'`.
+
+**Failure sign:** “Search query” barely differs from the raw question and hits miss the section → add a synonym that injects Act/Regs wording.
+
+### 7.5 Tag inference (code, pairs with tags)
+
+**Where:** `includes/Retrieval.php` → `inferFocusTags()` `$syn` array.
+
+- Keys must match **tags on documents** (e.g. `return-to-work`).  
+- Values = everyday phrases that should select that tag.  
+- New tag `journey-claims` needs a `$syn` entry **or** the literal tag text in the question.
+
+**Failure sign:** Retrieval test shows no/wrong `Tags: …` on a clear topic → tag absent on docs, or no `$syn` entry for that key.
+
+### 7.6 What “good” looks like (Retrieval test)
+
+- **Search query** longer / more legal than the raw question (synonyms and/or rewrite)  
+- **Quality: ok** (not weak) — roughly \(S_{\max} \ge 4\), or a strong legal-ref hit (see §9.11)  
+- Top hit **title/header** is the section you expect  
+- Focus tags sensible when the topic is clear  
+
+Then in chat: Sources match that doc; nonsense questions stay weak/hedged.
+
+### 7.7 Weekly practice
+
+| Step | Action |
+|------|--------|
+| Log | ~5 production questions that felt wrong |
+| Classify | Wrong doc / right doc wrong chunk / no hits / invented answer |
+| Fix | Corpus → tags → synonym → inference |
+| Verify | Retrieval test + one live chat |
+| Avoid | Dumping dozens of vague synonyms at once; re-test after each small batch |
+
+### 7.8 Don’t confuse with toggles
+
+Synonyms / tags / corpus change **what is retrieved**. HQ, Deep, and answer length change **how the answer is written**. Adaptive RAG **on** helps once tags and scores are already sharp.
+
+For retargeting the same loop to another business, see [ADAPT.md](ADAPT.md).
+
+---
+
+## 8. Limits (honest)
 
 - Lexical retrieval can miss paraphrases that never appear in the Act text even after synonyms.  
 - Rewrite / HQ verify depend on DeepSeek flash quality and cost extra latency.  
 - Guides can still rank if Act chunks are poorly titled or untagged.  
 - Web pages are not law — model instructions prefer Act/Regs, but mixed context can confuse.  
-- This is **not** a substitute for legal advice; grounding reduces inventing, it does not guarantee completeness of the corpus.
+- This is **not** a substitute for legal advice; grounding reduces inventing, it does not guarantee completeness of the corpus.  
+- Prefer §7 tuning over adding embedding/vector search for this corpus size and cPanel stack.
 
 ---
 
-## 8. Mathematical logic & weights
+## 9. Mathematical logic & weights
 
 Source of truth: `includes/Retrieval.php` (plus config defaults in `includes/config.example.php`). All scores are **relative** — they rank chunks; they are not calibrated probabilities.
 
-### 8.1 Configurable size caps (clamped in constructor)
+### 9.1 Configurable size caps (clamped in constructor)
 
 | Symbol | Config key | Default | Clamp |
 |--------|------------|---------|-------|
@@ -295,7 +386,7 @@ Other caps:
 | Chat history into model | `rag.max_history_messages` default 24 |
 | Chunking (ingest) | `chunk_max_chars` 3200, `chunk_overlap` 200 |
 
-### 8.2 Query preparation triggers
+### 9.2 Query preparation triggers
 
 **Synonym expansion** — if any map phrase is a substring of the lowercased query, append the expansion tokens (deduped). Map includes e.g. `time off`→`incapacity weekly payments`, `light duties`→`return to work suitable employment`, `stress`→`psychological injury mental`, etc. (full map in `expandQuerySynonyms`).
 
@@ -310,7 +401,7 @@ Returned tags are intersected with corpus tags; empty → inferred tags.
 
 **Infer focus tags** — for each available document tag \(t\), score = count of synonym needles found in the query (min needle length 3). Take top \(max(1,\min(5,3))\) = top 3 tags by that count.
 
-### 8.3 Multi-channel merge
+### 9.3 Multi-channel merge
 
 Queries considered (order):
 
@@ -346,7 +437,7 @@ s' & \text{first time}\\
 
 So duplicate evidence across channels **raises** the score (max + 15% of the new weighted score), not pure replace.
 
-### 8.4 Section-reference base scores (`sectionRefSearch`)
+### 9.4 Section-reference base scores (`sectionRefSearch`)
 
 Before merge weight, each matching row gets:
 
@@ -359,7 +450,7 @@ Before merge weight, each matching row gets:
 
 After merge with \(w_c=2.4\) and primary \(w_q=1.15\): e.g. exact section heading ≈ \(24 \times 2.4 \times 1.15 \approx 66.2\) before later tag boosts.
 
-### 8.5 Keyword score (`keywordSearch`)
+### 9.5 Keyword score (`keywordSearch`)
 
 Haystack = lowercase `title + tags + header_path + search_text + text`.
 
@@ -407,7 +498,7 @@ Document-kind multiplier (applied last to keyword \(S\)):
 
 Rows with \(S \le 0\) dropped; keep top \(K\times 8\).
 
-### 8.6 Cross-document & focus-tag seeding
+### 9.6 Cross-document & focus-tag seeding
 
 **`crossDocumentBoost`** (per ready doc whose title/filename/tags hit terms): best chunk score ≈  
 \(\sum_t \text{count}(t) + 3\cdot\mathbf{1}_{\text{header}} + 2\cdot(\#\text{matched title/tag terms})\), floored at 1; title-only stub score 2.5. Then × merge weight 1.35.
@@ -430,7 +521,7 @@ S \leftarrow S\cdot(1 + 0.5\,h) + 10\,h
 
 Example: \(h=1\) → \(S' = 1.5S + 10\); \(h=2\) → \(S' = 2S + 20\).
 
-### 8.7 Document activation score (Adaptive)
+### 9.7 Document activation score (Adaptive)
 
 For each document:
 
@@ -448,7 +539,7 @@ S_{\text{doc}} = \sum_{\text{chunks}} S_{\text{chunk}}
 
 (`tag_hit` / `ref_hit` flags set when those bonuses fire.)
 
-### 8.8 Adaptive mode decision (`decideAdaptiveMode`)
+### 9.8 Adaptive mode decision (`decideAdaptiveMode`)
 
 Let \(T = S_{\text{doc}}^{(1)}\), \(U = S_{\text{doc}}^{(2)}\).  
 \(\text{nearTop}\) = count of docs with \(S_{\text{doc}} \ge 0.8\,T\).
@@ -473,7 +564,7 @@ If clear → activate up to \(A\) docs in score order, stopping when a later doc
 - tagsAgree and focus tags nonempty → **`slim_tagged`** (\(K_{st}\), \(M_s\))  
 - else → **`slim`** (\(K_s\), \(M_s\))
 
-### 8.9 Soft filter on activated docs
+### 9.9 Soft filter on activated docs
 
 Reserve outsider slots:
 
@@ -484,7 +575,7 @@ R = \max\!\bigl(1,\;\lceil 0.25\, K_{\text{eff}} \rceil\bigr),\quad
 
 Take up to `main` hits from activated docs (focus-tag preferred order), then up to \(R\) from non-activated; re-sort by score. Then `diversifyHits`.
 
-### 8.10 Diversify, Act/Regs quota, neighbours
+### 9.10 Diversify, Act/Regs quota, neighbours
 
 **`diversifyHits`:** walk score-desc; accept chunk if that doc still has \(< M_{\text{eff}}\) chunks in the pick; stop at \(K_{\text{eff}}\); if short, fill from deferred (over-cap) scores.
 
@@ -498,7 +589,7 @@ Take up to `main` hits from activated docs (focus-tag preferred order), then up 
 
 Legacy/full: fill up to \(K_{\text{eff}}\). Slim: at most **one** extra neighbor if under capacity.
 
-### 8.11 Quality gate (repeat)
+### 9.11 Quality gate (repeat)
 
 \[
 \text{weak} =
@@ -511,7 +602,7 @@ Legacy/full: fill up to \(K_{\text{eff}}\). Slim: at most **one** extra neighbor
 
 Interpretation: even with a legal-ref hit in excerpts, \(S_{\max} < 2.5\) is still weak; between 2.5 and 4 needs a ref hit to be “ok”.
 
-### 8.12 Worked micro-example (keyword only)
+### 9.12 Worked micro-example (keyword only)
 
 Query term `incapacity` (len 10) once in text, once in header of an Act chunk; no full-phrase match; 1 of 1 terms matched.
 
@@ -525,7 +616,7 @@ S &\leftarrow 6.5 \times 1.25 = 8.125 &&\text{(act kind)}
 
 After merge with keyword \(w_c=1.5\) and alsoQuery \(w_q=1.15\): \(S \approx 8.125 \times 1.725 \approx 14.0\). One focus-tag hit then: \(S \leftarrow 14\cdot 1.5 + 10 = 31\). That clears the weak gate (\(S_{\max} \ge 4\)).
 
-### 8.13 What is *not* weighted numerically
+### 9.13 What is *not* weighted numerically
 
 - HQ vs Basic — prompt style (+ optional faithfulness LLM), not retrieval scores  
 - Deep thinking — model reasoning flag  

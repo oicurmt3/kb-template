@@ -14,7 +14,9 @@
 
 ## Accuracy checklist
 
-Use [ACCURACY.md](ACCURACY.md) profiles. Sample prompts:
+Use [ACCURACY.md](ACCURACY.md) profiles. When hits are wrong, tune with [ACCURACY.md §7](ACCURACY.md) (corpus → tags → synonyms → tag inference) via Admin → Retrieval test — do not jump to embeddings.
+
+Sample prompts:
 
 | Prompt | Expect |
 |--------|--------|
