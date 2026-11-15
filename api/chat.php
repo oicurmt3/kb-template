@@ -284,7 +284,7 @@ try {
 
     $systemPrompt .= "\n\n" . WebFetch::answerLengthInstruction($answerLength);
     if ($hqMode) {
-        $systemPrompt .= "\n\n" . AppSettings::hqInstruction();
+        $systemPrompt .= "\n\n" . AppSettings::hqInstruction($answerLength);
     } elseif ($simpleExplain) {
         $systemPrompt .= "\n\n" . AppSettings::simpleExplainInstruction();
     }
@@ -419,6 +419,37 @@ try {
             . ' @' . (int)($ragWebMix['degree'] ?? 50);
     }
 
+    if (!AppSettings::uiFeatureEnabled('sources')) {
+        $citations = [];
+    }
+
+    // Deep policy before history freeze — so grounding/length lock can append to system prompt
+    $deepCtx = [
+        'rewritten' => !empty($prep['rewritten'] ?? false),
+        'weak' => !empty($quality['weak'] ?? false),
+        'hit_count' => (int)($quality['hit_count'] ?? 0),
+        'max_score' => (float)($quality['max_score'] ?? 0),
+    ];
+    $deepResolve = AppSettings::resolveDeepThinking(
+        $deepUserAsked,
+        $message,
+        $mode,
+        $convId,
+        $deepCtx
+    );
+    $deepThinking = !empty($deepResolve['enabled']);
+    $webNotes[] = 'Deep: ' . ($deepThinking ? 'on' : 'off')
+        . ' (' . (string)($deepResolve['reason'] ?? 'unknown')
+        . '; policy=' . (string)($deepResolve['policy'] ?? 'manual')
+        . '; chat=' . (int)($deepResolve['used_in_chat'] ?? 0)
+        . '/' . (int)($deepResolve['max_per_chat'] ?? 0) . ')';
+
+    if ($deepThinking) {
+        $systemPrompt .= "\n\n" . AppSettings::deepThinkingInstruction($answerLength);
+    }
+    // Length last so it wins over HQ "thorough" / mix verbosity
+    $systemPrompt .= "\n\n" . WebFetch::answerLengthClosingReminder($answerLength);
+
     $reminder = latest_reminder_content($config['app'] ?? []);
     $history = [['role' => 'system', 'content' => $systemPrompt]];
     $lastIdx = count($plainHistory) - 1;
@@ -444,31 +475,6 @@ try {
             $history[] = ['role' => 'assistant', 'content' => (string)$r['content']];
         }
     }
-
-    if (!AppSettings::uiFeatureEnabled('sources')) {
-        $citations = [];
-    }
-
-    // Deep policy: manual / auto (heuristics; toggle forces on) / always — then per-chat cap
-    $deepCtx = [
-        'rewritten' => !empty($prep['rewritten'] ?? false),
-        'weak' => !empty($quality['weak'] ?? false),
-        'hit_count' => (int)($quality['hit_count'] ?? 0),
-        'max_score' => (float)($quality['max_score'] ?? 0),
-    ];
-    $deepResolve = AppSettings::resolveDeepThinking(
-        $deepUserAsked,
-        $message,
-        $mode,
-        $convId,
-        $deepCtx
-    );
-    $deepThinking = !empty($deepResolve['enabled']);
-    $webNotes[] = 'Deep: ' . ($deepThinking ? 'on' : 'off')
-        . ' (' . (string)($deepResolve['reason'] ?? 'unknown')
-        . '; policy=' . (string)($deepResolve['policy'] ?? 'auto')
-        . '; chat=' . (int)($deepResolve['used_in_chat'] ?? 0)
-        . '/' . (int)($deepResolve['max_per_chat'] ?? 0) . ')';
 
     sse('meta', [
         'conversation_id' => $convId,
@@ -561,7 +567,8 @@ try {
                     'docs' => $faithDocsGrounding ?? '',
                     'web' => $faithWebGrounding ?? '',
                     'extra' => $faithExtraGrounding ?? '',
-                ]
+                ],
+                $answerLength
             );
             if (!empty($verified['rejected']) && $verified['rejected'] === 'shrink') {
                 $webNotes[] = 'Faithfulness: kept draft (correction too short)';

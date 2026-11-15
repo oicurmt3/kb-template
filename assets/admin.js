@@ -653,7 +653,7 @@
 
   function applyDeepPolicy(policy) {
     const p = policy && typeof policy === 'object' ? policy : {};
-    const mode = ['manual', 'auto', 'always'].includes(p.mode) ? p.mode : 'auto';
+    const mode = ['manual', 'auto', 'always'].includes(p.mode) ? p.mode : 'manual';
     const el = document.getElementById('deep-policy-' + mode);
     if (el) el.checked = true;
     if ($deepMaxPerChat) {
@@ -669,7 +669,7 @@
 
   function selectedDeepPolicy() {
     const el = document.querySelector('input[name="deep-policy-mode"]:checked');
-    const mode = el ? el.value : 'auto';
+    const mode = el ? el.value : 'manual';
     let max = $deepMaxPerChat ? parseInt($deepMaxPerChat.value, 10) : 3;
     if (!Number.isFinite(max)) max = 3;
     max = Math.max(0, Math.min(50, max));

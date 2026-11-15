@@ -244,9 +244,23 @@ class WebFetch {
 
     public static function answerLengthInstruction(string $length): string {
         return match ($length) {
-            'short' => 'Answer length: SHORT. Reply in 2 to 4 plain sentences. No preamble.',
+            'short' => 'Answer length: SHORT (hard limit). Reply in at most 4 plain sentences '
+                . '(prefer 2–3). Lead with the direct answer. No preamble, no bullet lists, '
+                . 'no background history, no unsolicited related topics or “also note” digressions. '
+                . 'If unsure from the sources, say so briefly — do not pad.',
             'long' => 'Answer length: LONG. Give a thorough plain-text answer with clear structure in paragraphs. Cover related points when useful.',
             default => 'Answer length: MEDIUM. Reply in one or two short paragraphs. Be clear and complete without padding.',
+        };
+    }
+
+    /** Closing reminder — place after enrichment so length still wins over HQ/mix verbosity. */
+    public static function answerLengthClosingReminder(string $length): string {
+        return match ($length) {
+            'short' => 'FINAL LENGTH CHECK: the user-visible answer must be SHORT — at most 4 sentences. '
+                . 'Ignore any earlier instruction that asked you to be thorough, cover related points, '
+                . 'or expand. Completeness means accurate and sourced, not long.',
+            'long' => 'FINAL LENGTH CHECK: LONG mode is allowed — keep structure clear; still do not invent.',
+            default => 'FINAL LENGTH CHECK: MEDIUM — one or two short paragraphs; no padding.',
         };
     }
 }

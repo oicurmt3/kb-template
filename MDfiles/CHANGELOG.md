@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-15 — Short length + Deep hallucination fix
+
+- Short answer length hardened (≤4 sentences) + closing reminder after HQ/mix so it wins
+- HQ instruction is length-aware (Short no longer says “thorough / cover related points”)
+- Deep default → **manual**; auto heuristics tightened (no auto-Deep on weak/many hits)
+- Deep-on turns get grounding + length lock; faithfulness may trim padding in Short mode
+
 ## 2026-11-15 — Auto Deep thinking + admin stats
 
 - Admin **Deep thinking** policy: `manual` / `auto` (default) / `always`, plus **max Deep per chat** (0 = unlimited)

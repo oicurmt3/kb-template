@@ -121,17 +121,21 @@ Always applied:
 
 #### E2. Deep thinking (during stream; admin policy)
 
-When Deep is **enabled for the turn**, the chat request sets DeepSeek API `"thinking": { "type": "enabled" }` ([Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode/)). The model produces chain-of-thought (`reasoning_content`) then the user answer (`content`). WANDA streams the answer content to the UI. Deep improves careful reasoning; it does **not** replace the faithfulness audit below.
+When Deep is **enabled for the turn**, the chat request sets DeepSeek API `"thinking": { "type": "enabled" }` ([Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode/)). The model produces chain-of-thought (`reasoning_content`) then the user answer (`content`). WANDA streams the answer content to the UI. Deep improves careful reasoning; it does **not** replace the faithfulness audit below. Deep can still lengthen answers or invent under thin sources — prefer **Manual** when Answer length is **Short**.
 
 Admin **Deep thinking** policy (`deep_thinking_policy` in settings):
 
 | Mode | Behaviour |
 |------|-----------|
-| **manual** | Composer Deep toggle only |
-| **auto** (default) | Server turns Deep on for hard questions (long / multi-part, weak retrieval, many hits, rewritten follow-ups); user toggle **forces on** |
+| **manual** (default) | Composer Deep toggle only |
+| **auto** | Only clearly long / multi-part questions; toggle **forces on**. Does **not** auto-on for weak retrieval or many hits (that increased hallucinations) |
 | **always** | Deep every turn until the per-chat cap |
 
-**Max Deep per chat** (0 = unlimited, default 3) caps how many assistant turns in one conversation may use Deep. Decisions are counted in `deep_thinking_stats` (on/off, auto_on, user_force, capped, …) and shown in Admin. SSE / notes: `Deep: on|off (reason; policy=…; chat=used/max)`.
+**Max Deep per chat** (0 = unlimited, default 3) caps how many assistant turns in one conversation may use Deep. Decisions are counted in `deep_thinking_stats` (on/off, auto_on, user_force, capped, …) and shown in Admin. SSE / notes: `Deep: on|off (reason; policy=…; chat=used/max)`. When Deep is on, a grounding + length reminder is appended to the system prompt.
+
+#### E2b. Answer length enforcement
+
+Admin **Short / Medium / Long** is applied twice: early instruction + **closing reminder after** HQ/mix/web so length wins over “be thorough”. HQ wording is length-aware (Short = precision without expansion). Faithfulness in Short mode may trim unsupported padding.
 
 #### F. Faithfulness check (`verifyGroundedAnswer`) — automatic QA after the mix
 

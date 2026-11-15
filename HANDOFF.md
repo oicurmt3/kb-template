@@ -4,6 +4,17 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-15 — Short length + Deep regression fix
+
+**Done**
+
+- Closing length reminder; HQ length-aware; Deep default manual; auto no longer on weak/hits
+- Deep-on grounding lock; Short faithfulness may trim padding
+
+**Ops**
+
+- If Admin still shows Deep=Auto from an earlier save, switch to **Manual** and Save.
+
 ## 2026-11-15 — Auto Deep + admin stats
 
 **Done**
@@ -16,8 +27,8 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 | Mode | Behaviour |
 |------|-----------|
-| manual | Toggle only |
-| auto | Heuristics; toggle forces on |
+| manual (default) | Toggle only |
+| auto | Strict multi-part/long only; toggle forces on |
 | always | Every turn until cap |
 
 ---

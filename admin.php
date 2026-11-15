@@ -109,7 +109,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
           <span class="admin-card-summary-title">Answer length</span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">Global default for all chat replies (users no longer choose this in the composer).</p>
+          <p class="hint">Global default for all chat replies (users no longer choose this in the composer). <strong>Short</strong> hard-caps the visible answer (≈2–4 sentences). HQ and Deep must still obey this.</p>
           <div class="inline" style="margin-top:10px" role="group" aria-label="Answer length">
             <label class="mode-toggle"><input type="radio" name="answer-length" id="answer-length-short" value="short"> <span>Short</span></label>
             <label class="mode-toggle"><input type="radio" name="answer-length" id="answer-length-medium" value="medium" checked> <span>Medium</span></label>
@@ -145,10 +145,10 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
           <span id="deep-policy-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint"><strong>Manual</strong> — composer Deep toggle only. <strong>Auto</strong> (default) — server turns Deep on for hard questions (long/multi-part, weak retrieval, many hits, follow-ups); toggle <em>forces on</em>. <strong>Always</strong> — Deep every turn until the per-chat cap. Cap <strong>0</strong> = unlimited. Stats count on vs off decisions (and why).</p>
+          <p class="hint"><strong>Manual</strong> (default, recommended with Short answers) — composer Deep toggle only. <strong>Auto</strong> — only for clearly long/multi-part questions (not weak retrieval). Toggle <em>forces on</em>. <strong>Always</strong> — Deep every turn until the per-chat cap. Cap <strong>0</strong> = unlimited. Auto Deep can lengthen answers and invent under thin sources — prefer Manual when Answer length is Short.</p>
           <div class="inline" style="margin-top:10px;flex-wrap:wrap" role="group" aria-label="Deep thinking policy">
-            <label class="mode-toggle"><input type="radio" name="deep-policy-mode" id="deep-policy-manual" value="manual"> <span>Manual</span></label>
-            <label class="mode-toggle"><input type="radio" name="deep-policy-mode" id="deep-policy-auto" value="auto" checked> <span>Auto</span></label>
+            <label class="mode-toggle"><input type="radio" name="deep-policy-mode" id="deep-policy-manual" value="manual" checked> <span>Manual</span></label>
+            <label class="mode-toggle"><input type="radio" name="deep-policy-mode" id="deep-policy-auto" value="auto"> <span>Auto</span></label>
             <label class="mode-toggle"><input type="radio" name="deep-policy-mode" id="deep-policy-always" value="always"> <span>Always</span></label>
           </div>
           <div class="inline" style="margin-top:12px;align-items:center;gap:12px;flex-wrap:wrap">

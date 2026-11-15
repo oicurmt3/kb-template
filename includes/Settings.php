@@ -17,7 +17,8 @@ class AppSettings {
     public const DEFAULT_RAG_WEB_DEGREE = 50;
     public const KEY_UI = 'ui_features';
     public const KEY_DEEP_POLICY = 'deep_thinking_policy';
-    public const DEFAULT_DEEP_MODE = 'auto';
+    /** Manual by default — auto Deep tends to lengthen answers and invent under weak grounding. */
+    public const DEFAULT_DEEP_MODE = 'manual';
     public const DEFAULT_DEEP_MAX_PER_CHAT = 3;
     public const KEY_DEEP_STATS = 'deep_thinking_stats';
 
@@ -162,35 +163,20 @@ class AppSettings {
      * @param array{weak?:bool,hit_count?:int,max_score?:float,rewritten?:bool} $ctx
      */
     public static function shouldAutoDeepThinking(string $message, string $mode, array $ctx = []): bool {
+        // Conservative: do NOT auto-Deep on weak retrieval or many hits — that increases invention.
         $msg = trim($message);
         $len = mb_strlen($msg);
-        if ($len >= 160) {
-            return true;
-        }
         $lower = mb_strtolower($msg);
-        if (preg_match(
-            '/\b(compare|difference|versus|vs\.?|both|unless|except|however|step by step|carefully|in detail|explain how|what happens if|if .+ then)\b/u',
-            $lower
-        )) {
+        $multiPart = substr_count($lower, '?') >= 2
+            || (bool)preg_match(
+                '/\b(compare|difference|versus|vs\.?|both|step by step|what happens if)\b/u',
+                $lower
+            );
+        if ($multiPart && $len >= 100) {
             return true;
         }
-        if (substr_count($lower, '?') >= 2) {
+        if ($len >= 280) {
             return true;
-        }
-        if (preg_match('/\b(and|or)\b/u', $lower) && $len >= 80) {
-            return true;
-        }
-        if (!empty($ctx['rewritten']) && $len < 100) {
-            return true;
-        }
-        if ($mode === 'rag') {
-            if (!empty($ctx['weak'])) {
-                return true;
-            }
-            $hits = isset($ctx['hit_count']) ? (int)$ctx['hit_count'] : 0;
-            if ($hits >= 5) {
-                return true;
-            }
         }
         return false;
     }
@@ -727,12 +713,44 @@ class AppSettings {
     /**
      * HQ mode: richer / more precise language only (no post-stream rewrite).
      * Faithfulness is a separate automatic check when grounding exists.
+     * Respects global answer length so "thorough" does not override Short.
      */
-    public static function hqInstruction(): string {
-        return "Answer in high-quality mode: be precise and thorough. Use correct legal "
-            . "and technical terms when the excerpts support them, name section/regulation "
-            . "numbers clearly, and cover important related points, exceptions, and "
-            . "definitions. Still write plain text only (no Markdown). Do not invent rules.";
+    public static function hqInstruction(?string $answerLength = null): string {
+        $len = $answerLength !== null
+            ? strtolower(trim($answerLength))
+            : self::answerLength();
+        if ($len === 'short') {
+            return 'Answer in high-quality mode within the SHORT length limit: precise legal '
+                . 'wording when the excerpts support it; name section/regulation numbers when '
+                . 'relevant. Prefer accuracy over coverage — do not expand into exceptions, '
+                . 'related topics, or definitions unless needed for the direct answer. '
+                . 'Plain text only (no Markdown). Do not invent rules.';
+        }
+        if ($len === 'long') {
+            return 'Answer in high-quality mode: be precise and thorough. Use correct legal '
+                . 'and technical terms when the excerpts support them, name section/regulation '
+                . 'numbers clearly, and cover important related points, exceptions, and '
+                . 'definitions. Still write plain text only (no Markdown). Do not invent rules.';
+        }
+        return 'Answer in high-quality mode: be precise. Use correct legal and technical terms '
+            . 'when the excerpts support them; name section/regulation numbers clearly. '
+            . 'Include a key exception only if it directly affects the answer. Stay within '
+            . 'MEDIUM length. Plain text only (no Markdown). Do not invent rules.';
+    }
+
+    /** Extra system lines when Deep thinking is on for this turn. */
+    public static function deepThinkingInstruction(string $answerLength = 'medium'): string {
+        $len = strtolower(trim($answerLength));
+        $lengthBit = $len === 'short'
+            ? 'Your visible answer must still obey SHORT (≤4 sentences).'
+            : ($len === 'long'
+                ? 'You may be thorough, but every claim needs source support.'
+                : 'Keep the visible answer MEDIUM — thinking is private; the answer is not an essay.');
+        return 'Deep thinking is enabled for reasoning only. '
+            . 'The user-visible answer must stay strictly grounded in the provided excerpts/web/context. '
+            . 'Do not invent section numbers, duties, time limits, or procedures. '
+            . 'If sources are thin or conflicting, say what is and is not supported — do not fill gaps. '
+            . $lengthBit;
     }
 
     /** Global chat answer length: short | medium | long */

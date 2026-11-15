@@ -365,6 +365,7 @@ class Retrieval {
      * @param array<string,mixed> $deepseekCfg
      * @param array{mode?:string,degree?:int}|array<string,mixed> $mixOpts
      * @param array{docs?:string,web?:string,extra?:string} $groundingParts When non-empty, packed with web/extra reserved
+     * @param string $answerLength short|medium|long — when short, rewrites must stay brief
      * @return array{content:string,checked:bool,changed:bool,rejected?:string}
      */
     public static function verifyGroundedAnswer(
@@ -372,7 +373,8 @@ class Retrieval {
         string $grounding,
         array $deepseekCfg = [],
         array $mixOpts = [],
-        array $groundingParts = []
+        array $groundingParts = [],
+        string $answerLength = 'medium'
     ): array {
         $answer = trim($answer);
         $packed = '';
@@ -393,15 +395,22 @@ class Retrieval {
                 ? AppSettings::ragWebMixHqHint($mix)
                 : 'Keep claims supported by docs or allowlisted web; do not invent.';
             $mode = (string)($mix['mode'] ?? 'complement');
+            $len = strtolower(trim($answerLength));
             $conservative = 'You are a faithfulness gate, not an editor. '
                 . 'SOURCE MATERIAL may include uploaded excerpts, allowlisted web/URL text, and user-provided file/text. '
                 . $mixHint . ' '
                 . 'If substantive claims are supported under that mix policy, reply with exactly: OK '
-                . '(ignore minor wording differences; do not rewrite for style, tone, or length). '
+                . '(ignore minor wording differences; do not rewrite for style or tone). '
                 . 'Only rewrite when the draft invents rules, section/regulation numbers, duties, or facts '
                 . 'not supported by SOURCE MATERIAL. '
                 . 'When rewriting: drop only clear inventions; preserve supported document AND web details; '
-                . 'do not shorten a good answer; plain text only; no markdown.';
+                . 'plain text only; no markdown.';
+            if ($len === 'short') {
+                $conservative .= ' Admin answer length is SHORT: if you rewrite, keep at most 4 sentences; '
+                    . 'removing unsupported padding is allowed. Do not expand the answer.';
+            } else {
+                $conservative .= ' Do not shorten a good supported answer for style reasons.';
+            }
             if ($mode === 'complement') {
                 $conservative .= ' Under complement: never strip web-backed enrichment that appears in SOURCE MATERIAL.';
             }
@@ -427,9 +436,14 @@ class Retrieval {
                 return ['content' => $answer, 'checked' => true, 'changed' => false];
             }
             // Reject noisy / harmful shrinks — keep the streamed draft
+            // Short mode: allow aggressive trim of unsupported padding
             $origLen = mb_strlen($answer);
             $newLen = mb_strlen($out);
-            if ($origLen >= 200 && $newLen < (int)floor($origLen * 0.5)) {
+            if (
+                $len !== 'short'
+                && $origLen >= 200
+                && $newLen < (int)floor($origLen * 0.5)
+            ) {
                 return [
                     'content' => $answer,
                     'checked' => true,

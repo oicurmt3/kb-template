@@ -9,7 +9,8 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 - **Grounding contract** in `Retrieval::buildContext()` — answers must stay excerpt-bound when WorkCover is on.
 - **HQ vs Basic** — HQ = richer/precise language only (`hqInstruction`). HQ off = `simpleExplain` by admin age. Do **not** hang the post-stream faithfulness rewrite on HQ (legacy “Plain” was removed; faithfulness is separate).
 - **Faithfulness is automatic** when docs and/or allowlisted web/URL and/or attach grounding exists — prefer `OK`, pack via `packHqGrounding`, reject harmful shrinks, skip DeepSeek Files. Do not strip allowlisted web under complement.
-- **Deep** = DeepSeek API `"thinking": {"type":"enabled"}` only — not the faithfulness auditor. Admin policy `manual` / `auto` / `always` + max per chat; auto uses heuristics (toggle forces on).
+- **Deep** = DeepSeek API `"thinking": {"type":"enabled"}` only — not the faithfulness auditor. Admin policy `manual` (default) / `auto` / `always` + max per chat. Prefer Manual with Short answers; auto must not fire on weak retrieval.
+- **Answer length Short** must win over HQ “thorough” — closing length reminder after mix; HQ is length-aware.
 - **No citation numbers in model text** — sources render in the UI from `citations` / `sources` blocks.
 - **Web search is host-restricted** — never enable unrestricted DeepSeek open-web search; use `WebFetch` + allowed hosts.
 - **Session isolation** — conversations are keyed by `session_id` cookie; do not leak across sessions.
