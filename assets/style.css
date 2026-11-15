@@ -819,6 +819,14 @@ a.cite-link:focus {
 .hint { font-size: 12px; color: var(--muted); }
 .hint.ok { color: var(--ok); }
 .hint.err, .err { color: var(--error); }
+.rag-web-mix-hint {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  line-height: 1.45;
+  max-width: 52rem;
+}
 .muted { color: var(--muted); font-weight: 400; }
 code { background: var(--bg-alt); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
 

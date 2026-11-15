@@ -27,6 +27,7 @@
   const $ragWebDegreeVal = document.getElementById('rag-web-degree-val');
   const $saveRagWebMix = document.getElementById('save-rag-web-mix');
   const $ragWebMixStatus = document.getElementById('rag-web-mix-status');
+  const $ragWebMixHint = document.getElementById('rag-web-mix-hint');
   const $uiIntro = document.getElementById('ui-intro');
   const $uiFeaturesList = document.getElementById('ui-features-list');
   const $saveUiFeatures = document.getElementById('save-ui-features');
@@ -562,6 +563,76 @@
     $ragWebMixStatus.classList.toggle('ok', !!msg && !isErr);
   }
 
+  function degreeBand(degree) {
+    if (degree <= 25) return 'light';
+    if (degree <= 60) return 'medium';
+    return 'strong';
+  }
+
+  /** Plain-English explanation of the current mix for admins. */
+  function ragWebMixLaymanHint(mode, degree) {
+    const d = Number.isFinite(degree) ? degree : 50;
+    const band = degreeBand(d);
+    const strength =
+      band === 'light'
+        ? 'only a little'
+        : band === 'medium'
+          ? 'a fair amount'
+          : 'a lot';
+
+    if (mode === 'docs_first') {
+      return (
+        'In plain terms: trust your uploaded Act, Regulations, and guides first. ' +
+        'The live website is used ' +
+        strength +
+        ' (degree ' +
+        d +
+        ') only when the documents are thin or silent — for example current how-to pages. ' +
+        'Web should not override what the Act says. Good default when legal accuracy matters most.'
+      );
+    }
+    if (mode === 'web_first') {
+      return (
+        'In plain terms: lead with what the live allowlisted website says today. ' +
+        'Your uploaded documents still supply ' +
+        strength +
+        ' of the legal backbone (degree ' +
+        d +
+        ') — section numbers and duties from the Act/Regs. ' +
+        'Useful when the site is the day-to-day guide and the PDFs are the rulebook.'
+      );
+    }
+    if (mode === 'compete') {
+      return (
+        'In plain terms: do not blend both sides into one soft answer. ' +
+        'Pick the clearer winner for the question. ' +
+        (band === 'light'
+          ? 'At this degree (' + d + '), the uploaded documents usually win when both look plausible.'
+          : band === 'medium'
+            ? 'At this degree (' + d + '), either side can win — whichever fits the question better.'
+            : 'At this degree (' + d + '), the live website is favoured when both sides look plausible (Act/Regs still win clear statute questions).') +
+        ' Use this when you want a decisive answer, not a merge.'
+      );
+    }
+    // complement
+    return (
+      'In plain terms: use your uploaded documents and the live website together as one answer. ' +
+      'The site adds ' +
+      strength +
+      ' of extra detail and up-to-date wording (degree ' +
+      d +
+      '), while Act/Regulations stay the legal authority. ' +
+      'Web content that the PDFs omit should be kept, not thrown away. ' +
+      'Best everyday setting for WorkCover Docs mode.'
+    );
+  }
+
+  function updateRagWebMixHint() {
+    if (!$ragWebMixHint) return;
+    const mix = selectedRagWebMix();
+    $ragWebMixHint.textContent = ragWebMixLaymanHint(mix.mode, mix.degree);
+  }
+
   function applyRagWebMix(mix) {
     const mode = (mix && mix.mode) || 'complement';
     const degree = mix && typeof mix.degree === 'number' ? mix.degree : 50;
@@ -576,6 +647,7 @@
     if (el) el.checked = true;
     if ($ragWebDegree) $ragWebDegree.value = String(degree);
     if ($ragWebDegreeVal) $ragWebDegreeVal.textContent = String(degree);
+    updateRagWebMixHint();
   }
 
   function selectedRagWebMix() {
@@ -591,8 +663,13 @@
   if ($ragWebDegree) {
     $ragWebDegree.addEventListener('input', () => {
       if ($ragWebDegreeVal) $ragWebDegreeVal.textContent = $ragWebDegree.value;
+      updateRagWebMixHint();
     });
   }
+  document.querySelectorAll('input[name="rag-web-mode"]').forEach((radio) => {
+    radio.addEventListener('change', updateRagWebMixHint);
+  });
+  updateRagWebMixHint();
 
   function setUiFeaturesStatus(msg, isErr) {
     if (!$uiFeaturesStatus) return;

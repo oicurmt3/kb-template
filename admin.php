@@ -111,6 +111,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
         <button type="button" id="save-rag-web-mix" class="btn btn-primary">Save mix</button>
         <span id="rag-web-mix-status" class="hint" aria-live="polite"></span>
       </div>
+      <p id="rag-web-mix-hint" class="hint rag-web-mix-hint" style="margin-top:12px" aria-live="polite"></p>
     </section>
 
     <section class="card">
