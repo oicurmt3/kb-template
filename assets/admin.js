@@ -214,8 +214,9 @@
       const urlInput = document.createElement('input');
       urlInput.type = 'url';
       urlInput.className = 'tag-input source-url-input';
-      urlInput.placeholder = 'Source URL (https://…)';
+      urlInput.placeholder = 'Source URL (https://…) — also live web when retrieved';
       urlInput.value = d.source_url || '';
+      urlInput.title = 'Citation link and live allowlisted fetch when this document is retrieved in chat';
       urlInput.setAttribute('aria-label', 'Source URL for ' + (d.title || d.filename));
 
       const btnSaveMeta = document.createElement('button');

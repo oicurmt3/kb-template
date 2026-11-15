@@ -267,7 +267,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
               <input type="text" id="doc-title" placeholder="Title (optional)" title="Used for uploads and paste. Empty on paste → AI suggests a name.">
               <input type="text" id="doc-department" placeholder="Department (optional)" title="Used for uploads and paste">
               <input type="text" id="doc-tags" placeholder="Tags: act, worker, return-to-work" title="Comma-separated tags for retrieval — used for uploads and paste">
-              <input type="url" id="doc-source-url" placeholder="Source URL (optional)" title="Public citation link — used for uploads and paste" autocomplete="off">
+              <input type="url" id="doc-source-url" placeholder="Source URL (optional)" title="Public page for this doc — citation link + live web fetch when the doc is retrieved (allowlisted hosts)" autocomplete="off">
             </div>
           </div>
           <div class="inline" style="margin-top:10px;flex-wrap:wrap">

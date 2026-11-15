@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-15 — Document Source URL as live web
+
+- Admin document **Source URL** (`source-url-input`) is fetched as allowlisted live web when that doc appears in RAG hits (max 3/turn)
+- Feeds system prompt + faithfulness web grounding + RAG↔Web mix; notes `Doc source URL: …`
+
 ## 2026-11-15 — Faithfulness strictness slider
 
 - Admin **Faithfulness** card: 0–100 slider (0 = off; default 70)

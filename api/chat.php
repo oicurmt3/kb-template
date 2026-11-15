@@ -154,6 +154,9 @@ try {
     $webNotes = [];
     $prep = ['rewritten' => false, 'inferred_tags' => [], 'query' => $message];
     $quality = ['weak' => false, 'hit_count' => 0, 'max_score' => 0.0];
+    /** @var array<string,true> unique document source_url values from RAG hits */
+    $docSourceUrls = [];
+    $docSourceWebUsed = false;
 
     if ($mode === 'rag') {
         $systemPrompt = $config['app']['rag_system_prompt'] ?? (
@@ -216,6 +219,16 @@ try {
         $built = Retrieval::buildContext($hits, ['allow_web_context' => $allowWebContext]);
         $citations = $built['sources'] !== [] ? $built['sources'] : $built['citations'];
         $dsFiles = Retrieval::deepseekFilesFromHits($hits);
+        foreach ($hits as $h) {
+            $rawUrl = isset($h['source_url']) ? trim((string)$h['source_url']) : '';
+            if ($rawUrl === '') {
+                continue;
+            }
+            $normUrl = normalize_source_url($rawUrl);
+            if ($normUrl !== null) {
+                $docSourceUrls[$normUrl] = true;
+            }
+        }
         if ($focusTags !== []) {
             $systemPrompt .= "\n\nUser focus tags for this question: " . implode(', ', $focusTags)
                 . ". These are preferences only — still use other excerpts when the question requires them.";
@@ -338,6 +351,80 @@ try {
         }
     }
 
+    // Document Source URL fields (admin tag-input / source-url-input) → live web when those docs hit
+    $fetchedUrlKeys = [];
+    if ($contextUrl !== '') {
+        $fetchedUrlKeys[strtolower($contextUrl)] = true;
+    }
+    if ($mode === 'rag' && $docSourceUrls !== []) {
+        if (empty($webCfg['enabled'])) {
+            $webNotes[] = 'Doc source URL fetch skipped (web disabled in config).';
+        } else {
+            $maxDocSourceFetches = 3;
+            $fetchedCount = 0;
+            foreach (array_keys($docSourceUrls) as $docUrl) {
+                if ($fetchedCount >= $maxDocSourceFetches) {
+                    $webNotes[] = 'Doc source URLs: capped at ' . $maxDocSourceFetches . ' this turn';
+                    break;
+                }
+                $key = strtolower($docUrl);
+                if (isset($fetchedUrlKeys[$key])) {
+                    continue;
+                }
+                if (!$wf->isAllowedUrl($docUrl)) {
+                    $webNotes[] = 'Doc source URL skipped (not allowlisted): ' . $docUrl;
+                    continue;
+                }
+                if (!rate_limit_check('web_fetch', 20, 60)) {
+                    $webNotes[] = 'Doc source URL fetch rate-limited.';
+                    break;
+                }
+                $fetched = $wf->fetchUrl($docUrl);
+                $fetchedUrlKeys[$key] = true;
+                if ($fetched['ok'] && $fetched['text'] !== '') {
+                    $label = $fetched['title'] ?: $docUrl;
+                    $docBlock = "DOCUMENT SOURCE URL (live page for an uploaded doc — {$label}):\n"
+                        . "Treat this as allowlisted web enrichment for that document's public page.\n"
+                        . $fetched['text'];
+                    $systemPrompt .= "\n\n" . $docBlock;
+                    if (!isset($groundingForCheck)) {
+                        $groundingForCheck = '';
+                    }
+                    if (!isset($faithWebGrounding)) {
+                        $faithWebGrounding = '';
+                    }
+                    $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $docBlock;
+                    $faithWebGrounding .= ($faithWebGrounding !== '' ? "\n\n" : '') . $docBlock;
+                    $docSourceWebUsed = true;
+                    $fetchedCount++;
+                    $webNotes[] = 'Doc source URL: ' . $docUrl;
+                    // Avoid duplicate citation chips when the RAG source already linked this URL
+                    $alreadyCited = false;
+                    foreach ($citations as $c) {
+                        $cu = isset($c['source_url']) ? strtolower(trim((string)$c['source_url'])) : '';
+                        if ($cu !== '' && $cu === $key) {
+                            $alreadyCited = true;
+                            break;
+                        }
+                    }
+                    if (!$alreadyCited) {
+                        $citations[] = [
+                            'n' => count($citations) + 1,
+                            'document_id' => 0,
+                            'title' => 'Source page: ' . ($fetched['title'] ?: 'document URL'),
+                            'filename' => $docUrl,
+                            'source_url' => $docUrl,
+                            'chunk_count' => 1,
+                        ];
+                    }
+                } else {
+                    $webNotes[] = 'Doc source URL fetch failed: ' . $docUrl
+                        . ' (' . ($fetched['error'] ?? 'unknown') . ')';
+                }
+            }
+        }
+    }
+
     // Optional pasted/uploaded extra context
     if ($extraContext !== '') {
         $label = $contextLabel !== '' ? $contextLabel : 'attachment';
@@ -414,7 +501,7 @@ try {
     }
 
     // Docs mode: apply admin RAG↔Web mix policy after enrichment blocks are attached
-    if ($mode === 'rag' && ($webSearch || $contextUrl !== '')) {
+    if ($mode === 'rag' && ($webSearch || $contextUrl !== '' || $docSourceWebUsed)) {
         $systemPrompt .= "\n\n" . AppSettings::ragWebMixInstruction($ragWebMix);
         $webNotes[] = 'RAG↔Web mix: ' . ($ragWebMix['mode'] ?? 'complement')
             . ' @' . (int)($ragWebMix['degree'] ?? 50);
@@ -513,6 +600,7 @@ try {
         || $deepThinking
         || $webSearch
         || $contextUrl !== ''
+        || $docSourceWebUsed
         || $dsFiles !== []
         || !empty($streamOpts['tools']);
     if ($useFlash) {
