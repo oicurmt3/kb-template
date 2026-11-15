@@ -27,3 +27,8 @@ Agents append short dated blocks when the user asks. Others read first before mu
 1. **Admin search synonyms** — editable phrase → expansion map (DB override merged with code defaults in `expandQuerySynonyms`); simple Admin UI; validate phrase length; show effect in Retrieval test. Not started.
 2. **Optional later:** admin-editable tag-inference map (`inferFocusTags` `$syn`), after synonyms setting ships.
 3. **Science lab coordinator** — teacher ↔ lab-tech lesson/prep app (RAG + inventory + request workflow). Full plan: `MDfiles/PLAN-science-lab-coordinator.md`. Not started.
+4. **Admin: RAG ↔ Web relationship** (not built) — setting for how Docs mode mixes corpus + allowlisted web:
+   - **Mode:** `complement` (default, current behaviour) | `docs_first` (web only fills gaps) | `web_first` (web leads; docs for WC law) | `compete` / pick-winner (model chooses one side; or score-based).
+   - **Degree (0–100):** how strongly to weight web vs docs in prompts + HQ (e.g. 0 = docs only even if web ran; 50 = equal combine; 100 = prefer web enrichment).
+   - **HQ:** always preserve sources allowed by the chosen mode (never silently drop the non-preferred side’s supported claims unless mode is docs_only).
+   - Store in `settings` via Admin (next to Adaptive RAG / web hosts); document in `ACCURACY.md` when built.

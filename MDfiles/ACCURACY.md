@@ -123,6 +123,8 @@ Cost: one extra non-streaming call. Benefit: catches unsupported claims that sli
 
 **Note:** Live web still only hits admin-allowlisted hosts. WorkCover mode always tries to enrich RAG with that web (when `web.enabled` in config). Off-topic questions only work if those hosts have the content, or you turn WorkCover off and use standalone Web / general chat.
 
+**Planned (not built):** Admin control for RAG↔Web mix — `complement` (default) vs `docs_first` / `web_first` / `compete`, plus a 0–100 degree slider. See `HANDOFF.md` backlog item 4.
+
 ---
 
 ## 3. Feature settings → accuracy impact
