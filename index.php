@@ -84,7 +84,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
         </section>
         <section>
           <h3>Faithfulness check</h3>
-          <p>When the answer used uploaded documents, allowlisted web/URL, or attached file text, WANDA automatically runs a second source check after streaming. It prefers to keep the draft (<code>OK</code>) and only revises clear inventions. This is separate from HQ and Deep.</p>
+          <p>When the answer used uploaded documents, allowlisted web/URL, or attached file text, WANDA can run a second source check after streaming (admin Faithfulness slider; 0 = off). Higher strictness revises unsupported claims more aggressively. This is separate from HQ and Deep.</p>
         </section>
         <section>
           <h3>Sources &amp; related questions</h3>
