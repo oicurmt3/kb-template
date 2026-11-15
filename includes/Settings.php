@@ -896,14 +896,15 @@ class AppSettings {
 
         return $prefix . match ($mode) {
             'docs_first' => "Prefer doc-supported claims {$lean}; keep web-supported claims that fill gaps or current process detail already in the draft or SOURCE MATERIAL. "
-                . 'Do not invent. Prefer OK over aggressive trimming. Higher degree → allow more web gap-fill; lower degree → stick closer to docs.',
+                . 'Do not invent. OK only when every legal claim is sourced; rewrite to drop inventions. Higher degree → allow more web gap-fill; lower degree → stick closer to docs.',
             'web_first' => "Prefer web-supported claims {$lean}; keep Act/Regs excerpt claims for legal duties and section numbers. "
-                . 'Do not invent. Prefer OK over aggressive trimming. Higher degree → lean harder on web for process; lower degree → still protect statute text.',
-            'compete' => "If the draft already picked a clear winner per compete rules, prefer OK. "
-                . "Only drop the weaker side when it invents or contradicts SOURCE MATERIAL. "
+                . 'Do not invent. OK only when every legal claim is sourced; rewrite to drop inventions. Higher degree → lean harder on web for process; lower degree → still protect statute text.',
+            'compete' => "If the draft already picked a clear winner per compete rules and all claims are sourced, OK is fine. "
+                . "Drop the weaker side when it invents or contradicts SOURCE MATERIAL. "
                 . "Higher degree → tolerate web-leaning winners more; lower degree → tolerate docs-leaning winners more. Do not invent.",
             default => 'Keep every claim supported by docs OR allowlisted web; never strip web-backed enrichment present in SOURCE MATERIAL. '
-                . "Enrichment strength was {$lean} in the first pass — do not undo that blend. Prefer OK. Do not invent.",
+                . "Enrichment strength was {$lean} in the first pass — do not undo that blend. "
+                . 'OK only when fully sourced; rewrite inventions. Do not invent.',
         };
     }
 

@@ -237,12 +237,13 @@ try {
                     $systemPrompt .= "\n\nRetrieval confidence is LOW for this question in the uploaded documents. "
                         . "Prefer excerpts for any WA workers compensation law they clearly support. "
                         . "For other topics, use allowlisted web/URL context when it is provided below. "
-                        . "Do not invent legal rules or facts beyond those sources.";
+                        . "Do not invent legal rules, section numbers, time limits, or duties. "
+                        . "If sources are thin, say what is missing rather than guessing.";
                 } else {
                     $systemPrompt .= "\n\nRetrieval confidence is LOW for this question. "
                         . "Only state what the excerpts clearly support. If unsure, say the uploaded documents "
                         . "do not clearly answer this and suggest refining the question or focus tags. "
-                        . "Do not invent legal rules.";
+                        . "Do not invent legal rules, section numbers, time limits, or duties.";
                 }
                 $webNotes[] = 'Retrieval: weak (score=' . round((float)$quality['max_score'], 2) . ')';
             } else {

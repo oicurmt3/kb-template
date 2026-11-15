@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-15 — Stronger faithfulness hallucination brake
+
+- Faithfulness: OK only when every legal claim is sourced; rewrite when unsure
+- Local scan for section/reg numbers missing from SOURCE → forced second pass + strip fallback
+- Mix auditor hints no longer “prefer OK over trimming inventions”
+
 ## 2026-11-15 — Short length + Deep hallucination fix
 
 - Short answer length hardened (≤4 sentences) + closing reminder after HQ/mix so it wins

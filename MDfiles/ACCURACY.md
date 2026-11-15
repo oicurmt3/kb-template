@@ -139,7 +139,7 @@ Admin **Short / Medium / Long** is applied twice: early instruction + **closing 
 
 #### F. Faithfulness check (`verifyGroundedAnswer`) — automatic QA after the mix
 
-Runs **whenever grounding exists** after the stream finishes — WorkCover docs **and/or** allowlisted web/URL **and/or** pasted file/attach text. **Not** gated on HQ or Deep. Designed as a **hallucination brake**, not an editor (prefer `OK` over rewrite).
+Runs **whenever grounding exists** after the stream finishes — WorkCover docs **and/or** allowlisted web/URL **and/or** pasted file/attach text. **Not** gated on HQ or Deep. Designed as a **hallucination brake**: `OK` only when every section/reg number, time limit, duty, and similar claim is sourced; otherwise rewrite. A local scan also flags section/reg cites missing from SOURCE and forces a second pass (strip fallback if needed).
 
 Who runs it: WANDA PHP calls DeepSeek **flash** (`chatComplete`) with packed sources + draft.
 

@@ -4,6 +4,13 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-15 — Faithfulness hallucination brake
+
+**Done**
+
+- OK only when legal claims sourced; orphan section/reg scan → forced rewrite + strip fallback
+- Mix hints no longer soft “prefer OK” on inventions
+
 ## 2026-11-15 — Short length + Deep regression fix
 
 **Done**
