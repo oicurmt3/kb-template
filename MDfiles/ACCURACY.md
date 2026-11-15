@@ -60,22 +60,29 @@ Rewrite **fails soft**: if the API fails or JSON is bad, the synonym-expanded ba
 
 #### B. Retrieval (`searchWithMeta`)
 
-- PRIMARY query = rewritten/expanded string.
-- SECONDARY (`alsoQuery`) = synonym-expanded **raw** user message (catches terms rewrite dropped).
-- Focus tags (user-picked or auto) bias / slim the candidate set when Adaptive RAG is on.
-- Scoring boosts: tag hits, header/path hits, **section/reg needles** (+large bonus), full-phrase match, term coverage; **Act/Regs ×1.25**, guides ×0.92.
-- Diversification caps how many chunks come from one document (`max_per_document`).
+- Query order into the merger: **`alsoQuery` first** (weight 1.15), then rewritten/expanded query (weight 0.9) if different — so the raw latest phrasing is slightly preferred.
+- Multiple search channels merge into one chunk score (see **§8** for every weight).
+- Focus tags multiply/add score; Adaptive RAG may slim to activated docs.
+- Diversification caps chunks per document (`max_per_document` / slim variants).
 
-There is **no embedding / vector** path — DeepSeek does not expose embeddings here. Relevance is lexical + structure.
+There is **no embedding / vector** path — DeepSeek does not expose embeddings here. Relevance is lexical + structure. Full formulas: **§8**.
 
 #### C. Quality gate (`hitQuality`)
 
 Returns `weak`, `max_score`, `hit_count`, `has_legal_ref`.
 
+**Weak when** (any):
+
+\[
+\text{weak} \iff n=0 \;\lor\; (S_{\max}<4 \land \neg R) \;\lor\; (S_{\max}<2.5)
+\]
+
+where \(S_{\max}\) = max hit score, \(R\) = a legal-ref needle from the query appears in some hit header/text, \(n\) = hit count.
+
 | Signal | Effect on the model |
 |--------|---------------------|
-| Good score / legal ref found | Normal grounded prompt + “Retrieval: ok” note |
-| Weak (low max score, no ref) | Extra instruction: only state what excerpts clearly support; say if docs don’t answer; do not invent rules |
+| Not weak | Normal grounded prompt + “Retrieval: ok” note |
+| Weak | Extra instruction: only state what excerpts clearly support; say if docs don’t answer; do not invent rules |
 | No hits | Explicit: do not invent Act/Regs content; suggest rewording or tags |
 
 This does **not** hard-block the model from answering; it changes the system prompt so refusal / hedging is preferred over hallucination.
@@ -247,3 +254,285 @@ Deep thinking can combine with any row; it does not change retrieval.
 - Guides can still rank if Act chunks are poorly titled or untagged.  
 - Web pages are not law — model instructions prefer Act/Regs, but mixed context can confuse.  
 - This is **not** a substitute for legal advice; grounding reduces inventing, it does not guarantee completeness of the corpus.
+
+---
+
+## 8. Mathematical logic & weights
+
+Source of truth: `includes/Retrieval.php` (plus config defaults in `includes/config.example.php`). All scores are **relative** — they rank chunks; they are not calibrated probabilities.
+
+### 8.1 Configurable size caps (clamped in constructor)
+
+| Symbol | Config key | Default | Clamp |
+|--------|------------|---------|-------|
+| \(K\) | `rag.top_k` | 14 | 1…40 |
+| \(M\) | `rag.max_per_document` | 5 | 1…20 |
+| \(K_s\) | `rag.top_k_slim` | 8 | 2…40 |
+| \(K_{st}\) | `rag.top_k_slim_tagged` | 6 | 2…40 |
+| \(M_s\) | `rag.max_per_document_slim` | 3 | 1…20 |
+| \(A\) | `rag.activate_docs_slim` | 3 | 1…20 |
+
+| Adaptive mode | Effective \(K_{\text{eff}}\) | Effective \(M_{\text{eff}}\) |
+|---------------|------------------------------|------------------------------|
+| `legacy` / Adaptive off | \(K\) | \(M\) |
+| `full` (Adaptive on, unfocused) | \(K\) | \(M\) |
+| `slim` | \(K_s\) | \(M_s\) |
+| `slim_tagged` | \(K_{st}\) | \(M_s\) |
+
+Other caps:
+
+| Limit | Value |
+|-------|-------|
+| Conversational query length | last 1200 chars of combined recent users (+ last assistant snippet ≤280 chars); last 4 user turns |
+| Synonym-expanded / rewritten query | ≤1400 chars |
+| Infer focus tags | max 3 tags |
+| Keyword candidate pool before diversify | \(K \times 8\) |
+| FULLTEXT NL / boolean LIMIT | \(K \times 6\) |
+| Section-ref LIKE per needle | LIMIT 30 |
+| Broad fallback | only if ready chunk count \(1…400\); score seed 0.2 |
+| HQ verify excerpt / draft caps | excerpts ≤10000 chars; draft ≤6000; `max_tokens` 900 |
+| Query rewrite | `max_tokens` 180, temperature 0.1; history ≤8 turns × 400 chars |
+| Chat history into model | `rag.max_history_messages` default 24 |
+| Chunking (ingest) | `chunk_max_chars` 3200, `chunk_overlap` 200 |
+
+### 8.2 Query preparation triggers
+
+**Synonym expansion** — if any map phrase is a substring of the lowercased query, append the expansion tokens (deduped). Map includes e.g. `time off`→`incapacity weekly payments`, `light duties`→`return to work suitable employment`, `stress`→`psychological injury mental`, etc. (full map in `expandQuerySynonyms`).
+
+**LLM rewrite** runs when DeepSeek config is present **and**:
+
+- prior user turns in history ≥ 2, **or**
+- latest message matches follow-up regex  
+  `(what about|and |also |how about|those|that|it\b|they\b|the same|more on|explain|why|when|who|how long|ok but)`  
+  **or** latest message length \(< 48\) chars.
+
+Returned tags are intersected with corpus tags; empty → inferred tags.
+
+**Infer focus tags** — for each available document tag \(t\), score = count of synonym needles found in the query (min needle length 3). Take top \(max(1,\min(5,3))\) = top 3 tags by that count.
+
+### 8.3 Multi-channel merge
+
+Queries considered (order):
+
+1. `alsoQuery` (raw user + synonyms) — query-index weight \(w_q = 1.15\)
+2. Prepared/rewritten query if different — \(w_q = 0.9\)
+3. If both empty but tags exist — tags joined as the only query
+
+For each query, channels contribute with channel weight \(w_c\), then **effective weight** \(w = w_c \cdot w_q\):
+
+| Channel | \(w_c\) | Notes |
+|---------|---------|--------|
+| `sectionRefSearch` | 2.4 | Legal section/reg/part needles |
+| `keywordSearch` | 1.5 | Hand-tuned lexical score (below) |
+| `crossDocumentBoost` | 1.35 | (once, on primary; no \(w_q\)) |
+| `naturalLanguageSearch` | 1.2 | MySQL `MATCH … NATURAL LANGUAGE` raw score |
+| `booleanOrSearch` | 1.0 | `MATCH … BOOLEAN` OR of stemmed terms `term*` (max 12) |
+| `focusTagDocumentHits` | 1.8 | (once; no \(w_q\)) first 3 chunks of tagged docs |
+| `broadFallback` | 0.3 | Only if merge still empty |
+
+**Merge rule** for chunk id \(i\) receiving candidate score \(s\) with weight \(w\):
+
+\[
+s' = s \cdot w
+\]
+
+\[
+S_i \leftarrow
+\begin{cases}
+s' & \text{first time}\\
+\max(S_i, s') + 0.15\, s' & \text{already present}
+\end{cases}
+\]
+
+So duplicate evidence across channels **raises** the score (max + 15% of the new weighted score), not pure replace.
+
+### 8.4 Section-reference base scores (`sectionRefSearch`)
+
+Before merge weight, each matching row gets:
+
+| Condition | Base \(s\) |
+|-----------|------------|
+| Default text/search match | 8 |
+| Needle also in `header_path` | 18 |
+| Header matches `\bsection NUM\b` | 24 |
+| Header/text matches `\bregulations? NUM\b` | 22 |
+
+After merge with \(w_c=2.4\) and primary \(w_q=1.15\): e.g. exact section heading ≈ \(24 \times 2.4 \times 1.15 \approx 66.2\) before later tag boosts.
+
+### 8.5 Keyword score (`keywordSearch`)
+
+Haystack = lowercase `title + tags + header_path + search_text + text`.
+
+For each query term \(t\) with occurrence count \(c_t\) in haystack (\(c_t>0\)):
+
+\[
+\text{lenBoost}(t) = 1 + \min\!\bigl(3,\; |t|/4\bigr)
+\]
+
+\[
+S \mathrel{+}= c_t \cdot \text{lenBoost}(t)
+\]
+
+Plus fixed bonuses **per matching term** (once each if that field contains \(t\)):
+
+| Field contains \(t\) | Add |
+|----------------------|-----|
+| title | +4 |
+| tags | +6 |
+| header_path | +3 |
+
+Legal-ref (first matching needle per ref):
+
+| Event | Add |
+|-------|-----|
+| Needle in haystack | +14 |
+| …and also in header_path | +12 more |
+
+Phrase / coverage:
+
+| Event | Add |
+|-------|-----|
+| Full compacted query (len ≥ 6) substring of haystack | +14 |
+| Term coverage | \(10 \times (\text{matchedTerms} / |\text{terms}|)\) |
+
+Document-kind multiplier (applied last to keyword \(S\)):
+
+| `documentKind` | Multiplier |
+|----------------|------------|
+| `act` or `regulations` | × **1.25** |
+| `guide` or `factsheet` | × 0.92 *(intended; see note)* |
+| else | × 1 |
+
+**Note:** `documentKind()` currently returns `act | regulations | guidance | other`. The ×0.92 branch keys off `guide`/`factsheet`, so **guidance docs are not down-weighted today**; Act/Regs still get ×1.25. Prefer tags/titles so Act/Regs win via that boost + quota.
+
+Rows with \(S \le 0\) dropped; keep top \(K\times 8\).
+
+### 8.6 Cross-document & focus-tag seeding
+
+**`crossDocumentBoost`** (per ready doc whose title/filename/tags hit terms): best chunk score ≈  
+\(\sum_t \text{count}(t) + 3\cdot\mathbf{1}_{\text{header}} + 2\cdot(\#\text{matched title/tag terms})\), floored at 1; title-only stub score 2.5. Then × merge weight 1.35.
+
+**`focusTagDocumentHits`**: for each doc overlapping focus tags,
+
+\[
+s_i = 6 + 3\cdot|\text{overlap}| - 0.5\cdot i,\quad i=0,1,2
+\]
+
+(first three chunks by index). Merge weight 1.8.
+
+**`boostByFocusTags`** (after merge, on every merged row):
+
+Let \(h\) = number of focus tags found in the doc’s tags string.
+
+\[
+S \leftarrow S\cdot(1 + 0.5\,h) + 10\,h
+\]
+
+Example: \(h=1\) → \(S' = 1.5S + 10\); \(h=2\) → \(S' = 2S + 20\).
+
+### 8.7 Document activation score (Adaptive)
+
+For each document:
+
+\[
+S_{\text{doc}} = \sum_{\text{chunks}} S_{\text{chunk}}
+\;+\;
+\begin{aligned}[t]
+&5 \cdot (\#\text{primary terms in title/filename}) \\
+&+\; 6 \cdot (\#\text{primary terms in tags}) \\
+&+\; 8 \cdot (\#\text{focus-tag hits on doc tags}) \\
+&+\; 15 \cdot \mathbf{1}_{\text{legal ref in title/filename/tags}} \\
+&+\; 0.25 \cdot S_{\text{best chunk}}
+\end{aligned}
+\]
+
+(`tag_hit` / `ref_hit` flags set when those bonuses fire.)
+
+### 8.8 Adaptive mode decision (`decideAdaptiveMode`)
+
+Let \(T = S_{\text{doc}}^{(1)}\), \(U = S_{\text{doc}}^{(2)}\).  
+\(\text{nearTop}\) = count of docs with \(S_{\text{doc}} \ge 0.8\,T\).
+
+**Tags disagree → force `full`:** focus tags set, but among top-5 docs none has `tag_hit` with \(S_{\text{doc}} \ge \max(1,\,0.5\,T)\).
+
+**Clear focus** (eligible for slim) if any of:
+
+- query has extracted legal refs, or  
+- **sharp**: \(T > 0\) and \((U \le 0.01\) or \(T \ge 2\,U)\), or  
+- **tagsAgree**: some doc in top \(A\) has `tag_hit` and score > 0  
+
+**Clear cancelled** if:
+
+- \(\text{nearTop} \ge 4\) and no refs and not tagsAgree, or  
+- \(T < 1\) and no refs  
+
+If not clear → mode **`full`**, no activation list.
+
+If clear → activate up to \(A\) docs in score order, stopping when a later doc has \(S < 0.35\,T\) and no `ref_hit`. Always add every `ref_hit` doc. Then:
+
+- tagsAgree and focus tags nonempty → **`slim_tagged`** (\(K_{st}\), \(M_s\))  
+- else → **`slim`** (\(K_s\), \(M_s\))
+
+### 8.9 Soft filter on activated docs
+
+Reserve outsider slots:
+
+\[
+R = \max\!\bigl(1,\;\lceil 0.25\, K_{\text{eff}} \rceil\bigr),\quad
+\text{main} = \max(1,\, K_{\text{eff}} - R)
+\]
+
+Take up to `main` hits from activated docs (focus-tag preferred order), then up to \(R\) from non-activated; re-sort by score. Then `diversifyHits`.
+
+### 8.10 Diversify, Act/Regs quota, neighbours
+
+**`diversifyHits`:** walk score-desc; accept chunk if that doc still has \(< M_{\text{eff}}\) chunks in the pick; stop at \(K_{\text{eff}}\); if short, fill from deferred (over-cap) scores.
+
+**`ensureActRegsQuota`:** if corpus has both act + regulations kinds, and picked set lacks either, insert best pool (or first chunk of that kind, score 3.0). If full, replace lowest-scoring non-Act/Regs hit. Runs always in `legacy`/`full`; in slim modes only if refs present or query/tags mention act/section/reg/part/division.
+
+**`expandNeighborChunks`:** for each picked chunk, try index ±1; neighbor score =
+
+\[
+\max\!\bigl(0.5,\; 0.72 \cdot S_{\text{parent}}\bigr)
+\]
+
+Legacy/full: fill up to \(K_{\text{eff}}\). Slim: at most **one** extra neighbor if under capacity.
+
+### 8.11 Quality gate (repeat)
+
+\[
+\text{weak} =
+(n=0)
+\;\lor\;
+(S_{\max} < 4 \land \neg R)
+\;\lor\;
+(S_{\max} < 2.5)
+\]
+
+Interpretation: even with a legal-ref hit in excerpts, \(S_{\max} < 2.5\) is still weak; between 2.5 and 4 needs a ref hit to be “ok”.
+
+### 8.12 Worked micro-example (keyword only)
+
+Query term `incapacity` (len 10) once in text, once in header of an Act chunk; no full-phrase match; 1 of 1 terms matched.
+
+\[
+\begin{align*}
+S &= 1\cdot\bigl(1+\min(3,10/4)\bigr) + 3 &&\text{(count + header)}\\
+ &= 1\cdot(1+2.5) + 3 = 6.5\\
+S &\leftarrow 6.5 \times 1.25 = 8.125 &&\text{(act kind)}
+\end{align*}
+\]
+
+After merge with keyword \(w_c=1.5\) and alsoQuery \(w_q=1.15\): \(S \approx 8.125 \times 1.725 \approx 14.0\). One focus-tag hit then: \(S \leftarrow 14\cdot 1.5 + 10 = 31\). That clears the weak gate (\(S_{\max} \ge 4\)).
+
+### 8.13 What is *not* weighted numerically
+
+- HQ vs Basic — prompt style (+ optional faithfulness LLM), not retrieval scores  
+- Deep thinking — model reasoning flag  
+- Answer length — prompt instruction only  
+- Web / URL / file context — concatenated into the system prompt after retrieval; they do not change chunk \(S\)  
+- Sources visibility — UI only  
+
+---
+
+*When changing weights in `Retrieval.php`, update this section in the same PR/session.*
