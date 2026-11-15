@@ -905,29 +905,41 @@
         if (Array.isArray(obj.suggestions)) suggestions = obj.suggestions;
         const notes = Array.isArray(obj.web_notes) ? obj.web_notes : [];
         const faithCorrected = notes.some((n) => /Faithfulness:\s*corrected/i.test(String(n || '')));
+        const replaceContent = obj.replace_content === true || faithCorrected;
         // Pull related-question chips from the streamed marker block if server omitted them
         const streamedParsed = parseFollowupsClient(accumulated);
         if (streamedParsed.suggestions.length && (!suggestions || !suggestions.length)) {
           suggestions = streamedParsed.suggestions;
         }
-        if (typeof obj.content === 'string' && obj.content.length) {
-          const prevVisible = visibleAnswer(accumulated);
+        const prevVisible = visibleAnswer(accumulated);
+        // Server only sends content when faithfulness rewrote; never swap for follow-up cleanup
+        if (
+          replaceContent &&
+          typeof obj.content === 'string' &&
+          obj.content.length
+        ) {
           const serverVisible = visibleAnswer(obj.content);
-          if (faithCorrected) {
-            // Only faithfulness may replace the bubble the user already read
+          const prevLen = prevVisible.length;
+          const nextLen = serverVisible.length;
+          // Guard: don't let a "correction" gut a good long draft in the UI
+          const overShrunk = prevLen >= 120 && nextLen < Math.floor(prevLen * 0.65);
+          if (overShrunk) {
+            setMessageText(assistantEl, prevVisible);
+            setMessageNote(
+              assistantEl,
+              'Faithfulness suggested a shorter rewrite; kept the streamed answer to avoid over-trimming.'
+            );
+          } else {
             accumulated = obj.content;
             setMessageText(assistantEl, serverVisible);
             setMessageNote(
               assistantEl,
-              'Updated after faithfulness check: the draft was revised so claims match your documents and any allowlisted web/URL sources used this turn.'
+              'Updated after faithfulness check: unsupported claims were removed or hedged against your documents and allowlisted web/URL sources.'
             );
-          } else {
-            // Follow-up strip / whitespace cleanup must not shrink or rewrite a good streamed answer
-            setMessageText(assistantEl, prevVisible || serverVisible);
-            accumulated = prevVisible || obj.content;
           }
         } else {
-          setMessageText(assistantEl, visibleAnswer(accumulated));
+          setMessageText(assistantEl, prevVisible);
+          setMessageNote(assistantEl, '');
         }
         if (obj.title) {
           // force sidebar refresh with new conversation title

@@ -196,6 +196,6 @@ window.APP_BASE = <?= json_encode(app_base(), JSON_UNESCAPED_SLASHES) ?>;
 window.SIMPLE_EXPLAIN_AGE = <?= (int)$simpleExplainAge ?>;
 window.UI_CONFIG = <?= json_encode($uiConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="<?= htmlspecialchars(url('assets/chat.js')) ?>?v=<?= (int)@filemtime(__DIR__ . '/assets/chat.js') ?>"></script>
+<script src="<?= htmlspecialchars(url('assets/chat.js')) ?>?v=<?= (int)@filemtime(__DIR__ . '/assets/chat.js') ?>-rc2"></script>
 </body>
 </html>

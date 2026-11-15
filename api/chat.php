@@ -532,6 +532,8 @@ try {
 
     $suggestions = [];
     $finalContent = $result['content'];
+    /** Only true when faithfulness rewrote the visible answer — client must not swap the bubble otherwise. */
+    $replaceStreamedContent = false;
     $sourcesOn = AppSettings::uiFeatureEnabled('sources');
     if (!$sourcesOn) {
         $citations = [];
@@ -585,6 +587,7 @@ try {
                     : 'Faithfulness: ok (' . $faithLabel . ')';
                 if (!empty($verified['changed']) && trim((string)$verified['content']) !== '') {
                     $finalContent = (string)$verified['content'];
+                    $replaceStreamedContent = true;
                 }
             }
         }
@@ -621,7 +624,9 @@ try {
     }
     DB::run('UPDATE conversations SET updated_at = NOW() WHERE id = ?', [$convId]);
 
-    sse('done', [
+    // Do not send content on done unless faithfulness rewrote it — otherwise old/new clients
+    // keep the streamed bubble (follow-up strip alone must not look like a rewrite).
+    $donePayload = [
         'conversation_id' => $convId,
         'finish_reason'   => $result['finish_reason'],
         'usage'           => $result['usage'],
@@ -629,9 +634,13 @@ try {
         'citations'       => $citations,
         'web_notes'       => $webNotes,
         'suggestions'     => $suggestions,
-        'content'         => $finalContent,
+        'replace_content' => $replaceStreamedContent,
         'title'           => $newTitle,
-    ]);
+    ];
+    if ($replaceStreamedContent) {
+        $donePayload['content'] = $finalContent;
+    }
+    sse('done', $donePayload);
 } catch (Throwable $e) {
     sse('error', ['message' => $e->getMessage()]);
 }
