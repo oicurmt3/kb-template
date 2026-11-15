@@ -29,6 +29,13 @@ Touch targets ~44px minimum on mobile.
 - Narrow: stacked / icon-friendly controls
 - Icon-only SVG buttons acceptable on mobile to save space
 
+## Admin
+
+- Every admin section is a **collapsible card** (`<details class="admin-card-details">`), **closed by default**
+- Summary row uses `.admin-card-summary` with a small chevron; optional hint text (e.g. chat/doc counts)
+- Upload: dropzone stages files; primary **Upload** submits; ghost **Clear files**
+- Export / import sits near the top of admin for backup/restore
+
 ## Content rules
 
 - Model answers are **plain text** (no Markdown styling expected in bubbles)

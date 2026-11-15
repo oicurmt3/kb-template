@@ -14,8 +14,8 @@ Related: [ACCURACY.md](ACCURACY.md) (how grounding works), [DEPLOY.md](DEPLOY.md
 | MariaDB conversations / docs / chunks | Uploaded corpus (policies, manuals, FAQs) |
 | Retrieval, Adaptive RAG, weak-hit grounding | Synonym map, tag synonyms, source hierarchy wording |
 | HQ faithfulness check | `system_prompt` / `rag_system_prompt` |
-| Admin ingest, tags, Retrieval test | Web allowlist hosts |
-| Feature toggles (Default / Show-Hide) | Label “WorkCover” → your product mode name (optional code tweak) |
+| Admin ingest, tags, Retrieval test, settings export/import | Web allowlist hosts |
+| Feature toggles (Default / Show-Hide), RAG↔Web mix | Label “WorkCover” → your product mode name (optional code tweak) |
 
 You do **not** need embeddings, Node, or a rewrite of the architecture for a typical SMB knowledge base.
 
@@ -42,6 +42,7 @@ Do these first; many deployments need little else.
 1. Copy the project; create DB; copy `includes/config.example.php` → `includes/config.php`.
 2. Set DeepSeek API key + admin password hash; run `install.php`; lock installer.
 3. Do **not** copy WANDA’s Act/Regs uploads unless that is your domain.
+4. Optional: after tuning one environment, **Export all settings** and **Import settings** on the new host (admin card). Chunk export is backup-only (no import yet) — re-upload your own corpus.
 
 ### 3.2 Branding in config
 
@@ -73,6 +74,7 @@ Edit `includes/config.php` → `app`:
 | Tags / Sources / Related | Show |
 | Chat history | Off on shared tablets |
 | Adaptive RAG | **On** |
+| RAG ↔ Web mix | **Complement** (or docs_first if policy PDFs must dominate live web) |
 | Answer length | Medium |
 | Simple explain age | 10–14 for public; ignore if HQ default on |
 

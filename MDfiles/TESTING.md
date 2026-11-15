@@ -3,14 +3,17 @@
 ## Smoke (every deploy)
 
 1. `/install.php` locked; `/` loads; admin login works.
-2. Admin → Documents list loads.
-3. Retrieval test with a known Act phrase → hits + quality score.
+2. Admin page: all cards **collapsed** by default; expand Documents → list loads.
+3. Retrieval test with a known Act phrase → matched chunks + quality score.
 4. New chat, WorkCover **on**:
-   - Ask a section-level question → Sources appear (if enabled)
+   - Ask a section-level question → Sources appear (if enabled); allowlisted web may enrich
    - Ask a vague follow-up → rewrite should still retrieve sensible chunks
-5. WorkCover **off** → general reply, no Sources.
-6. HQ **on** after a WorkCover answer → note may show `HQ check: ok` / corrected text if exposed.
-7. Web **on** with allowed host only; disallowed URL rejected.
+5. WorkCover **off** → general reply, no Sources; optional standalone Web.
+6. HQ **on** after a WorkCover answer → note may show `HQ check: ok` / corrected text if exposed; web-supported claims should remain.
+7. Web **on** (WorkCover off) with allowed host only; disallowed URL rejected.
+8. Admin → Export settings → Import same file → forms reload with same values.
+9. Admin → Export chunks → JSON has `documents` + `chunks` counts.
+10. Upload: select files → pending list → **Upload** (not auto); paste still **Add & chunk**.
 
 ## Accuracy checklist
 
@@ -44,3 +47,5 @@ php -l includes/Settings.php
 - HQ off still Simple/Basic (not “force plain” legacy)
 - Citation numbers must not appear in bubble text
 - Pasted ingest appears in Documents list
+- WorkCover on must not hide allowlisted web enrichment; standalone Web only when WorkCover off
+- Settings import rejects chunks export files; unknown keys ignored

@@ -2,6 +2,7 @@
 
 **Status:** Planned — do not build until explicitly asked.  
 **Related product:** Sibling to WANDA (same PHP/vanilla/cPanel/DeepSeek stack; different domain UI).  
+**Reuse from WANDA when building:** collapsible admin cards, staged upload + submit, settings JSON export/import (`api/export.php`), RAG↔Web mix patterns, chunk identity (`document_id` / `chunk_index`).  
 **Problem:** Science teachers plan class activities while lab technicians prepare resources — today that handoff is email/tribal knowledge and breaks under lead time, stock, and safety constraints.
 
 ---

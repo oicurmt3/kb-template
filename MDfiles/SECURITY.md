@@ -14,8 +14,8 @@
 
 ## CSRF & rate limits
 
-- CSRF tokens on admin and sensitive POSTs
-- Per-IP rate limits: login, chat, web_search, web_fetch (files under `storage/ratelimit/`)
+- CSRF tokens on admin and sensitive POSTs (including settings import)
+- Per-IP rate limits: login, chat, web_search, web_fetch, admin export/import (files under `storage/ratelimit/`)
 
 ## Output & input
 
@@ -27,6 +27,13 @@
 
 - Only hosts in admin/config allowlist
 - Do not enable unrestricted DeepSeek open-web search tools
+
+## Admin export / import
+
+- Export/import requires admin session (`admin_require`)
+- Settings import only writes **whitelisted** keys through `AppSettings::importSettingsExport` (validated save helpers) — unknown keys ignored
+- Chunks export can be large; treat downloads as sensitive corpus backups
+- Do not add unauthenticated download links
 
 ## Filesystem hardening
 

@@ -1,11 +1,18 @@
 # Changelog
 
+## 2026-11-15 — Admin export/import + collapsible UI
+
+- Admin **Export / import**: download all settings JSON; import settings (whitelisted keys); export all chunks (no import yet) via `api/export.php`
+- All admin cards collapsible (`<details>`), closed by default; Chunks auto-opens when viewing a document
+- Upload documents: stage files (browse/drop) then **Upload** / **Clear files** (no auto-upload on select)
+- Full MD suite refreshed to match current admin + Docs-mode behaviour
+
 ## 2026-11-15 — Accuracy stack + docs
 
 - Query rewrite for follow-ups, WA synonym expansion, auto focus tags
 - Stronger section/reg scoring; weak-hit / no-hit grounding prompts
 - HQ post-stream faithfulness check; client replaces bubble from `done.content`
-- Admin Retrieval test shows search query + quality
+- Admin Retrieval test shows search query + quality (matched chunks)
 - Adaptive RAG hint updated; full MD documentation suite added (`MDfiles/ACCURACY.md` etc.)
 - `ACCURACY.md` §7: how to tune synonyms / tags / corpus; pointers from `ADAPT.md` / `TESTING.md`
 - Backlog (not built): admin-editable search synonyms setting — see `HANDOFF.md`

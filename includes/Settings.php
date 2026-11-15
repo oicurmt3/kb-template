@@ -234,6 +234,206 @@ class AppSettings {
         );
     }
 
+    /** @return list<string> */
+    public static function importableKeys(): array {
+        return [
+            self::KEY_WEB_ALLOWED_HOSTS,
+            self::KEY_CHAT,
+            self::KEY_SIMPLE_EXPLAIN_AGE,
+            self::KEY_ANSWER_LENGTH,
+            self::KEY_ADAPTIVE_RETRIEVAL,
+            self::KEY_RAG_WEB_MIX,
+            self::KEY_UI,
+        ];
+    }
+
+    /**
+     * Restore admin settings from an export JSON payload (or effective-only object).
+     * Uses validated save helpers — unknown keys ignored.
+     *
+     * @param array<string,mixed> $payload
+     * @param array<string,mixed> $appCfg config['app'] for chat-limit defaults
+     * @return array{updated:list<string>,skipped:list<string>,effective:array<string,mixed>}
+     */
+    public static function importSettingsExport(array $payload, array $appCfg = []): array {
+        $updated = [];
+        $skipped = [];
+
+        $effective = null;
+        if (isset($payload['effective']) && is_array($payload['effective'])) {
+            $effective = $payload['effective'];
+        } elseif (
+            isset($payload['allowed_hosts'])
+            || isset($payload['hosts_text'])
+            || isset($payload['ui'])
+            || isset($payload['chat_limits'])
+            || isset($payload['simple_explain_age'])
+            || isset($payload['answer_length'])
+            || array_key_exists('adaptive_retrieval', $payload)
+            || isset($payload['rag_web_mix'])
+        ) {
+            $effective = $payload;
+        } elseif (isset($payload['raw']) && is_array($payload['raw'])) {
+            $effective = self::effectiveFromRawRows($payload['raw']);
+        }
+
+        if ($effective === null || $effective === []) {
+            throw new InvalidArgumentException(
+                'Invalid settings file — need export.effective, export.raw, or a settings object'
+            );
+        }
+
+        // Prefer reconstructing from raw when present (round-trip fidelity), then overlay effective.
+        if (isset($payload['raw']) && is_array($payload['raw']) && $payload['raw'] !== []) {
+            $fromRaw = self::effectiveFromRawRows($payload['raw']);
+            $effective = array_merge($fromRaw, $effective);
+        }
+
+        if (isset($effective['hosts_text']) && is_string($effective['hosts_text'])) {
+            $hosts = self::normalizeHosts($effective['hosts_text']);
+            if ($hosts === []) {
+                $skipped[] = 'allowed_hosts';
+            } else {
+                self::set(
+                    self::KEY_WEB_ALLOWED_HOSTS,
+                    json_encode($hosts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                );
+                $updated[] = 'allowed_hosts';
+            }
+        } elseif (isset($effective['allowed_hosts'])) {
+            $hosts = self::normalizeHosts($effective['allowed_hosts']);
+            if ($hosts === []) {
+                $skipped[] = 'allowed_hosts';
+            } else {
+                self::set(
+                    self::KEY_WEB_ALLOWED_HOSTS,
+                    json_encode($hosts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                );
+                $updated[] = 'allowed_hosts';
+            }
+        }
+
+        if (array_key_exists('simple_explain_age', $effective) && is_numeric($effective['simple_explain_age'])) {
+            self::saveSimpleExplainAge((int)$effective['simple_explain_age']);
+            $updated[] = 'simple_explain_age';
+        }
+
+        if (isset($effective['answer_length']) && is_string($effective['answer_length'])) {
+            self::saveAnswerLength($effective['answer_length']);
+            $updated[] = 'answer_length';
+        }
+
+        if (array_key_exists('adaptive_retrieval', $effective)) {
+            $raw = $effective['adaptive_retrieval'];
+            $on = false;
+            if (is_bool($raw)) {
+                $on = $raw;
+            } elseif (is_numeric($raw)) {
+                $on = ((int)$raw) === 1;
+            } else {
+                $on = in_array(strtolower(trim((string)$raw)), ['1', 'true', 'yes', 'on'], true);
+            }
+            self::saveAdaptiveRetrieval($on);
+            $updated[] = 'adaptive_retrieval';
+        }
+
+        if (isset($effective['rag_web_mix']) && is_array($effective['rag_web_mix'])) {
+            self::saveRagWebMix($effective['rag_web_mix']);
+            $updated[] = 'rag_web_mix';
+        }
+
+        if (isset($effective['ui']) && is_array($effective['ui'])) {
+            self::saveUiConfig($effective['ui']);
+            $updated[] = 'ui';
+        }
+
+        if (isset($effective['chat_limits']) && is_array($effective['chat_limits'])) {
+            self::saveChatLimits($effective['chat_limits']);
+            $updated[] = 'chat_limits';
+        }
+
+        if ($updated === []) {
+            throw new InvalidArgumentException('No recognised settings found to import');
+        }
+
+        $webCfg = [];
+        return [
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'effective' => [
+                'allowed_hosts' => self::allowedHostsFromConfig($webCfg),
+                'simple_explain_age' => self::simpleExplainAge(),
+                'answer_length' => self::answerLength(),
+                'adaptive_retrieval' => self::adaptiveRetrievalEnabled([]),
+                'rag_web_mix' => self::ragWebMix(),
+                'ui' => self::uiConfig(),
+                'chat_limits' => self::chatLimits($appCfg),
+            ],
+        ];
+    }
+
+    /**
+     * @param list<array{k?:mixed,v?:mixed}|mixed> $rows
+     * @return array<string,mixed>
+     */
+    private static function effectiveFromRawRows(array $rows): array {
+        $map = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $k = isset($row['k']) ? (string)$row['k'] : '';
+            if ($k === '' || !in_array($k, self::importableKeys(), true)) {
+                continue;
+            }
+            $v = $row['v'] ?? null;
+            if (!is_string($v)) {
+                continue;
+            }
+            $map[$k] = $v;
+        }
+
+        $out = [];
+        if (isset($map[self::KEY_WEB_ALLOWED_HOSTS])) {
+            $decoded = json_decode($map[self::KEY_WEB_ALLOWED_HOSTS], true);
+            if (is_array($decoded)) {
+                $out['allowed_hosts'] = $decoded;
+            }
+        }
+        if (isset($map[self::KEY_SIMPLE_EXPLAIN_AGE]) && is_numeric($map[self::KEY_SIMPLE_EXPLAIN_AGE])) {
+            $out['simple_explain_age'] = (int)$map[self::KEY_SIMPLE_EXPLAIN_AGE];
+        }
+        if (isset($map[self::KEY_ANSWER_LENGTH])) {
+            $out['answer_length'] = $map[self::KEY_ANSWER_LENGTH];
+        }
+        if (isset($map[self::KEY_ADAPTIVE_RETRIEVAL])) {
+            $out['adaptive_retrieval'] = in_array(
+                strtolower(trim($map[self::KEY_ADAPTIVE_RETRIEVAL])),
+                ['1', 'true', 'yes', 'on'],
+                true
+            );
+        }
+        if (isset($map[self::KEY_RAG_WEB_MIX])) {
+            $decoded = json_decode($map[self::KEY_RAG_WEB_MIX], true);
+            if (is_array($decoded)) {
+                $out['rag_web_mix'] = $decoded;
+            }
+        }
+        if (isset($map[self::KEY_UI])) {
+            $decoded = json_decode($map[self::KEY_UI], true);
+            if (is_array($decoded)) {
+                $out['ui'] = $decoded;
+            }
+        }
+        if (isset($map[self::KEY_CHAT])) {
+            $decoded = json_decode($map[self::KEY_CHAT], true);
+            if (is_array($decoded)) {
+                $out['chat_limits'] = $decoded;
+            }
+        }
+        return $out;
+    }
+
     /**
      * Age used by the composer “explain simply” checkbox (plain-language answers).
      */

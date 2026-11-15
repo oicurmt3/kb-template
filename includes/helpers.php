@@ -12,6 +12,27 @@ function json_error(string $message, int $status = 400): never {
     json_out(['error' => $message], $status);
 }
 
+/**
+ * Send JSON as a file download (admin exports).
+ * @param mixed $data
+ */
+function json_download($data, string $filename, bool $pretty = true): never {
+    $filename = preg_replace('/[^A-Za-z0-9._-]+/', '_', $filename) ?: 'export.json';
+    if (!str_ends_with(strtolower($filename), '.json')) {
+        $filename .= '.json';
+    }
+    $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+    if ($pretty) {
+        $flags |= JSON_PRETTY_PRINT;
+    }
+    http_response_code(200);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-store');
+    echo json_encode($data, $flags);
+    exit;
+}
+
 /** App URL prefix when installed in a subdirectory (e.g. /wcima). Empty at domain root. */
 function app_base(): string {
     static $base = null;

@@ -17,7 +17,8 @@ Shared cPanel hosting over HTTPS. Webroot = project root (contains `index.php`, 
    - Lock installer
 6. Confirm `.htaccess` is active (Apache + `AllowOverride`).
 7. Open `/` and `/login.php` over HTTPS.
-8. Admin → upload Act/Regs/guides → Retrieval test → smoke chat with WorkCover on.
+8. Admin → expand **Upload documents** → stage files → **Upload** Act/Regs/guides → Retrieval test → smoke chat with WorkCover on.
+9. Optional: **Export all settings** / **Export all chunks** after a good baseline so you can restore settings on another host.
 
 ## SSE tips
 
@@ -33,3 +34,9 @@ Point a single cron at a small PHP script if you later automate retention prunin
 ## After code changes
 
 Upload changed PHP/JS/CSS; hard-refresh the browser for assets. No build step.
+
+## Backups
+
+- Settings: Admin → Export all settings (JSON). Import on a fresh install after DB + config exist.
+- Corpus: Export all chunks is a readable backup; re-ingest originals or restore DB for a full restore (chunk import not built).
+- Always keep `includes/config.php` and DB dumps off public git.

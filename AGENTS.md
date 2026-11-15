@@ -23,4 +23,5 @@ Respect `AREA.md`. One agent owns one area per session unless the user asks for 
 ## Docs
 
 - Do not invent new `.md` files mid-task unless the user asks.
-- When accuracy/settings change, flag stale docs in the chat summary if docs were not updated in that turn.
+- When the user asks to update MD files, sync them (commit + push) per the auto-sync-MD rule.
+- When accuracy/settings change and docs were not updated in that turn, flag stale paths in the chat summary.

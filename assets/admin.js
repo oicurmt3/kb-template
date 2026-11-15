@@ -6,10 +6,17 @@
   const $drop = document.getElementById('dropzone');
   const $file = document.getElementById('file-input');
   const $status = document.getElementById('upload-status');
+  const $uploadPending = document.getElementById('upload-pending');
+  const $uploadSubmit = document.getElementById('upload-submit');
+  const $uploadClear = document.getElementById('upload-clear');
   const $docList = document.getElementById('doc-list');
+  const $docSummaryHint = document.getElementById('doc-summary-hint');
   const $chunksPanel = document.getElementById('chunks-panel');
+  const $chunksDetails = document.getElementById('chunks-details');
   const $chunksList = document.getElementById('chunks-list');
   const $chunksTitle = document.getElementById('chunks-doc-title');
+  /** @type {File[]} */
+  let pendingUploadFiles = [];
   const $retrievalForm = document.getElementById('retrieval-form');
   const $retrievalQuery = document.getElementById('retrieval-query');
   const $retrievalResults = document.getElementById('retrieval-results');
@@ -32,6 +39,11 @@
   const $uiFeaturesList = document.getElementById('ui-features-list');
   const $saveUiFeatures = document.getElementById('save-ui-features');
   const $uiFeaturesStatus = document.getElementById('ui-features-status');
+  const $exportSettings = document.getElementById('export-settings');
+  const $importSettings = document.getElementById('import-settings');
+  const $importSettingsFile = document.getElementById('import-settings-file');
+  const $exportChunks = document.getElementById('export-chunks');
+  const $exportStatus = document.getElementById('export-status');
 
   const UI_FEATURE_LABELS = {
     workcover: 'WorkCover (docs + live allowlisted web)',
@@ -72,9 +84,44 @@
   }
 
   function setStatus(msg, isErr) {
+    if (!$status) return;
     $status.textContent = msg || '';
     $status.classList.toggle('err', !!isErr);
     $status.classList.toggle('ok', !!msg && !isErr);
+  }
+
+  function renderPendingUploads() {
+    if (!$uploadPending) return;
+    if (!pendingUploadFiles.length) {
+      $uploadPending.textContent = 'No files selected.';
+      return;
+    }
+    const names = pendingUploadFiles.map((f) => f.name);
+    const shown = names.slice(0, 8).join(', ');
+    const more = names.length > 8 ? ' (+' + (names.length - 8) + ' more)' : '';
+    $uploadPending.textContent =
+      names.length + ' file' + (names.length === 1 ? '' : 's') + ' ready: ' + shown + more;
+  }
+
+  function stageUploadFiles(fileList) {
+    const incoming = Array.from(fileList || []);
+    if (!incoming.length) return;
+    const byKey = new Map();
+    pendingUploadFiles.forEach((f) => {
+      byKey.set(f.name + ':' + f.size + ':' + f.lastModified, f);
+    });
+    incoming.forEach((f) => {
+      byKey.set(f.name + ':' + f.size + ':' + f.lastModified, f);
+    });
+    pendingUploadFiles = Array.from(byKey.values());
+    renderPendingUploads();
+    setStatus(pendingUploadFiles.length ? 'Ready to upload — press Upload' : '');
+  }
+
+  function clearPendingUploads() {
+    pendingUploadFiles = [];
+    if ($file) $file.value = '';
+    renderPendingUploads();
   }
 
   async function loadDocuments() {
@@ -82,9 +129,15 @@
     $docList.innerHTML = '';
     if (r.error) {
       $docList.textContent = r.error;
+      if ($docSummaryHint) $docSummaryHint.textContent = '';
       return;
     }
     const docs = r.documents || [];
+    if ($docSummaryHint) {
+      $docSummaryHint.textContent = docs.length
+        ? docs.length + ' doc' + (docs.length === 1 ? '' : 's')
+        : '';
+    }
     if (!docs.length) {
       $docList.innerHTML = '<p class="hint">No documents yet.</p>';
       return;
@@ -275,21 +328,30 @@
 
   async function uploadFiles(fileList) {
     const files = Array.from(fileList || []);
-    if (!files.length) return;
+    if (!files.length) {
+      setStatus('Choose files first', true);
+      return;
+    }
     await refreshCsrf();
     let lastDoc = null;
+    let failed = 0;
     for (const file of files) {
       setStatus('Uploading ' + file.name + '…');
       try {
         lastDoc = await uploadOne(file);
         setStatus('Uploaded ' + file.name + ' (' + (lastDoc.chunk_count || 0) + ' chunks)');
       } catch (e) {
+        failed += 1;
         setStatus(file.name + ': ' + e.message, true);
       }
     }
+    clearPendingUploads();
     await loadDocuments();
     if (lastDoc && lastDoc.id) {
       highlightDoc(lastDoc.id);
+    }
+    if (!failed && lastDoc) {
+      setStatus('Upload complete');
     }
   }
 
@@ -369,8 +431,10 @@
 
   async function openChunks(docId, title) {
     $chunksPanel.hidden = false;
-    $chunksTitle.textContent = '— ' + title;
+    if ($chunksDetails) $chunksDetails.open = true;
+    if ($chunksTitle) $chunksTitle.textContent = title || '';
     $chunksList.innerHTML = '<p class="hint">Loading…</p>';
+    $chunksPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     const r = await fetch(api('chunks.php?document_id=' + docId)).then((x) => x.json());
     if (r.error) {
       $chunksList.textContent = r.error;
@@ -424,7 +488,7 @@
       }
     });
     $file.addEventListener('change', () => {
-      uploadFiles($file.files);
+      stageUploadFiles($file.files);
       $file.value = '';
     });
     ['dragenter', 'dragover'].forEach((ev) => {
@@ -440,9 +504,20 @@
       });
     });
     $drop.addEventListener('drop', (e) => {
-      uploadFiles(e.dataTransfer?.files);
+      stageUploadFiles(e.dataTransfer?.files);
     });
   }
+
+  if ($uploadSubmit) {
+    $uploadSubmit.addEventListener('click', () => uploadFiles(pendingUploadFiles));
+  }
+  if ($uploadClear) {
+    $uploadClear.addEventListener('click', () => {
+      clearPendingUploads();
+      setStatus('Cleared selected files');
+    });
+  }
+  renderPendingUploads();
 
   $retrievalForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1123,6 +1198,111 @@
       } catch (e) {
         setChatStatus(e.message || 'Delete failed', true);
       }
+    });
+  }
+
+  function setExportStatus(msg, isErr) {
+    if (!$exportStatus) return;
+    $exportStatus.textContent = msg || '';
+    $exportStatus.classList.toggle('err', !!isErr);
+    $exportStatus.classList.toggle('ok', !!msg && !isErr);
+  }
+
+  async function downloadExport(type, label) {
+    setExportStatus('Preparing ' + label + '…');
+    try {
+      const r = await fetch(api('export.php?type=' + encodeURIComponent(type)), {
+        credentials: 'same-origin',
+      });
+      const cd = r.headers.get('Content-Disposition') || '';
+      const isAttachment = /attachment/i.test(cd);
+      if (!r.ok || !isAttachment) {
+        let err = 'Export failed (' + r.status + ')';
+        try {
+          const j = await r.json();
+          if (j && j.error) err = j.error;
+        } catch (_) { /* ignore */ }
+        throw new Error(err);
+      }
+      let filename = 'wanda-' + type + '.json';
+      const m = /filename="?([^";]+)"?/i.exec(cd);
+      if (m && m[1]) filename = m[1].trim();
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportStatus('Downloaded ' + filename);
+    } catch (e) {
+      setExportStatus(e.message || 'Export failed', true);
+    }
+  }
+
+  if ($exportSettings) {
+    $exportSettings.addEventListener('click', () => downloadExport('settings', 'settings'));
+  }
+  if ($exportChunks) {
+    $exportChunks.addEventListener('click', () => {
+      if (!confirm('Export all documents and chunks? Large libraries may take a moment.')) return;
+      downloadExport('chunks', 'chunks');
+    });
+  }
+
+  async function importSettingsFromFile(file) {
+    if (!file) return;
+    setExportStatus('Reading ' + file.name + '…');
+    try {
+      const text = await file.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        throw new Error('File is not valid JSON');
+      }
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new Error('Settings file must be a JSON object');
+      }
+      if (data.export === 'chunks') {
+        throw new Error('That file is a chunks export — pick a settings export');
+      }
+      if (!confirm('Import settings from “' + file.name + '”? This overwrites current admin settings.')) {
+        setExportStatus('');
+        return;
+      }
+      await refreshCsrf();
+      setExportStatus('Importing…');
+      const r = await fetch(api('export.php'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf(),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ type: 'settings', data }),
+      }).then((x) => x.json());
+      if (r.error) throw new Error(r.error);
+      const bits = (r.updated || []).join(', ') || 'none';
+      let msg = 'Imported: ' + bits;
+      if ((r.skipped || []).length) msg += ' · skipped ' + r.skipped.join(', ');
+      setExportStatus(msg);
+      await loadWebHosts();
+      await loadChats();
+    } catch (e) {
+      setExportStatus(e.message || 'Import failed', true);
+    } finally {
+      if ($importSettingsFile) $importSettingsFile.value = '';
+    }
+  }
+
+  if ($importSettings && $importSettingsFile) {
+    $importSettings.addEventListener('click', () => $importSettingsFile.click());
+    $importSettingsFile.addEventListener('change', () => {
+      const f = $importSettingsFile.files && $importSettingsFile.files[0];
+      importSettingsFromFile(f);
     });
   }
 

@@ -129,7 +129,7 @@ Cost: one extra non-streaming call. Benefit: catches unsupported claims that sli
 
 ## 3. Feature settings → accuracy impact
 
-Admin controls live under **Chat UI & features**, **Adaptive RAG**, **Answer length**, **Simple explain age**, and **Web domains**. Composer toggles send client flags; the server resolves them with `AppSettings::uiFeatureActive`.
+Admin controls live under collapsible cards: **Chat UI & features**, **Adaptive RAG**, **RAG ↔ Web mix**, **Answer length**, **Basic language age**, and **Web search & fetch domains**. Composer toggles send client flags; the server resolves them with `AppSettings::uiFeatureActive`.
 
 ### 3.1 Toggle features (Default + Show/Hide)
 
@@ -162,10 +162,12 @@ When **Hide**, the capability is **forced off** (no default-on bypass).
 | **Intro message** | UX only — not injected into model retrieval. |
 | **Chat history on/off** | Off → multi-user/kiosk safer (no sidebar history). Retrieval rewrite still uses **in-conversation** message rows for the active chat while the session lasts. Turning history off does not wipe the current thread mid-chat. |
 | **Adaptive RAG on** | Slimmer `top_k` / fewer docs when the question is focused or tagged. **Usually better relevance** (less conflicting excerpts). Off = legacy fixed-size pool — more recall, more noise. Prefer **on**. |
+| **RAG ↔ Web mix** | `complement` / `docs_first` / `web_first` / `compete` + degree 0–100. Changes how Docs mode blends excerpts with allowlisted web (and HQ). Prefer **complement** ~50 unless statute text must dominate (**docs_first**). |
 | **Answer length** short / medium / long | Short answers may omit exceptions and related sections → lower *completeness*. Long may pad. **Medium** is the accuracy sweet spot for legal Q&A. |
 | **Simple explain age** (5–18) | Only applies when HQ is off. Lower ages → simpler words; meaning must still match excerpts. Too low can oversimplify obligations — keep ≥10 for workplace use. |
 | **Web allowed hosts** | Wrong hosts → wrong jurisdiction or junk pages. Keep WA WorkCover (and trusted official hosts only). |
 | **Chat caps / retention** | Ops, not accuracy — except pruning mid-investigation can drop history the rewrite relied on. |
+| **Export / import settings** | Ops — backup/restore admin knobs. Does not change accuracy until values differ after import. |
 
 ### 3.4 Document / ingest choices (admin, not composer)
 
@@ -243,7 +245,7 @@ Deep thinking can combine with any row; it does not change retrieval.
 
 ## 6. Debugging accuracy
 
-1. **Admin → Retrieval test** — same rewrite → synonyms → tags → search path; inspect search query, quality score, weak flag, hit headers.  
+1. **Admin → Retrieval test** — same rewrite → synonyms → tags → search path; inspect search query, quality score, weak flag, and each **matched chunk** (title, header_path, score, text).  
 2. Chat with WorkCover on — expand Sources; check titles and excerpt counts.  
 3. Read SSE / UI notes when exposed (`Query rewrite`, `Auto tags`, `Retrieval: weak`, `HQ check: corrected`).  
 4. If wrong section: improve document tags/titles, or ask with section number (legal-ref bonus).  

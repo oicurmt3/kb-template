@@ -4,23 +4,47 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-15 — Admin export/import + UI polish + docs sync
+
+**Done**
+
+- `api/export.php`: GET `type=settings|chunks` download; POST import settings (`AppSettings::importSettingsExport`).
+- Admin **Export / import** card; staged file upload + **Upload** / Clear; all admin cards collapsible (closed by default).
+- Docs refreshed across README, handover, AREA, ARCHITECTURE, DESIGN, SECURITY, DEPLOY, TESTING, CHANGELOG, ACCURACY, ADAPT, CONTRIBUTING, this log.
+
+**API contracts**
+
+- Export GET: `api/export.php?type=settings|chunks` (admin session) → JSON attachment.
+- Import POST: `{ type: "settings", data: <export object> }` + CSRF → `{ ok, updated, skipped, effective }`.
+
+**Blocked / next**
+
+- Chunk **import** not built.
+- No automated eval harness — `MDfiles/TESTING.md`.
+- Optional: surface `web_notes` in chat UI.
+
+**Backlog (do not build until asked)**
+
+1. Admin search synonyms (DB override + UI).
+2. Admin tag-inference map (after synonyms).
+3. Science lab coordinator — `MDfiles/PLAN-science-lab-coordinator.md`.
+4. Chunk import from export JSON (optional).
+
+---
+
 ## 2026-11-15 — Accuracy + documentation
 
 **Done**
 
 - Accuracy pipeline wired end-to-end: rewrite, synonyms, auto-tags, hitQuality grounding, HQ `verifyGroundedAnswer`, admin retrieval-test quality display, chat.js uses `done.content` after HQ.
 - Full documentation suite: refreshed `README.md` / `handover.md`; added `MDfiles/ACCURACY.md` (feature × accuracy matrix) plus architecture/design/security/deploy/testing/changelog/contributing; root `AGENTS.md`, `AREA.md`, this log.
+- WorkCover = RAG + allowlisted web; RAG↔Web mix admin setting; HQ preserves web-supported claims.
 
 **API contracts (stable)**
 
 - Chat POST body: `message`, `mode` (`rag`|`chat`), `hq_mode`/`hq`, `deep_thinking`, `web_search`, `tags`, `context_url`, `extra_context`, `conversation_id`.
 - SSE: `delta`, `error`, `title`, `done` (`content`, `citations`, `suggestions`, `web_notes`, …).
 - Retrieval test POST: `{ query }` → `search_query`, `rewritten`, `focus_tags`, `quality`, `hits`.
-
-**Blocked / next**
-
-- No automated eval harness yet — manual scripts in `MDfiles/TESTING.md`.
-- Optional: surface `web_notes` in the chat UI for transparency.
 
 **Backlog (planned — do not build until asked)**
 

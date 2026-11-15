@@ -21,16 +21,23 @@ WANDA is a plain PHP + vanilla JS chatbot that answers Western Australian worker
 
 | Control | Role |
 |---------|------|
-| **WorkCover** | RAG against uploaded docs (Act/Regs/guides) |
+| **WorkCover** | Docs mode: uploaded RAG **plus** allowlisted live web (blend via admin RAG↔Web mix) |
 | **HQ** | High-quality precise language (off = Basic / simple explain) |
 | **Deep** | Extra reasoning pass before the answer |
-| **Web** | Live search/fetch limited to admin-allowed hosts |
+| **Web** | Live search/fetch on allowlisted hosts — only when WorkCover is **off** |
 | **Tags** | Focus retrieval on document tags |
 | **URL / File** | Attach one URL or pasted file text for this turn |
 | **Sources** | Show citation chips after RAG answers |
 | **Related** | Follow-up suggestion chips |
 
 Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → grounded prompt → optional HQ check) is documented in **[MDfiles/ACCURACY.md](MDfiles/ACCURACY.md)**.
+
+### Admin (summary)
+
+- Collapsible cards (closed by default): chats, export/import, settings, upload, documents, chunks, retrieval test
+- **Export / import settings** JSON; **export all chunks** (no chunk import yet)
+- Upload: stage files → **Upload** button; paste → **Add & chunk**
+- RAG↔Web mix, Adaptive RAG, UI features, hosts, caps — see Accuracy / handover docs
 
 ## Docs
 
@@ -56,10 +63,11 @@ Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → ground
 | Path | Purpose |
 |------|---------|
 | `index.php` | Chat UI |
-| `admin.php` | Ingest, docs, retrieval test, UI/settings |
+| `admin.php` | Collapsible admin: ingest, docs, retrieval test, settings, export |
 | `api/chat.php` | Streaming chat + RAG |
+| `api/export.php` | Admin export settings/chunks; import settings |
 | `includes/Retrieval.php` | Search, rewrite, quality, grounding, HQ verify |
-| `includes/Settings.php` | Admin-editable feature flags and limits |
+| `includes/Settings.php` | Admin-editable feature flags, mix, limits, import |
 | `includes/config.php` | Secrets (gitignored) |
 
 ## Security (summary)

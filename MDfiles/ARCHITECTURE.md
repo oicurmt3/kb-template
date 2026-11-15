@@ -17,9 +17,10 @@ Browser (index.php + chat.js)
         → session cookie + rate limit
         → resolve UI features (Settings)
         → if WorkCover: Retrieval → system prompt excerpts
-        → optional WebFetch / extra context
+        → optional WebFetch (always with WorkCover when web.enabled; else standalone Web)
+        → RAG↔Web mix instructions
         → DeepSeek chatStream → SSE deltas
-        → optional HQ verify
+        → optional HQ verify (docs + web notes)
         → persist assistant message + done event
 ```
 
@@ -30,8 +31,10 @@ Browser (index.php + chat.js)
 | `conversations` | Per-session chat threads |
 | `messages` | User/assistant turns; `blocks` JSON for citations/suggestions |
 | `documents` | Uploaded/pasted corpus metadata, tags, source_url, ingest_mode |
-| `chunks` | Searchable text + header_path + FULLTEXT |
-| `settings` | Admin JSON/string overrides (UI, adaptive RAG, hosts, caps) |
+| `chunks` | Searchable text + `chunk_index` / `chunk_key` / `header_path` + FULLTEXT |
+| `settings` | Admin JSON/string overrides (UI, adaptive RAG, RAG↔Web mix, hosts, caps, …) |
+
+Each chunk row is uniquely identifiable (`id` + `document_id` + `chunk_index` / `chunk_key`).
 
 ## Storage on disk
 
@@ -50,11 +53,19 @@ Browser (index.php + chat.js)
 | `Ingest` / `Chunker` | File/paste → documents + chunks |
 | `DeepSeekClient` | API wrappers |
 | `WebFetch` | Host-restricted search/fetch + length instructions |
-| `AppSettings` | Feature flags and admin overrides |
+| `AppSettings` | Feature flags, mix, chat limits, settings import |
+
+## Admin export / import
+
+| Endpoint | Role |
+|----------|------|
+| `GET api/export.php?type=settings` | JSON download: `effective` + `raw` settings rows |
+| `GET api/export.php?type=chunks` | JSON download: all documents + all chunks |
+| `POST api/export.php` | Import settings only (`type=settings`, body `data`) |
 
 ## Modes
 
-- `chat` — general assistant (`app.system_prompt`)
-- `rag` — WorkCover (`app.rag_system_prompt` + retrieved excerpts)
+- `chat` — general assistant (`app.system_prompt`); optional standalone Web
+- `rag` — WorkCover Docs mode (`app.rag_system_prompt` + retrieved excerpts + allowlisted web + mix)
 
 See [ACCURACY.md](ACCURACY.md) for the RAG accuracy path.
