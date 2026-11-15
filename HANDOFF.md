@@ -21,3 +21,8 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 - No automated eval harness yet — manual scripts in `MDfiles/TESTING.md`.
 - Optional: surface `web_notes` in the chat UI for transparency.
+
+**Backlog (planned — do not build until asked)**
+
+1. **Admin search synonyms** — editable phrase → expansion map (DB override merged with code defaults in `expandQuerySynonyms`); simple Admin UI; validate phrase length; show effect in Retrieval test. Not started.
+2. **Optional later:** admin-editable tag-inference map (`inferFocusTags` `$syn`), after synonyms setting ships.

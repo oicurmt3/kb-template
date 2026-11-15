@@ -8,6 +8,7 @@
 - Admin Retrieval test shows search query + quality
 - Adaptive RAG hint updated; full MD documentation suite added (`MDfiles/ACCURACY.md` etc.)
 - `ACCURACY.md` §7: how to tune synonyms / tags / corpus; pointers from `ADAPT.md` / `TESTING.md`
+- Backlog (not built): admin-editable search synonyms setting — see `HANDOFF.md`
 
 ## Earlier (same project arc)
 
