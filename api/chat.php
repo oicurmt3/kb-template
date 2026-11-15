@@ -40,6 +40,7 @@ try {
 
     $answerLength = AppSettings::answerLength();
 
+    $webCfg = AppSettings::mergeWebConfig($config['web'] ?? []);
     $webSearch = AppSettings::uiFeatureActive('web_search', !empty($body['web_search']));
     $deepThinking = AppSettings::uiFeatureActive('deep_thinking', !empty($body['deep_thinking']));
     // HQ on → high-quality answers; HQ off (default) → Basic / plain-language answers
@@ -72,7 +73,10 @@ try {
         $mode = 'chat';
     }
 
-    $webCfg = AppSettings::mergeWebConfig($config['web'] ?? []);
+    // WorkCover/Docs mode = RAG + allowlisted live web (one combined grounded pipeline)
+    if ($mode === 'rag' && !empty($webCfg['enabled'])) {
+        $webSearch = true;
+    }
     $maxCtx = (int)($webCfg['max_context_chars'] ?? 12000);
     if (mb_strlen($extraContext) > $maxCtx) {
         $extraContext = mb_substr($extraContext, 0, $maxCtx) . "\n…";
@@ -200,7 +204,8 @@ try {
         $retrievalMeta = $searchResult['meta'];
         $quality = Retrieval::hitQuality($hits, $expanded);
         $retrievalMeta['quality'] = $quality;
-        $allowWebContext = $webSearch || $contextUrl !== '';
+        // Docs mode always plans for combined RAG + allowlisted web/URL enrichment
+        $allowWebContext = true;
         $built = Retrieval::buildContext($hits, ['allow_web_context' => $allowWebContext]);
         $citations = $built['sources'] !== [] ? $built['sources'] : $built['citations'];
         $dsFiles = Retrieval::deepseekFilesFromHits($hits);
@@ -337,18 +342,28 @@ try {
             $sr = $wf->search($searchQuery, $message);
             $hostsLabel = implode(', ', $wf->allowedHosts());
             if ($sr['ok'] && $sr['text'] !== '') {
-                $webBlock = "ALLOWED-DOMAIN WEB SEARCH (restricted to: {$hostsLabel}):\n"
-                    . "Use these results as grounded sources for what those pages state. "
-                    . "When WorkCover/Docs mode is also on: prefer uploaded Act/Regulations for WA workers compensation law; "
-                    . "use web results for topics the excerpts do not cover, or for current public info on these hosts. "
-                    . "Do not invent or cite other websites.\n"
-                    . $sr['text'];
+                if ($mode === 'rag') {
+                    $webBlock = "LIVE ALLOWLISTED WEB ENRICHMENT (hosts: {$hostsLabel}) — part of Docs/WorkCover mode:\n"
+                        . "Combine this with DOCUMENT EXCERPTS above into one answer. "
+                        . "Do not drop or ignore web content that is relevant. "
+                        . "Use excerpts as the legal source for WA workers compensation Act/Regulations; "
+                        . "use web results to add current guidance, process pages, and anything the excerpts omit. "
+                        . "If both speak to the same point, lead with Act/Regs then note how the website explains it. "
+                        . "Do not invent or cite other websites.\n"
+                        . $sr['text'];
+                    $webNotes[] = 'Web+RAG: ' . count($sr['results']) . ' results (' . $hostsLabel . ')';
+                } else {
+                    $webBlock = "ALLOWED-DOMAIN WEB SEARCH (restricted to: {$hostsLabel}):\n"
+                        . "Use these results as grounded sources for what those pages state. "
+                        . "Do not invent or cite other websites.\n"
+                        . $sr['text'];
+                    $webNotes[] = 'Web search: ' . count($sr['results']) . ' results (' . $hostsLabel . ')';
+                }
                 $systemPrompt .= "\n\n" . $webBlock;
                 if (!isset($groundingForCheck)) {
                     $groundingForCheck = '';
                 }
                 $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $webBlock;
-                $webNotes[] = 'Web search: ' . count($sr['results']) . ' results (' . $hostsLabel . ')';
                 foreach ($sr['results'] as $i => $hit) {
                     $citations[] = [
                         'n' => count($citations) + 1,

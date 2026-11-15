@@ -121,7 +121,7 @@ Runs when **HQ** is on and there is grounding text, after the stream finishes.
 
 Cost: one extra non-streaming call. Benefit: catches unsupported claims that slipped through.
 
-**Note:** Web search still only hits admin-allowlisted hosts (e.g. WorkCover). Off-topic questions (e.g. GST) need those hosts to publish relevant pages, or WorkCover off + appropriate hosts.
+**Note:** Live web still only hits admin-allowlisted hosts. WorkCover mode always tries to enrich RAG with that web (when `web.enabled` in config). Off-topic questions only work if those hosts have the content, or you turn WorkCover off and use standalone Web / general chat.
 
 ---
 
@@ -136,10 +136,10 @@ When **Show**: user’s toggle wins for that request.
 
 | Feature | Default meaning | Effect on accuracy / relevance |
 |---------|-----------------|--------------------------------|
-| **WorkCover** | On → `mode=rag`; Off → general chat | **Largest switch.** Off = no retrieval, no grounding, no HQ verify, no auto-tags. On = full accuracy pipeline. For a public workers-comp kiosk, keep Default **on**. |
-| **HQ** | On = high-quality; Off = Basic | **Does not change which chunks are retrieved.** Changes answer style and whether the post-stream faithfulness check runs. HQ on → more precise terms, section numbers, related exceptions; HQ off → simpler language (still must stay grounded when WorkCover is on). For maximum legal fidelity, Default **on**. For public plain-language, Default **off**. |
+| **WorkCover** | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts (web **adds to** docs; HQ must not strip web-supported claims). Off = no doc retrieval. Standalone **Web** toggle only appears when WorkCover is off. |
+| **HQ** | On = high-quality; Off = Basic | Style + post-stream faithfulness against **docs and allowlisted web together**. Must preserve web-backed content. |
 | **Deep thinking** | Extra reasoning before answer | Can improve structure and careful reading of long excerpts; also increases latency/cost. Does not replace retrieval. Leave off unless answers feel shallow on complex multi-section questions. |
-| **Web** | Live search/fetch on allowed hosts | Adds **current website** text. Helps relevance for “what does WorkCover’s site say today?” Risk: can dilute Act/Regs focus if pages are marketing/overview. Keep hosts tight (e.g. `workcover.wa.gov.au`). Prefer WorkCover RAG for law; use Web as supplement. |
+| **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. When WorkCover is on, that same search is automatic inside Docs mode. |
 
 ### 3.2 Visibility-only features (Show / Hide only)
 
@@ -228,13 +228,12 @@ These often matter **more** than toggles:
 
 ## 5. What each mode combination does
 
-| WorkCover | HQ | Web | Result |
-|-----------|----|-----|--------|
+| WorkCover | HQ | Standalone Web | Result |
+|-----------|----|----------------|--------|
 | Off | * | Off | General chat; no docs |
-| Off | * | On | General chat + allowed-host web text |
-| On | Off | Off | Grounded RAG + Basic language; no HQ verify |
-| On | On | Off | Grounded RAG + precise style + HQ verify |
-| On | On | On | Above + web snippets (watch for dilution) |
+| Off | * | On | General chat + allowlisted web |
+| On | Off | *(folded in)* | RAG + live allowlisted web, Basic language |
+| On | On | *(folded in)* | RAG + live web, precise style, HQ on combined sources |
 
 Deep thinking can combine with any row; it does not change retrieval.
 

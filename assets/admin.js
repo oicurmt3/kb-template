@@ -29,10 +29,10 @@
   const $uiFeaturesStatus = document.getElementById('ui-features-status');
 
   const UI_FEATURE_LABELS = {
-    workcover: 'WorkCover (RAG docs)',
+    workcover: 'WorkCover (docs + live allowlisted web)',
     hq: 'HQ mode (off = Basic)',
     deep_thinking: 'Deep thinking',
-    web_search: 'Web search',
+    web_search: 'Web only (when WorkCover off)',
     tags: 'Focus tags',
     url_context: 'URL context',
     file_context: 'File attach context',

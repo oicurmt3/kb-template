@@ -11,6 +11,7 @@
 - Backlog (not built): admin-editable search synonyms setting — see `HANDOFF.md`
 - Plan only: science teacher ↔ lab-tech coordinator — `MDfiles/PLAN-science-lab-coordinator.md`
 - Fix: RAG/HQ no longer wipe allowlisted web/URL answers; HQ checks docs+web; UI note when answer replaced
+- Combine: WorkCover mode = RAG + live allowlisted web as one pipeline; Web toggle only when WorkCover off; HQ preserves web content
 
 ## Earlier (same project arc)
 

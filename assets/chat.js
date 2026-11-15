@@ -99,7 +99,14 @@
     setElHidden(document.getElementById('tool-workcover'), !featureVisible('workcover'));
     setElHidden(document.getElementById('tool-hq'), !featureVisible('hq'));
     setElHidden(document.getElementById('tool-think'), !featureVisible('deep_thinking'));
-    setElHidden(document.getElementById('tool-web'), !featureVisible('web_search'));
+    // Web is folded into WorkCover/Docs mode; standalone Web only when WorkCover is off
+    const ragOn = featureVisible('workcover')
+      ? !!(document.getElementById('mode-rag') && document.getElementById('mode-rag').checked)
+      : featureDefaultOn('workcover');
+    setElHidden(
+      document.getElementById('tool-web'),
+      ragOn || !featureVisible('web_search')
+    );
     setElHidden($tagPills, !tagsShow);
 
     const urlWrap = $contextUrl ? ($contextUrl.closest('.field-wrap') || $contextUrl) : null;
@@ -187,6 +194,12 @@
         btn.hidden = true;
         return;
       }
+      // Folded into WorkCover — hide separate Web control while Docs mode is on
+      if (id === 'web-search' && currentMode() === 'rag') {
+        btn.hidden = true;
+        return;
+      }
+      if (id === 'web-search') btn.hidden = false;
       const el = id ? document.getElementById(id) : null;
       const on = !!(el && el.checked);
       btn.classList.toggle('is-on', on);
@@ -320,7 +333,7 @@
 
   function updatePlaceholder() {
     $input.placeholder = currentMode() === 'rag'
-      ? 'Ask about WorkCover docs — follow-ups are fine…'
+      ? 'Ask about WorkCover docs + live site — follow-ups are fine…'
       : 'Send a message…';
   }
   updatePlaceholder();
@@ -794,9 +807,12 @@
       conversation_id: conversationId,
       message,
       mode: currentMode(),
-      web_search: featureVisible('web_search')
-        ? !!($webSearch && $webSearch.checked)
-        : featureDefaultOn('web_search'),
+      // WorkCover/Docs always includes allowlisted web on the server; toggle only for chat mode
+      web_search: currentMode() === 'rag'
+        ? true
+        : (featureVisible('web_search')
+          ? !!($webSearch && $webSearch.checked)
+          : featureDefaultOn('web_search')),
       deep_thinking: featureVisible('deep_thinking')
         ? !!($deepThinking && $deepThinking.checked)
         : featureDefaultOn('deep_thinking'),

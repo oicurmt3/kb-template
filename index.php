@@ -50,13 +50,13 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>
               </span>
-              <span><strong>WorkCover</strong> — answers from uploaded Acts, Regulations, and guides.</span>
+              <span><strong>WorkCover</strong> — combined Docs mode: uploaded Acts/Regulations/guides <em>plus</em> live search of admin-allowed WorkCover domains (web enriches the documents; it is not a separate switch when WorkCover is on).</span>
             </li>
             <li>
               <span class="help-icon tool-btn" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m-8 11H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11zm7-1c0 .55-.45 1-1 1h-.75v1.5h-1.5V15H14c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1zm-3.5-.5h2v-3h-2z"/></svg>
               </span>
-              <span><strong>HQ</strong> — off = Basic (plain language); on = high-quality, more precise answers.</span>
+              <span><strong>HQ</strong> — off = Basic (plain language); on = high-quality, more precise answers (checks docs <em>and</em> allowlisted web together).</span>
             </li>
             <li>
               <span class="help-icon tool-btn is-on" aria-hidden="true">
@@ -68,7 +68,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
               </span>
-              <span><strong>Web</strong> — search only admin-allowed WorkCover domains.</span>
+              <span><strong>Web</strong> — only shown when WorkCover is off; searches admin-allowed domains. With WorkCover on, that live search is included automatically.</span>
             </li>
             <li>
               <span class="help-icon tool-btn" aria-hidden="true">

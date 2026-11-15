@@ -346,11 +346,13 @@ class Retrieval {
                     [
                         'role' => 'system',
                         'content' => 'You check answers for faithfulness to the provided SOURCE MATERIAL only '
-                            . '(uploaded document excerpts and/or allowlisted web/URL text). '
-                            . 'Claims supported by either documents or allowlisted web/URL text are allowed. '
-                            . 'If every substantive claim is supported, reply with exactly: OK '
-                            . 'Otherwise reply with a corrected plain-text answer that only uses supported claims '
-                            . 'and clearly says what is not covered by the sources. No markdown.',
+                            . '(uploaded document excerpts AND/OR allowlisted web/URL text). '
+                            . 'Treat docs and allowlisted web as one combined source set: keep every claim supported by either. '
+                            . 'NEVER remove or rewrite away content that is supported by allowlisted web/URL text, '
+                            . 'even if the uploaded documents are silent on that point — web enriches the docs. '
+                            . 'If every substantive claim is supported by docs and/or web/URL, reply with exactly: OK '
+                            . 'Otherwise reply with a corrected plain-text answer that keeps all web-supported and doc-supported '
+                            . 'claims, drops only unsupported inventions, and briefly notes anything still uncovered. No markdown.',
                     ],
                     [
                         'role' => 'user',
@@ -1732,16 +1734,15 @@ class Retrieval {
             $n++;
         }
         if ($allowWeb) {
-            $rules = "DOCUMENT EXCERPTS (authoritative for WA workers compensation law):\n"
+            $rules = "DOCUMENT EXCERPTS (part of combined Docs + live web grounding):\n"
                 . "Grounding rules (mandatory):\n"
-                . "- For WA workers compensation / WorkCover law and procedure, prefer these excerpts and any attached DeepSeek-parsed files. "
-                . "Do not invent Act/Regulations rules that are not in the excerpts.\n"
-                . "- If allowlisted web search or URL context is also provided in this system prompt, you MAY use that text "
-                . "to answer topics the excerpts do not cover (for example tax, GST, or general public info on those pages). "
-                . "Do not invent beyond excerpts, attached files, and that allowlisted web/URL text.\n"
+                . "- Combine these excerpts with any LIVE ALLOWLISTED WEB / URL blocks in this system prompt into one answer. "
+                . "Do not discard relevant web content.\n"
+                . "- For WA workers compensation law, prefer Act/Regulations excerpts when present; "
+                . "use web pages to enrich with current guidance, process steps, and anything the excerpts omit.\n"
+                . "- Do not invent beyond excerpts, attached DeepSeek files, and allowlisted web/URL text.\n"
                 . "- If neither excerpts nor allowlisted web/URL text cover the question, say so clearly.\n"
                 . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
-                . "Hierarchy: Act and Regulations over guides for legal WC rules; allowlisted web for other topics those pages actually state.\n"
                 . "Name section/regulation numbers when the excerpts support them.\n\n";
         } else {
             $rules = "DOCUMENT EXCERPTS (authoritative for this answer):\n"
