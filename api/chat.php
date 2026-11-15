@@ -200,7 +200,8 @@ try {
         $retrievalMeta = $searchResult['meta'];
         $quality = Retrieval::hitQuality($hits, $expanded);
         $retrievalMeta['quality'] = $quality;
-        $built = Retrieval::buildContext($hits);
+        $allowWebContext = $webSearch || $contextUrl !== '';
+        $built = Retrieval::buildContext($hits, ['allow_web_context' => $allowWebContext]);
         $citations = $built['sources'] !== [] ? $built['sources'] : $built['citations'];
         $dsFiles = Retrieval::deepseekFilesFromHits($hits);
         if ($focusTags !== []) {
@@ -220,20 +221,34 @@ try {
         if ($built['context'] !== '') {
             $systemPrompt .= "\n\n" . $built['context'];
             if (!empty($quality['weak'])) {
-                $systemPrompt .= "\n\nRetrieval confidence is LOW for this question. "
-                    . "Only state what the excerpts clearly support. If unsure, say the uploaded documents "
-                    . "do not clearly answer this and suggest refining the question or focus tags. "
-                    . "Do not invent legal rules.";
+                if ($allowWebContext) {
+                    $systemPrompt .= "\n\nRetrieval confidence is LOW for this question in the uploaded documents. "
+                        . "Prefer excerpts for any WA workers compensation law they clearly support. "
+                        . "For other topics, use allowlisted web/URL context when it is provided below. "
+                        . "Do not invent legal rules or facts beyond those sources.";
+                } else {
+                    $systemPrompt .= "\n\nRetrieval confidence is LOW for this question. "
+                        . "Only state what the excerpts clearly support. If unsure, say the uploaded documents "
+                        . "do not clearly answer this and suggest refining the question or focus tags. "
+                        . "Do not invent legal rules.";
+                }
                 $webNotes[] = 'Retrieval: weak (score=' . round((float)$quality['max_score'], 2) . ')';
             } else {
                 $webNotes[] = 'Retrieval: ok (score=' . round((float)$quality['max_score'], 2)
                     . ', hits=' . (int)$quality['hit_count'] . ')';
             }
         } else {
-            $systemPrompt .= "\n\nNo document excerpts matched this turn. "
-                . "Do not invent Act/Regulations content. "
-                . "Use chat history only if it already contains the answer; otherwise say nothing relevant "
-                . "was found in the uploaded documents and suggest trying different wording or focus tags.";
+            if ($allowWebContext) {
+                $systemPrompt .= "\n\nNo document excerpts matched this turn. "
+                    . "Do not invent Act/Regulations content. "
+                    . "If allowlisted web/URL context is provided below, you may answer from that text. "
+                    . "Otherwise say the uploaded documents do not cover this and suggest different wording or focus tags.";
+            } else {
+                $systemPrompt .= "\n\nNo document excerpts matched this turn. "
+                    . "Do not invent Act/Regulations content. "
+                    . "Use chat history only if it already contains the answer; otherwise say nothing relevant "
+                    . "was found in the uploaded documents and suggest trying different wording or focus tags.";
+            }
             $webNotes[] = 'Retrieval: no hits';
         }
         if ($dsFiles !== []) {
@@ -242,11 +257,11 @@ try {
                 . ". Treat those attached file contents as authoritative for those sources.";
             $webNotes[] = 'DeepSeek files: ' . count($dsFiles);
         }
-        // Keep excerpts for optional HQ faithfulness check after streaming
-        $ragExcerptsForCheck = $built['context'];
+        // HQ faithfulness: start with RAG context; web/URL text appended when fetched
+        $groundingForCheck = $built['context'];
     } else {
         $dsFiles = [];
-        $ragExcerptsForCheck = '';
+        $groundingForCheck = '';
     }
 
     $systemPrompt .= "\n\n" . WebFetch::answerLengthInstruction($answerLength);
@@ -276,7 +291,12 @@ try {
             $fetched = $wf->fetchUrl($contextUrl);
             if ($fetched['ok'] && $fetched['text'] !== '') {
                 $label = $fetched['title'] ?: $contextUrl;
-                $systemPrompt .= "\n\nUSER-PROVIDED URL CONTEXT ({$label}):\n" . $fetched['text'];
+                $urlBlock = "USER-PROVIDED URL CONTEXT ({$label}):\n" . $fetched['text'];
+                $systemPrompt .= "\n\n" . $urlBlock;
+                if (!isset($groundingForCheck)) {
+                    $groundingForCheck = '';
+                }
+                $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $urlBlock;
                 $webNotes[] = 'DeepSeek Fetch: ' . $contextUrl;
                 $citations[] = [
                     'n' => count($citations) + 1,
@@ -317,9 +337,17 @@ try {
             $sr = $wf->search($searchQuery, $message);
             $hostsLabel = implode(', ', $wf->allowedHosts());
             if ($sr['ok'] && $sr['text'] !== '') {
-                $systemPrompt .= "\n\nALLOWED-DOMAIN WEB SEARCH (restricted to: {$hostsLabel} — "
-                    . "prefer uploaded Act/Regulations when in Docs mode; use these results for current/public context only; "
-                    . "do not invent or cite other websites):\n" . $sr['text'];
+                $webBlock = "ALLOWED-DOMAIN WEB SEARCH (restricted to: {$hostsLabel}):\n"
+                    . "Use these results as grounded sources for what those pages state. "
+                    . "When WorkCover/Docs mode is also on: prefer uploaded Act/Regulations for WA workers compensation law; "
+                    . "use web results for topics the excerpts do not cover, or for current public info on these hosts. "
+                    . "Do not invent or cite other websites.\n"
+                    . $sr['text'];
+                $systemPrompt .= "\n\n" . $webBlock;
+                if (!isset($groundingForCheck)) {
+                    $groundingForCheck = '';
+                }
+                $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $webBlock;
                 $webNotes[] = 'Web search: ' . count($sr['results']) . ' results (' . $hostsLabel . ')';
                 foreach ($sr['results'] as $i => $hit) {
                     $citations[] = [
@@ -443,18 +471,17 @@ try {
             $suggestions = [];
         }
 
-        // HQ faithfulness pass against retrieved excerpts (non-streaming correction)
+        // HQ faithfulness pass against docs + allowlisted web/URL grounding (non-streaming correction)
         if (
-            $mode === 'rag'
-            && $hqMode
+            $hqMode
             && $finalContent !== ''
-            && isset($ragExcerptsForCheck)
-            && is_string($ragExcerptsForCheck)
-            && $ragExcerptsForCheck !== ''
+            && isset($groundingForCheck)
+            && is_string($groundingForCheck)
+            && $groundingForCheck !== ''
         ) {
             $verified = Retrieval::verifyGroundedAnswer(
                 $finalContent,
-                $ragExcerptsForCheck,
+                $groundingForCheck,
                 $config['deepseek'] ?? []
             );
             if (!empty($verified['checked'])) {

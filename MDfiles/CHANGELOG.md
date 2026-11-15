@@ -10,6 +10,7 @@
 - `ACCURACY.md` §7: how to tune synonyms / tags / corpus; pointers from `ADAPT.md` / `TESTING.md`
 - Backlog (not built): admin-editable search synonyms setting — see `HANDOFF.md`
 - Plan only: science teacher ↔ lab-tech coordinator — `MDfiles/PLAN-science-lab-coordinator.md`
+- Fix: RAG/HQ no longer wipe allowlisted web/URL answers; HQ checks docs+web; UI note when answer replaced
 
 ## Earlier (same project arc)
 

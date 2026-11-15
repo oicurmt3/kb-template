@@ -348,6 +348,12 @@ body {
   align-self: flex-start;
   border-bottom-left-radius: 4px;
 }
+.msg .msg-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
 .msg.assistant.streaming .msg-body::after {
   content: '▍';
   animation: blink 1s step-end infinite;

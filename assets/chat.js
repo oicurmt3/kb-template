@@ -744,6 +744,23 @@
     body.textContent = text;
   }
 
+  /** Note under an assistant bubble (e.g. HQ replaced the streamed draft). */
+  function setMessageNote(el, text) {
+    let note = el.querySelector('.msg-note');
+    if (!text) {
+      if (note) note.remove();
+      return;
+    }
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'msg-note hint';
+      const body = el.querySelector('.msg-body');
+      if (body && body.nextSibling) el.insertBefore(note, body.nextSibling);
+      else el.appendChild(note);
+    }
+    note.textContent = text;
+  }
+
   function scrollBottom() {
     $messages.scrollTop = $messages.scrollHeight;
   }
@@ -875,13 +892,25 @@
       } else if (event === 'done') {
         if (obj.citations) citations = obj.citations;
         if (Array.isArray(obj.suggestions)) suggestions = obj.suggestions;
+        const notes = Array.isArray(obj.web_notes) ? obj.web_notes : [];
+        const hqCorrected = notes.some((n) => /HQ check:\s*corrected/i.test(String(n || '')));
         if (typeof obj.content === 'string' && obj.content.length) {
+          const prevVisible = visibleAnswer(accumulated);
           accumulated = obj.content;
           const parsed = parseFollowupsClient(accumulated);
           if (parsed.suggestions.length && (!suggestions || !suggestions.length)) {
             suggestions = parsed.suggestions;
           }
-          setMessageText(assistantEl, visibleAnswer(parsed.content || accumulated));
+          const nextVisible = visibleAnswer(parsed.content || accumulated);
+          setMessageText(assistantEl, nextVisible);
+          if (hqCorrected || (prevVisible && nextVisible && prevVisible !== nextVisible)) {
+            setMessageNote(
+              assistantEl,
+              hqCorrected
+                ? 'Updated after HQ check: the draft was revised so claims match your documents and any allowlisted web/URL sources used this turn.'
+                : 'Answer updated after final processing.'
+            );
+          }
         } else {
           setMessageText(assistantEl, visibleAnswer(accumulated));
         }

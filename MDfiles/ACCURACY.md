@@ -111,13 +111,17 @@ Always applied:
 
 #### F. HQ faithfulness check (`verifyGroundedAnswer`)
 
-Runs **only when** WorkCover + HQ are both effectively on, after the stream finishes.
+Runs when **HQ** is on and there is grounding text, after the stream finishes.
 
-- Flash model sees DOCUMENT EXCERPTS + DRAFT ANSWER.
+- Flash model sees **SOURCE MATERIAL** = document excerpts **plus** any allowlisted web search / URL text from this turn, then the DRAFT ANSWER.
+- Claims supported by **either** docs or allowlisted web/URL are allowed (web is not wiped by RAG).
+- When Web/URL is on with WorkCover, prompts also allow web for topics the excerpts do not cover; Act/Regs still win for WA workers compensation law.
 - Replies `OK` or a corrected plain-text answer.
-- Corrected text is saved and sent as SSE `done.content`; `chat.js` replaces the assistant bubble.
+- Corrected text is saved and sent as SSE `done.content`; `chat.js` replaces the assistant bubble and shows a short note when the text changed.
 
 Cost: one extra non-streaming call. Benefit: catches unsupported claims that slipped through.
+
+**Note:** Web search still only hits admin-allowlisted hosts (e.g. WorkCover). Off-topic questions (e.g. GST) need those hosts to publish relevant pages, or WorkCover off + appropriate hosts.
 
 ---
 
