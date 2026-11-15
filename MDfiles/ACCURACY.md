@@ -123,29 +123,83 @@ Always applied:
 
 When **Deep** is on, the chat request sets DeepSeek API `"thinking": { "type": "enabled" }` ([Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode/)). The model produces chain-of-thought (`reasoning_content`) then the user answer (`content`). WANDA streams the answer content to the UI. Deep improves careful reasoning; it does **not** replace the faithfulness audit below.
 
-#### F. Faithfulness check (`verifyGroundedAnswer`) — automatic
+#### F. Faithfulness check (`verifyGroundedAnswer`) — automatic QA after the mix
 
 Runs **whenever grounding exists** after the stream finishes — WorkCover docs **and/or** allowlisted web/URL **and/or** pasted file/attach text. **Not** gated on HQ or Deep. Designed as a **hallucination brake**, not an editor (prefer `OK` over rewrite).
 
 Who runs it: WANDA PHP calls DeepSeek **flash** (`chatComplete`) with packed sources + draft.
 
-- **SOURCE MATERIAL** packed by `Retrieval::packHqGrounding()`:
-  - uploaded document excerpts
-  - allowlisted web search / URL text (budget reserved so long RAG cannot crowd web out)
-  - user-provided file/text attach context
-- Claims supported by docs **or** allowlisted web/URL (and attach text) under the active **RAG↔Web mix** hint (`ragWebMixHqHint`).
-- Prefer exact `OK` for minor wording differences; rewrite only clear inventions (fake sections, duties, facts).
-- Under **complement**: must not strip web-backed enrichment present in SOURCE MATERIAL.
-- If a “correction” shrinks a ≥200-char draft to &lt;50% length → **keep the streamed draft** (`Faithfulness: kept draft`).
-- **Skipped** when DeepSeek Files are attached this turn (file body is not in the grounding window) → `Faithfulness: skipped (…)`.
-- **Skipped** when there is no grounding (plain general chat with no web/URL/attach).
-- Corrected text (when accepted) is saved and sent as SSE `done.content`; `chat.js` replaces the assistant bubble and shows a short note when the text changed.
+##### Process method (order matters)
 
-Cost: one extra non-streaming flash call (when not skipped). Benefit: catches unsupported claims without deleting good Docs+web answers.
+```
+1. Retrieval + allowlisted web/URL/attach  →  grounding texts
+2. FIRST PASS (stream)
+      - Writes the answer
+      - Mix applied HERE via ragWebMixInstruction(mode + degree)
+      - Optional Deep = API thinking during this call only
+      - HQ/Basic = wording style only
+3. User already sees the streamed draft
+4. FAITHFULNESS (second flash call) — separate run, later
+      - Does NOT re-run mix or retrieval
+      - Audits the finished draft vs packed SOURCE MATERIAL
+      - Uses the SAME mix principles via ragWebMixHqHint(mode + degree)
+      - Prefer OK; rewrite only clear inventions; shrink-guard keeps good drafts
+5. done.content may replace the bubble if corrected
+```
 
-**Note:** Live web still only hits admin-allowlisted hosts. WorkCover mode always tries to enrich RAG with that web (when `web.enabled` in config). Off-topic questions only work if those hosts have the content, or you turn WorkCover off and use standalone Web / general chat.
+**Independent runs, shared mix rules:** first pass and faithfulness are two API calls. Mix does not “happen inside” faithfulness. Faithfulness re-applies the same blend **policy** when deciding what to keep or cut.
 
-**Admin → RAG ↔ Web mix:** `complement` (default) | `docs_first` | `web_first` | `compete`, plus **degree** 0–100. Instructs the model (and faithfulness check) how to blend uploaded docs with allowlisted live web. See `AppSettings::ragWebMixInstruction()`.
+##### What faithfulness lets through vs stops
+
+| Lets through (keep first pass) | Stops (or tries to) |
+|--------------------------------|---------------------|
+| Claims supported by docs **or** web/URL/attach under the active mix | Invented section/reg numbers, duties, rules, facts not in SOURCE MATERIAL |
+| Minor wording differences | Unsupported embroidery beyond packed sources |
+| Complement web enrichment that appears in the web pack | Over-aggressive “corrections” that shrink a ≥200-char draft to &lt;50% length → **keep draft** |
+| Mix-aligned blends (docs_first gap-fill web, web_first process + statute, etc.) | Weaker-side inventions under **compete** when they contradict sources |
+
+##### Mix mode + degree in the check
+
+Admin **RAG ↔ Web mix** is one setting used twice:
+
+| | First pass (`ragWebMixInstruction`) | Faithfulness (`ragWebMixHqHint`) |
+|--|-------------------------------------|----------------------------------|
+| **Mode** | How to write the blend | What to treat as allowed when auditing |
+| **Degree 0–100** | lightly / moderately / strongly lean | Same lean language in the auditor prompt — higher degree = trust the primary side more when keeping/cutting |
+
+| Mode | Faithfulness keep/cut principle |
+|------|--------------------------------|
+| **complement** | Keep docs **or** web; never strip web-backed enrichment in SOURCE MATERIAL; do not undo the first-pass blend |
+| **docs_first** | Prefer docs; keep web as gap-fill / process detail; higher degree → allow more web gap-fill |
+| **web_first** | Prefer web; keep Act/Regs for legal duties; higher degree → lean harder on web for process |
+| **compete** | Prefer OK if draft already chose a winner; only drop weaker side if invented/contradictory; degree tilts which winner is more tolerable |
+
+Important: “more web weight” means the check **protects web more** (treats web as allowed), **not** that it scrutinizes web more harshly.
+
+##### Packing / skip / outcomes
+
+- **SOURCE MATERIAL** packed by `Retrieval::packHqGrounding()` (budget ~14k chars): docs + reserved web (~35%) + attach (~20%) so long RAG cannot crowd web out of the auditor’s window.
+- Draft sent to checker ≤ ~6k chars; `max_tokens` 900; temperature 0.1.
+- Prefer exact `OK`; rewrite only clear inventions.
+- If correction shrinks a ≥200-char draft to &lt;50% → keep streamed draft (`Faithfulness: kept draft`).
+- **Skipped** when DeepSeek Files are attached (file body not in grounding window).
+- **Skipped** for plain general LLM chat with no docs/web/URL/attach grounding.
+- Notes: `Faithfulness: ok` | `corrected` | `kept draft` | `skipped…`
+- Corrected text → SSE `done.content`; UI may show an update note.
+
+Cost: one extra non-streaming flash call when not skipped.
+
+**Note:** Live web still only hits admin-allowlisted hosts. WorkCover mode always tries to enrich RAG with that web (when `web.enabled` in config).
+
+---
+
+### 2.1 RAG ↔ Web mix + faithfulness (principles summary)
+
+1. Mix is applied when **writing** the first answer.  
+2. Faithfulness runs **after**, as QA.  
+3. Same admin mode + degree steers both write and audit.  
+4. Faithfulness is optional only when there is **no** grounding; it is not a user toggle.  
+5. HQ and Deep are orthogonal (style / API CoT).  
 
 ---
 

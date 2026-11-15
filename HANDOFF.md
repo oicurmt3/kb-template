@@ -4,22 +4,36 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-15 — Faithfulness follows mix mode + degree
+
+**Done**
+
+- `ragWebMixHqHint(mode, degree)` — auditor lean matches first-pass mix.
+- ACCURACY process method §F / §2.1; admin mix card + handover/CHANGELOG.
+
+**Process**
+
+1. First pass writes with `ragWebMixInstruction`  
+2. Faithfulness later audits with same mix principles (not during mix)  
+3. Higher degree → trust primary side more when keeping/cutting; does not mean “scrutinize web harder”
+
+---
+
 ## 2026-11-15 — HQ / Deep / faithfulness roles split
 
 **Done**
 
-- Faithfulness runs automatically when grounding exists (docs and/or web/URL/attach); notes `Faithfulness: …`.
-- HQ = style only; Deep = DeepSeek API `thinking.enabled` only.
-- Help (`index.php`), admin labels, chat.js bubble note updated.
-- Docs: ACCURACY roles + §E/E2/F, handover, README, TESTING, ARCHITECTURE, CHANGELOG, this log.
+- Faithfulness runs automatically when grounding exists; notes `Faithfulness: …`.
+- HQ = style only; Deep = DeepSeek API thinking only.
+- Docs + help/admin labels updated.
 
 **Product contract**
 
 | Toggle | Behaviour |
 |--------|-----------|
-| HQ | `hqInstruction` vs Basic explain — no verify |
+| HQ | Style only |
 | Deep | API thinking CoT |
-| Faithfulness | Auto auditor via `verifyGroundedAnswer` |
+| Faithfulness | Auto auditor; shared mix mode+degree with first pass |
 
 ---
 

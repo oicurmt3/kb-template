@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-15 — Mix degree in faithfulness + process docs
+
+- `ragWebMixHqHint` now includes mode **and** degree (lightly/moderately/strongly) so the auditor follows the same mix lean as the first pass
+- ACCURACY §F / §2.1: process method — first pass applies mix → faithfulness QA after; independent runs, shared rules; keep vs cut table
+- Admin RAG↔Web mix hint + handover updated
+
 ## 2026-11-15 — Split HQ / Deep / automatic faithfulness
 
 - **HQ** = richer language only (no post-stream rewrite)

@@ -144,7 +144,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
           <span class="admin-card-summary-title">RAG ↔ Web mix</span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">When <strong>WorkCover</strong> is on, Docs mode always runs uploaded RAG plus allowlisted live web. This setting controls whether they <strong>complement</strong>, prefer <strong>docs first</strong>, prefer <strong>web first</strong>, or <strong>compete</strong> (pick a winner), and how strongly (0–100).</p>
+          <p class="hint">When <strong>WorkCover</strong> is on, Docs mode always runs uploaded RAG plus allowlisted live web. This setting controls whether they <strong>complement</strong>, prefer <strong>docs first</strong>, prefer <strong>web first</strong>, or <strong>compete</strong> (pick a winner), and how strongly (0–100). The <strong>first pass</strong> writes with these rules; the automatic <strong>faithfulness</strong> QA after streaming uses the <strong>same mode + degree</strong> when deciding what to keep or cut (it does not re-run mix — it audits the draft).</p>
           <div class="inline" style="margin-top:10px;flex-wrap:wrap" role="group" aria-label="RAG Web mix mode">
             <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-complement" value="complement" checked> <span>Complement</span></label>
             <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-docs-first" value="docs_first"> <span>Docs first</span></label>

@@ -600,16 +600,27 @@ class AppSettings {
     }
 
     /**
-     * Extra HQ-check system line so verification respects the same mix.
+     * Faithfulness-check policy line — same mix mode + degree as the first-pass blend.
+     * Degree scales how strongly the auditor should prefer the primary side (not inventiveness).
      * @param array{mode?:string,degree?:int} $mix
      */
     public static function ragWebMixHqHint(array $mix): string {
         $mode = (string)($mix['mode'] ?? self::DEFAULT_RAG_WEB_MODE);
-        return match ($mode) {
-            'docs_first' => 'When correcting (docs_first): prefer doc-supported claims; keep web-supported claims that fill gaps or current process detail already in the draft. Do not invent. Prefer OK over aggressive trimming.',
-            'web_first' => 'When correcting (web_first): keep web-supported claims; keep Act/Regs excerpt claims for legal duties. Do not invent. Prefer OK over aggressive trimming.',
-            'compete' => 'When correcting (compete): if the draft already picked a clear winner, prefer OK. Only drop the weaker side when it invents or contradicts SOURCE MATERIAL. Do not invent.',
-            default => 'When correcting (complement): keep every claim supported by docs OR allowlisted web; never strip web-backed enrichment. Prefer OK. Do not invent.',
+        $degree = isset($mix['degree']) ? (int)$mix['degree'] : self::DEFAULT_RAG_WEB_DEGREE;
+        $degree = max(0, min(100, $degree));
+        $lean = $degree <= 25 ? 'lightly' : ($degree <= 60 ? 'moderately' : 'strongly');
+        $prefix = "Faithfulness mix policy: mode={$mode}, degree={$degree}/100 ({$lean}). ";
+
+        return $prefix . match ($mode) {
+            'docs_first' => "Prefer doc-supported claims {$lean}; keep web-supported claims that fill gaps or current process detail already in the draft or SOURCE MATERIAL. "
+                . 'Do not invent. Prefer OK over aggressive trimming. Higher degree → allow more web gap-fill; lower degree → stick closer to docs.',
+            'web_first' => "Prefer web-supported claims {$lean}; keep Act/Regs excerpt claims for legal duties and section numbers. "
+                . 'Do not invent. Prefer OK over aggressive trimming. Higher degree → lean harder on web for process; lower degree → still protect statute text.',
+            'compete' => "If the draft already picked a clear winner per compete rules, prefer OK. "
+                . "Only drop the weaker side when it invents or contradicts SOURCE MATERIAL. "
+                . "Higher degree → tolerate web-leaning winners more; lower degree → tolerate docs-leaning winners more. Do not invent.",
+            default => 'Keep every claim supported by docs OR allowlisted web; never strip web-backed enrichment present in SOURCE MATERIAL. '
+                . "Enrichment strength was {$lean} in the first pass — do not undo that blend. Prefer OK. Do not invent.",
         };
     }
 

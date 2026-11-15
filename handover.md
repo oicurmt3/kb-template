@@ -23,10 +23,12 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 3. FULLTEXT + keyword scoring (section/reg bonuses, Act/Regs boost)  
 4. Adaptive slim retrieval when admin Adaptive RAG is on  
 5. Weak-hit / no-hit prompt hardening  
-6. Allowlisted web enrichment + RAG↔Web mix instructions  
+6. Allowlisted web enrichment + RAG↔Web mix instructions (**first pass**)  
 7. Style: HQ (richer) or Basic (simple explain)  
 8. Optional DeepSeek API thinking (Deep toggle)  
-9. **Faithfulness** after stream when grounding exists (may replace bubble via `done.content`)
+9. **Faithfulness** after stream when grounding exists — same mix mode+degree policy via `ragWebMixHqHint` (may replace bubble via `done.content`)
+
+See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, shared mix rules; prefer OK; shrink guard).
 
 ## Key files
 
