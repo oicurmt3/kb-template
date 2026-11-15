@@ -1,0 +1,24 @@
+# Secrets & local config
+includes/config.php
+.env
+.env.*
+**/config.local.php
+
+# Database dumps
+*.sql
+!sql/schema.sql
+
+# Logs
+*.log
+error_log
+
+# Runtime storage
+storage/ratelimit/
+storage/install.lock
+storage/uploads/
+storage/markdown/
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini

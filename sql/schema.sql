@@ -1,0 +1,79 @@
+SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  session_id CHAR(36) NOT NULL,
+  title VARCHAR(255) DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_session (session_id),
+  KEY idx_updated (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS messages (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  conversation_id BIGINT UNSIGNED NOT NULL,
+  role ENUM('system','user','assistant') NOT NULL,
+  content LONGTEXT NOT NULL,
+  blocks JSON DEFAULT NULL,
+  token_usage JSON DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_conv (conversation_id, id),
+  CONSTRAINT fk_msg_conv FOREIGN KEY (conversation_id)
+    REFERENCES conversations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS documents (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  filename VARCHAR(255) NOT NULL,
+  mime VARCHAR(100) NOT NULL,
+  size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  original_path VARCHAR(500) NOT NULL,
+  markdown_path VARCHAR(500) DEFAULT NULL,
+  title VARCHAR(255) DEFAULT NULL,
+  department VARCHAR(100) DEFAULT NULL,
+  tags VARCHAR(500) DEFAULT NULL,
+  source_url VARCHAR(500) DEFAULT NULL,
+  status ENUM('pending','processing','ready','failed') NOT NULL DEFAULT 'pending',
+  error_message TEXT DEFAULT NULL,
+  content_hash CHAR(64) DEFAULT NULL,
+  ingest_mode ENUM('local','deepseek','ocr') NOT NULL DEFAULT 'local',
+  deepseek_file_id VARCHAR(128) DEFAULT NULL,
+  parse_purpose VARCHAR(64) DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_status (status),
+  KEY idx_hash (content_hash),
+  KEY idx_ds_file (deepseek_file_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS chunks (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  document_id BIGINT UNSIGNED NOT NULL,
+  chunk_index INT UNSIGNED NOT NULL,
+  chunk_key VARCHAR(255) NOT NULL,
+  text LONGTEXT NOT NULL,
+  header_path VARCHAR(500) DEFAULT NULL,
+  token_count INT UNSIGNED NOT NULL DEFAULT 0,
+  metadata JSON DEFAULT NULL,
+  search_text LONGTEXT NOT NULL,
+  embedding BLOB DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_doc_key (document_id, chunk_key),
+  KEY idx_doc (document_id, chunk_index),
+  FULLTEXT KEY ft_search (search_text),
+  CONSTRAINT fk_chunk_doc FOREIGN KEY (document_id)
+    REFERENCES documents(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS settings (
+  k VARCHAR(100) NOT NULL,
+  v TEXT NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (k)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

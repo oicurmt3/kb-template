@@ -1,0 +1,14 @@
+Options -Indexes
+
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+<FilesMatch "^(config|bootstrap|db|auth|helpers|DeepSeek)\.php$">
+  Require all denied
+</FilesMatch>
+
+# Helps SSE streaming on some shared hosts
+<IfModule mod_php.c>
+  php_value output_buffering Off
+</IfModule>
