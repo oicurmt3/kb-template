@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-15 — HQ faithfulness as brake (not editor)
+
+- `packHqGrounding`: docs + reserved web/URL budget + file/extra attach in HQ SOURCE MATERIAL
+- Softer verify prompt (prefer `OK`); mix hints prefer OK over aggressive trimming
+- Reject corrections that shrink a long draft to &lt;50% length; skip HQ rewrite when DeepSeek Files attached
+- Docs: ACCURACY §F, handover, ARCHITECTURE, TESTING, HANDOFF
+
 ## 2026-11-15 — Admin export/import + collapsible UI
 
 - Admin **Export / import**: download all settings JSON; import settings (whitelisted keys); export all chunks (no import yet) via `api/export.php`

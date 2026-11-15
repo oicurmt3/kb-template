@@ -22,7 +22,7 @@ WANDA is a plain PHP + vanilla JS chatbot that answers Western Australian worker
 | Control | Role |
 |---------|------|
 | **WorkCover** | Docs mode: uploaded RAG **plus** allowlisted live web (blend via admin RAG↔Web mix) |
-| **HQ** | High-quality precise language (off = Basic / simple explain) |
+| **HQ** | Precise language + conservative faithfulness check (off = Basic / simple explain) |
 | **Deep** | Extra reasoning pass before the answer |
 | **Web** | Live search/fetch on allowlisted hosts — only when WorkCover is **off** |
 | **Tags** | Focus retrieval on document tags |

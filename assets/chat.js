@@ -618,11 +618,8 @@
     }
     const summary = cites.querySelector('summary');
     const body = cites.querySelector('.citations-body') || cites;
-    const excerptTotal = list.reduce((n, c) => n + (Number(c.chunk_count) || 1), 0);
     if (summary) {
-      const srcPart = list.length === 1 ? '1 source' : list.length + ' sources';
-      const exPart = excerptTotal === 1 ? '1 excerpt' : excerptTotal + ' excerpts';
-      summary.textContent = srcPart + ' · ' + exPart;
+      summary.textContent = 'Sources';
     }
     body.innerHTML = '';
     list.forEach((c) => {
@@ -715,9 +712,7 @@
     const summary = wrap.querySelector('summary');
     const body = wrap.querySelector('.suggestions-body') || wrap;
     if (summary) {
-      summary.textContent = list.length === 1
-        ? '1 related question'
-        : list.length + ' related questions';
+      summary.textContent = 'Related questions';
     }
     body.innerHTML = '';
     list.forEach((q) => {

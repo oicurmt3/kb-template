@@ -325,43 +325,94 @@ class Retrieval {
     }
 
     /**
-     * HQ faithfulness check — returns possibly corrected answer text.
-     * $grounding may include document excerpts and/or allowlisted web/URL context.
-     * @param array<string,mixed> $deepseekCfg
+     * Pack docs + web + extra into a fixed HQ SOURCE MATERIAL budget.
+     * Reserves space for web/URL and attach text so large RAG context cannot crowd them out.
+     *
+     * @param array{docs?:string,web?:string,extra?:string} $parts
      */
+    public static function packHqGrounding(array $parts, int $budget = 14000): string {
+        $budget = max(4000, min(20000, $budget));
+        $docs = trim((string)($parts['docs'] ?? ''));
+        $web = trim((string)($parts['web'] ?? ''));
+        $extra = trim((string)($parts['extra'] ?? ''));
+
+        $webReserve = $web !== '' ? min(4500, (int)floor($budget * 0.35)) : 0;
+        $extraReserve = $extra !== '' ? min(2500, (int)floor($budget * 0.2)) : 0;
+        $docsReserve = max(2000, $budget - $webReserve - $extraReserve);
+
+        $chunks = [];
+        if ($docs !== '') {
+            $chunks[] = "UPLOADED DOCUMENT EXCERPTS:\n" . mb_substr($docs, 0, $docsReserve);
+        }
+        if ($extra !== '') {
+            $chunks[] = "USER-PROVIDED FILE/TEXT CONTEXT:\n" . mb_substr($extra, 0, $extraReserve);
+        }
+        if ($web !== '') {
+            $chunks[] = "ALLOWLISTED WEB / URL CONTEXT:\n" . mb_substr($web, 0, $webReserve);
+        }
+        $packed = implode("\n\n", $chunks);
+        if (mb_strlen($packed) > $budget) {
+            return mb_substr($packed, 0, $budget);
+        }
+        return $packed;
+    }
+
     /**
-     * @param array{mode?:string,degree?:int}|array<string,mixed> $mixOpts Optional RAG↔Web mix for HQ policy
+     * HQ faithfulness check — hallucination brake, not an editor.
+     * Prefer OK; only rewrite clear inventions. Rejects harmful shrinks.
+     *
+     * @param array<string,mixed> $deepseekCfg
+     * @param array{mode?:string,degree?:int}|array<string,mixed> $mixOpts
+     * @param array{docs?:string,web?:string,extra?:string} $groundingParts When non-empty, packed with web/extra reserved
+     * @return array{content:string,checked:bool,changed:bool,rejected?:string}
      */
     public static function verifyGroundedAnswer(
         string $answer,
         string $grounding,
         array $deepseekCfg = [],
-        array $mixOpts = []
+        array $mixOpts = [],
+        array $groundingParts = []
     ): array {
         $answer = trim($answer);
-        if ($answer === '' || trim($grounding) === '' || $deepseekCfg === []) {
+        $packed = '';
+        if ($groundingParts !== []) {
+            $packed = self::packHqGrounding($groundingParts);
+        }
+        if ($packed === '') {
+            $packed = trim($grounding);
+        }
+        if ($answer === '' || $packed === '' || $deepseekCfg === []) {
             return ['content' => $answer, 'checked' => false, 'changed' => false];
         }
         try {
             $client = new DeepSeekClient($deepseekCfg);
             $flash = (string)(($deepseekCfg['flash_model'] ?? '') ?: ($deepseekCfg['model'] ?? 'deepseek-chat'));
+            $mix = $mixOpts !== [] ? $mixOpts : (class_exists('AppSettings') ? AppSettings::ragWebMix() : []);
             $mixHint = class_exists('AppSettings')
-                ? AppSettings::ragWebMixHqHint($mixOpts !== [] ? $mixOpts : AppSettings::ragWebMix())
+                ? AppSettings::ragWebMixHqHint($mix)
                 : 'Keep claims supported by docs or allowlisted web; do not invent.';
+            $mode = (string)($mix['mode'] ?? 'complement');
+            $conservative = 'You are a faithfulness gate, not an editor. '
+                . 'SOURCE MATERIAL may include uploaded excerpts, allowlisted web/URL text, and user-provided file/text. '
+                . $mixHint . ' '
+                . 'If substantive claims are supported under that mix policy, reply with exactly: OK '
+                . '(ignore minor wording differences; do not rewrite for style, tone, or length). '
+                . 'Only rewrite when the draft invents rules, section/regulation numbers, duties, or facts '
+                . 'not supported by SOURCE MATERIAL. '
+                . 'When rewriting: drop only clear inventions; preserve supported document AND web details; '
+                . 'do not shorten a good answer; plain text only; no markdown.';
+            if ($mode === 'complement') {
+                $conservative .= ' Under complement: never strip web-backed enrichment that appears in SOURCE MATERIAL.';
+            }
             $res = $client->chatComplete(
                 [
                     [
                         'role' => 'system',
-                        'content' => 'You check answers for faithfulness to the provided SOURCE MATERIAL only '
-                            . '(uploaded document excerpts AND/OR allowlisted web/URL text). '
-                            . $mixHint . ' '
-                            . 'If every substantive claim is supported per that mix policy, reply with exactly: OK '
-                            . 'Otherwise reply with a corrected plain-text answer that follows the mix policy, '
-                            . 'drops only unsupported inventions, and briefly notes anything still uncovered. No markdown.',
+                        'content' => $conservative,
                     ],
                     [
                         'role' => 'user',
-                        'content' => "SOURCE MATERIAL:\n" . mb_substr($grounding, 0, 14000)
+                        'content' => "SOURCE MATERIAL:\n" . mb_substr($packed, 0, 14000)
                             . "\n\nDRAFT ANSWER:\n" . mb_substr($answer, 0, 6000),
                     ],
                 ],
@@ -372,6 +423,25 @@ class Retrieval {
             }
             $out = trim((string)$res['content']);
             if ($out === '' || preg_match('/^OK\b/i', $out)) {
+                return ['content' => $answer, 'checked' => true, 'changed' => false];
+            }
+            // Reject noisy / harmful shrinks — keep the streamed draft
+            $origLen = mb_strlen($answer);
+            $newLen = mb_strlen($out);
+            if ($origLen >= 200 && $newLen < (int)floor($origLen * 0.5)) {
+                return [
+                    'content' => $answer,
+                    'checked' => true,
+                    'changed' => false,
+                    'rejected' => 'shrink',
+                ];
+            }
+            $norm = static function (string $s): string {
+                $s = mb_strtolower($s);
+                $s = preg_replace('/\s+/u', ' ', $s) ?? $s;
+                return trim($s);
+            };
+            if ($norm($out) === $norm($answer)) {
                 return ['content' => $answer, 'checked' => true, 'changed' => false];
             }
             return ['content' => $out, 'checked' => true, 'changed' => true];

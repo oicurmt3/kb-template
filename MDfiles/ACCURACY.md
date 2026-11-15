@@ -111,15 +111,20 @@ Always applied:
 
 #### F. HQ faithfulness check (`verifyGroundedAnswer`)
 
-Runs when **HQ** is on and there is grounding text, after the stream finishes.
+Runs when **HQ** is on and there is grounding text, after the stream finishes. Designed as a **hallucination brake**, not an editor (prefer `OK` over rewrite).
 
-- Flash model sees **SOURCE MATERIAL** = document excerpts **plus** any allowlisted web search / URL text from this turn, then the DRAFT ANSWER.
-- Claims supported by **either** docs or allowlisted web/URL are allowed (web is not wiped by RAG).
-- When Web/URL is on with WorkCover, prompts also allow web for topics the excerpts do not cover; Act/Regs still win for WA workers compensation law.
-- Replies `OK` or a corrected plain-text answer.
-- Corrected text is saved and sent as SSE `done.content`; `chat.js` replaces the assistant bubble and shows a short note when the text changed.
+- Flash model sees **SOURCE MATERIAL** packed by `Retrieval::packHqGrounding()`:
+  - uploaded document excerpts
+  - allowlisted web search / URL text (budget reserved so long RAG cannot crowd web out)
+  - user-provided file/text attach context
+- Claims supported by docs **or** allowlisted web/URL (and attach text) are allowed under the active **RAG↔Web mix** hint (`ragWebMixHqHint`).
+- Prefer exact `OK` for minor wording differences; rewrite only clear inventions (fake sections, duties, facts).
+- Under **complement**: must not strip web-backed enrichment present in SOURCE MATERIAL.
+- If a “correction” shrinks a ≥200-char draft to &lt;50% length → **keep the streamed draft** (`HQ check: kept draft`).
+- **Skipped** when DeepSeek Files are attached this turn (file body is not in the grounding window) → `HQ check: skipped (…)`.
+- Corrected text (when accepted) is saved and sent as SSE `done.content`; `chat.js` replaces the assistant bubble and shows a short note when the text changed.
 
-Cost: one extra non-streaming call. Benefit: catches unsupported claims that slipped through.
+Cost: one extra non-streaming call (when not skipped). Benefit: catches unsupported claims without deleting good Docs+web answers.
 
 **Note:** Live web still only hits admin-allowlisted hosts. WorkCover mode always tries to enrich RAG with that web (when `web.enabled` in config). Off-topic questions only work if those hosts have the content, or you turn WorkCover off and use standalone Web / general chat.
 
@@ -139,7 +144,7 @@ When **Show**: user’s toggle wins for that request.
 | Feature | Default meaning | Effect on accuracy / relevance |
 |---------|-----------------|--------------------------------|
 | **WorkCover** | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts (web **adds to** docs; HQ must not strip web-supported claims). Off = no doc retrieval. Standalone **Web** toggle only appears when WorkCover is off. |
-| **HQ** | On = high-quality; Off = Basic | Style + post-stream faithfulness against **docs and allowlisted web together**. Must preserve web-backed content. |
+| **HQ** | On = high-quality; Off = Basic | Style + conservative post-stream faithfulness (docs + web + attach; reserved web budget; reject harmful shrinks; skip if DeepSeek Files attached). |
 | **Deep thinking** | Extra reasoning before answer | Can improve structure and careful reading of long excerpts; also increases latency/cost. Does not replace retrieval. Leave off unless answers feel shallow on complex multi-section questions. |
 | **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. When WorkCover is on, that same search is automatic inside Docs mode. |
 
@@ -388,7 +393,7 @@ Other caps:
 | FULLTEXT NL / boolean LIMIT | \(K \times 6\) |
 | Section-ref LIKE per needle | LIMIT 30 |
 | Broad fallback | only if ready chunk count \(1…400\); score seed 0.2 |
-| HQ verify excerpt / draft caps | excerpts ≤10000 chars; draft ≤6000; `max_tokens` 900 |
+| HQ verify packing / draft caps | packed SOURCE ≤14000 (docs + reserved web ~35% + extra ~20%); draft ≤6000; `max_tokens` 900; reject rewrite if new length &lt; 50% of draft (≥200 chars) |
 | Query rewrite | `max_tokens` 180, temperature 0.1; history ≤8 turns × 400 chars |
 | Chat history into model | `rag.max_history_messages` default 24 |
 | Chunking (ingest) | `chunk_max_chars` 3200, `chunk_overlap` 200 |

@@ -603,10 +603,10 @@ class AppSettings {
     public static function ragWebMixHqHint(array $mix): string {
         $mode = (string)($mix['mode'] ?? self::DEFAULT_RAG_WEB_MODE);
         return match ($mode) {
-            'docs_first' => 'When correcting: keep doc-supported claims; keep web-supported claims only where they fill gaps. Do not invent.',
-            'web_first' => 'When correcting: keep web-supported claims; keep Act/Regs excerpt claims for legal duties. Do not invent.',
-            'compete' => 'When correcting: keep claims from the stronger on-topic side; drop the weaker side rather than forcing a blend. Do not invent.',
-            default => 'When correcting: keep every claim supported by docs OR allowlisted web; never strip web-backed enrichment. Do not invent.',
+            'docs_first' => 'When correcting (docs_first): prefer doc-supported claims; keep web-supported claims that fill gaps or current process detail already in the draft. Do not invent. Prefer OK over aggressive trimming.',
+            'web_first' => 'When correcting (web_first): keep web-supported claims; keep Act/Regs excerpt claims for legal duties. Do not invent. Prefer OK over aggressive trimming.',
+            'compete' => 'When correcting (compete): if the draft already picked a clear winner, prefer OK. Only drop the weaker side when it invents or contradicts SOURCE MATERIAL. Do not invent.',
+            default => 'When correcting (complement): keep every claim supported by docs OR allowlisted web; never strip web-backed enrichment. Prefer OK. Do not invent.',
         };
     }
 

@@ -4,6 +4,21 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-15 — HQ verify hardened + docs
+
+**Done**
+
+- `Retrieval::packHqGrounding` + conservative `verifyGroundedAnswer` (prefer OK, reject shrinks, complement keeps web).
+- `api/chat.php` passes docs/web/extra parts; skips HQ when DeepSeek Files attached.
+- Mix HQ hints softened (`ragWebMixHqHint`).
+- MD updated: ACCURACY §F, handover, ARCHITECTURE, TESTING, CHANGELOG, this log.
+
+**Notes**
+
+- `web_notes` may include `HQ check: kept draft (correction too short)` or `HQ check: skipped (DeepSeek Files…)`.
+
+---
+
 ## 2026-11-15 — Admin export/import + UI polish + docs sync
 
 **Done**

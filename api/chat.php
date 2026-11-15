@@ -263,10 +263,16 @@ try {
                 . ". Treat those attached file contents as authoritative for those sources.";
             $webNotes[] = 'DeepSeek files: ' . count($dsFiles);
         }
-        // HQ faithfulness: start with RAG context; web/URL text appended when fetched
+        // HQ faithfulness parts — packed later with reserved web/extra budget
+        $hqDocsGrounding = $built['context'];
+        $hqWebGrounding = '';
+        $hqExtraGrounding = '';
         $groundingForCheck = $built['context'];
     } else {
         $dsFiles = [];
+        $hqDocsGrounding = '';
+        $hqWebGrounding = '';
+        $hqExtraGrounding = '';
         $groundingForCheck = '';
     }
 
@@ -302,7 +308,11 @@ try {
                 if (!isset($groundingForCheck)) {
                     $groundingForCheck = '';
                 }
+                if (!isset($hqWebGrounding)) {
+                    $hqWebGrounding = '';
+                }
                 $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $urlBlock;
+                $hqWebGrounding .= ($hqWebGrounding !== '' ? "\n\n" : '') . $urlBlock;
                 $webNotes[] = 'DeepSeek Fetch: ' . $contextUrl;
                 $citations[] = [
                     'n' => count($citations) + 1,
@@ -324,7 +334,16 @@ try {
     // Optional pasted/uploaded extra context
     if ($extraContext !== '') {
         $label = $contextLabel !== '' ? $contextLabel : 'attachment';
-        $systemPrompt .= "\n\nUSER-PROVIDED FILE/TEXT CONTEXT ({$label}):\n" . $extraContext;
+        $extraBlock = "USER-PROVIDED FILE/TEXT CONTEXT ({$label}):\n" . $extraContext;
+        $systemPrompt .= "\n\n" . $extraBlock;
+        if (!isset($hqExtraGrounding)) {
+            $hqExtraGrounding = '';
+        }
+        $hqExtraGrounding .= ($hqExtraGrounding !== '' ? "\n\n" : '') . $extraBlock;
+        if (!isset($groundingForCheck)) {
+            $groundingForCheck = '';
+        }
+        $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $extraBlock;
     }
 
     // Optional live web search — scoped to admin-allowed hosts (no open-web deepseek_web_search tool)
@@ -361,7 +380,11 @@ try {
                 if (!isset($groundingForCheck)) {
                     $groundingForCheck = '';
                 }
+                if (!isset($hqWebGrounding)) {
+                    $hqWebGrounding = '';
+                }
                 $groundingForCheck .= ($groundingForCheck !== '' ? "\n\n" : '') . $webBlock;
+                $hqWebGrounding .= ($hqWebGrounding !== '' ? "\n\n" : '') . $webBlock;
                 foreach ($sr['results'] as $i => $hit) {
                     $citations[] = [
                         'n' => count($citations) + 1,
@@ -491,21 +514,33 @@ try {
             $suggestions = [];
         }
 
-        // HQ faithfulness pass against docs + allowlisted web/URL grounding (non-streaming correction)
-        if (
+        // HQ faithfulness pass — brake on inventions; skip when DeepSeek Files body isn't in grounding
+        if ($hqMode && $finalContent !== '' && !empty($dsFiles)) {
+            $webNotes[] = 'HQ check: skipped (DeepSeek Files attached; file body not in grounding window)';
+        } elseif (
             $hqMode
             && $finalContent !== ''
-            && isset($groundingForCheck)
-            && is_string($groundingForCheck)
-            && $groundingForCheck !== ''
+            && (
+                (isset($hqDocsGrounding) && $hqDocsGrounding !== '')
+                || (isset($hqWebGrounding) && $hqWebGrounding !== '')
+                || (isset($hqExtraGrounding) && $hqExtraGrounding !== '')
+                || (isset($groundingForCheck) && is_string($groundingForCheck) && $groundingForCheck !== '')
+            )
         ) {
             $verified = Retrieval::verifyGroundedAnswer(
                 $finalContent,
-                $groundingForCheck,
+                isset($groundingForCheck) && is_string($groundingForCheck) ? $groundingForCheck : '',
                 $config['deepseek'] ?? [],
-                $ragWebMix
+                $ragWebMix,
+                [
+                    'docs' => $hqDocsGrounding ?? '',
+                    'web' => $hqWebGrounding ?? '',
+                    'extra' => $hqExtraGrounding ?? '',
+                ]
             );
-            if (!empty($verified['checked'])) {
+            if (!empty($verified['rejected']) && $verified['rejected'] === 'shrink') {
+                $webNotes[] = 'HQ check: kept draft (correction too short)';
+            } elseif (!empty($verified['checked'])) {
                 $webNotes[] = !empty($verified['changed'])
                     ? 'HQ check: corrected'
                     : 'HQ check: ok';

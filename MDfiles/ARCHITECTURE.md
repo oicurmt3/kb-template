@@ -20,7 +20,7 @@ Browser (index.php + chat.js)
         → optional WebFetch (always with WorkCover when web.enabled; else standalone Web)
         → RAG↔Web mix instructions
         → DeepSeek chatStream → SSE deltas
-        → optional HQ verify (docs + web notes)
+        → optional HQ verify (packHqGrounding: docs + reserved web + extra; skip if DeepSeek Files)
         → persist assistant message + done event
 ```
 

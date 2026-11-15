@@ -8,7 +8,7 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 
 - **Grounding contract** in `Retrieval::buildContext()` — answers must stay excerpt-bound when WorkCover is on.
 - **HQ vs Basic** — HQ off means `simpleExplain` (plain language by admin age); HQ on adds precision + optional post-stream faithfulness check. Do not invert that again (legacy “Plain” was removed).
-- **HQ must not strip allowlisted web** that supported the draft when WorkCover/Docs mode included web — verify against docs **and** web notes.
+- **HQ is a brake, not an editor** — prefer `OK`; pack docs+web+extra via `packHqGrounding` (web budget reserved); reject harmful shrinks; skip check when DeepSeek Files are attached (body not in grounding). Do not strip allowlisted web under complement.
 - **No citation numbers in model text** — sources render in the UI from `citations` / `sources` blocks.
 - **Web search is host-restricted** — never enable unrestricted DeepSeek open-web search; use `WebFetch` + allowed hosts.
 - **Session isolation** — conversations are keyed by `session_id` cookie; do not leak across sessions.
@@ -23,7 +23,7 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 4. Adaptive slim retrieval when admin Adaptive RAG is on  
 5. Weak-hit / no-hit prompt hardening  
 6. Allowlisted web enrichment + RAG↔Web mix instructions  
-7. HQ faithfulness pass after stream (replaces bubble via `done.content`)
+7. HQ faithfulness pass after stream (conservative; may replace bubble via `done.content`, or keep draft / skip)
 
 ## Key files
 

@@ -164,7 +164,7 @@ Keep the “plain text / no citation numbers” rules.
 
 ### 5.5 HQ + Basic instructions
 
-`Settings.php` → `hqInstruction()` / `simpleExplainInstruction()` — swap “legal/technical” wording for “policy/product” if needed. Behaviour (faithfulness check when HQ on) stays valuable for any entity.
+`Settings.php` → `hqInstruction()` / `simpleExplainInstruction()` — swap “legal/technical” wording for “policy/product” if needed. HQ verify stays valuable for any entity: it prefers `OK`, packs docs+web+attach with a reserved web budget, rejects harmful shrinks, and skips when DeepSeek Files are attached.
 
 ---
 
