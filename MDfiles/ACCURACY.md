@@ -139,7 +139,16 @@ Admin **Short / Medium / Long** is applied twice: early instruction + **closing 
 
 #### F. Faithfulness check (`verifyGroundedAnswer`) — automatic QA after the mix
 
-Runs **whenever grounding exists** after the stream finishes — WorkCover docs **and/or** allowlisted web/URL **and/or** pasted file/attach text. **Not** gated on HQ or Deep. Designed as a **hallucination brake**: `OK` only when every section/reg number, time limit, duty, and similar claim is sourced; otherwise rewrite. A local scan also flags section/reg cites missing from SOURCE and forces a second pass (strip fallback if needed).
+Runs after the stream when grounding exists — WorkCover docs **and/or** allowlisted web/URL **and/or** pasted file/attach text — unless Admin **Faithfulness** degree is **0** (off). **Not** gated on HQ or Deep. Admin slider (default 70):
+
+| Degree | Band | Behaviour |
+|--------|------|-----------|
+| 0 | off | No check |
+| 1–35 | light | Prefer OK; rewrite clear inventions only |
+| 36–70 | balanced | Harder OK; orphan section/reg scan from 40; strip from 60 |
+| 71–100 | strict | When unsure, rewrite; orphan + strip; deeper cuts allowed |
+
+Designed as a **hallucination brake**. Notes: `Faithfulness: ok|corrected (@70 balanced)`.
 
 Who runs it: WANDA PHP calls DeepSeek **flash** (`chatComplete`) with packed sources + draft.
 
@@ -232,7 +241,7 @@ When **Show**: user’s toggle wins for that request.
 | **HQ** | On = richer language; Off = Basic | **Style only** (`hqInstruction` vs simple explain). Does **not** run the post-stream faithfulness check. |
 | **Deep thinking** | Composer toggle + admin policy (manual / auto / always) + per-chat cap | DeepSeek API thinking / CoT when the turn resolves on. Extra latency/cost. Does **not** replace faithfulness. Auto mode turns Deep on for hard / weak-retrieval turns; toggle forces on under auto. |
 | **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. Still provides grounding → faithfulness runs. When WorkCover is on, that same search is automatic inside Docs mode. |
-| **Faithfulness** | *(not a user toggle)* | Automatic when docs and/or web/URL and/or attach grounding exists. Pack + prefer OK; reject harmful shrinks; skip DeepSeek Files. |
+| **Faithfulness** | Admin slider 0–100 (not a chat toggle) | Automatic when grounding exists unless degree = 0. Higher = stricter rewrite / orphan section-reg scan / strip. Mix mode+degree still steers docs vs web keep/cut. Skip DeepSeek Files. |
 
 ### 3.2 Visibility-only features (Show / Hide only)
 

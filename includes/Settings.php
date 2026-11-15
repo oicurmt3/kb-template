@@ -21,10 +21,104 @@ class AppSettings {
     public const DEFAULT_DEEP_MODE = 'manual';
     public const DEFAULT_DEEP_MAX_PER_CHAT = 3;
     public const KEY_DEEP_STATS = 'deep_thinking_stats';
+    public const KEY_FAITHFULNESS = 'faithfulness';
+    /** 0 = off; default ~current brake strength */
+    public const DEFAULT_FAITHFULNESS_DEGREE = 70;
 
     /** @return list<string> */
     public static function ragWebMixModes(): array {
         return ['complement', 'docs_first', 'web_first', 'compete'];
+    }
+
+    /**
+     * Admin faithfulness strictness slider (0–100).
+     * @return array{degree:int,band:string,enabled:bool,source:string}
+     */
+    public static function faithfulness(): array {
+        $degree = self::DEFAULT_FAITHFULNESS_DEGREE;
+        $source = 'default';
+        $raw = self::get(self::KEY_FAITHFULNESS);
+        if ($raw !== null && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded) && isset($decoded['degree']) && is_numeric($decoded['degree'])) {
+                $degree = (int)$decoded['degree'];
+                $source = 'admin';
+            } elseif (is_numeric($raw)) {
+                $degree = (int)$raw;
+                $source = 'admin';
+            }
+        }
+        $degree = max(0, min(100, $degree));
+        return [
+            'degree' => $degree,
+            'band' => self::faithfulnessBand($degree),
+            'enabled' => $degree > 0,
+            'source' => $source,
+        ];
+    }
+
+    /**
+     * @param array{degree?:mixed}|int $input
+     * @return array{degree:int,band:string,enabled:bool,source:string}
+     */
+    public static function saveFaithfulness(array|int $input): array {
+        if (is_int($input)) {
+            $degree = $input;
+        } else {
+            $degree = isset($input['degree']) && is_numeric($input['degree'])
+                ? (int)$input['degree']
+                : self::DEFAULT_FAITHFULNESS_DEGREE;
+        }
+        $degree = max(0, min(100, $degree));
+        self::set(self::KEY_FAITHFULNESS, json_encode(['degree' => $degree], JSON_UNESCAPED_SLASHES));
+        return [
+            'degree' => $degree,
+            'band' => self::faithfulnessBand($degree),
+            'enabled' => $degree > 0,
+            'source' => 'admin',
+        ];
+    }
+
+    public static function faithfulnessBand(int $degree): string {
+        $degree = max(0, min(100, $degree));
+        if ($degree <= 0) {
+            return 'off';
+        }
+        if ($degree <= 35) {
+            return 'light';
+        }
+        if ($degree <= 70) {
+            return 'balanced';
+        }
+        return 'strict';
+    }
+
+    /**
+     * Runtime knobs derived from the slider (used by verifyGroundedAnswer).
+     *
+     * @param array{degree?:int}|null $policy
+     * @return array{
+     *   enabled:bool,degree:int,band:string,prefer_ok:bool,
+     *   orphan_scan:bool,strip_fallback:bool,shrink_min_ratio:float
+     * }
+     */
+    public static function faithfulnessRuntime(?array $policy = null): array {
+        $degree = isset($policy['degree']) && is_numeric($policy['degree'])
+            ? (int)$policy['degree']
+            : (int)(self::faithfulness()['degree']);
+        $degree = max(0, min(100, $degree));
+        $band = self::faithfulnessBand($degree);
+        return [
+            'enabled' => $degree > 0,
+            'degree' => $degree,
+            'band' => $band,
+            // Below mid: soft OK; at/above 50: OK only when fully sourced
+            'prefer_ok' => $degree > 0 && $degree < 50,
+            'orphan_scan' => $degree >= 40,
+            'strip_fallback' => $degree >= 60,
+            // Higher strictness → allow more aggressive cuts of inventions
+            'shrink_min_ratio' => $degree >= 80 ? 0.30 : ($degree >= 55 ? 0.40 : 0.50),
+        ];
     }
 
     /** @return list<string> */
@@ -482,6 +576,7 @@ class AppSettings {
             self::KEY_ADAPTIVE_RETRIEVAL,
             self::KEY_RAG_WEB_MIX,
             self::KEY_DEEP_POLICY,
+            self::KEY_FAITHFULNESS,
             self::KEY_UI,
         ];
     }
@@ -510,6 +605,8 @@ class AppSettings {
             || isset($payload['answer_length'])
             || array_key_exists('adaptive_retrieval', $payload)
             || isset($payload['rag_web_mix'])
+            || isset($payload['faithfulness'])
+            || isset($payload['deep_thinking_policy'])
         ) {
             $effective = $payload;
         } elseif (isset($payload['raw']) && is_array($payload['raw'])) {
@@ -586,6 +683,11 @@ class AppSettings {
             $updated[] = 'deep_thinking_policy';
         }
 
+        if (isset($effective['faithfulness']) && (is_array($effective['faithfulness']) || is_numeric($effective['faithfulness']))) {
+            self::saveFaithfulness(is_array($effective['faithfulness']) ? $effective['faithfulness'] : (int)$effective['faithfulness']);
+            $updated[] = 'faithfulness';
+        }
+
         if (isset($effective['ui']) && is_array($effective['ui'])) {
             self::saveUiConfig($effective['ui']);
             $updated[] = 'ui';
@@ -611,6 +713,7 @@ class AppSettings {
                 'adaptive_retrieval' => self::adaptiveRetrievalEnabled([]),
                 'rag_web_mix' => self::ragWebMix(),
                 'deep_thinking_policy' => self::deepThinkingPolicy(),
+                'faithfulness' => self::faithfulness(),
                 'ui' => self::uiConfig(),
                 'chat_limits' => self::chatLimits($appCfg),
             ],
@@ -668,6 +771,14 @@ class AppSettings {
             $decoded = json_decode($map[self::KEY_DEEP_POLICY], true);
             if (is_array($decoded)) {
                 $out['deep_thinking_policy'] = $decoded;
+            }
+        }
+        if (isset($map[self::KEY_FAITHFULNESS])) {
+            $decoded = json_decode($map[self::KEY_FAITHFULNESS], true);
+            if (is_array($decoded)) {
+                $out['faithfulness'] = $decoded;
+            } elseif (is_numeric($map[self::KEY_FAITHFULNESS])) {
+                $out['faithfulness'] = ['degree' => (int)$map[self::KEY_FAITHFULNESS]];
             }
         }
         if (isset($map[self::KEY_UI])) {

@@ -556,8 +556,11 @@ try {
             || (isset($faithExtraGrounding) && $faithExtraGrounding !== '')
             || (isset($groundingForCheck) && is_string($groundingForCheck) && $groundingForCheck !== '')
         );
+        $faithPolicy = AppSettings::faithfulness();
         if ($finalContent !== '' && !empty($dsFiles)) {
             $webNotes[] = 'Faithfulness: skipped (DeepSeek Files attached; file body not in grounding window)';
+        } elseif ($finalContent !== '' && $hasFaithGrounding && empty($faithPolicy['enabled'])) {
+            $webNotes[] = 'Faithfulness: off (degree 0)';
         } elseif ($finalContent !== '' && $hasFaithGrounding) {
             $verified = Retrieval::verifyGroundedAnswer(
                 $finalContent,
@@ -569,14 +572,17 @@ try {
                     'web' => $faithWebGrounding ?? '',
                     'extra' => $faithExtraGrounding ?? '',
                 ],
-                $answerLength
+                $answerLength,
+                $faithPolicy
             );
+            $faithLabel = '@' . (int)($verified['degree'] ?? $faithPolicy['degree'] ?? 70)
+                . ' ' . (string)($verified['band'] ?? $faithPolicy['band'] ?? 'balanced');
             if (!empty($verified['rejected']) && $verified['rejected'] === 'shrink') {
-                $webNotes[] = 'Faithfulness: kept draft (correction too short)';
+                $webNotes[] = 'Faithfulness: kept draft (correction too short; ' . $faithLabel . ')';
             } elseif (!empty($verified['checked'])) {
                 $webNotes[] = !empty($verified['changed'])
-                    ? 'Faithfulness: corrected'
-                    : 'Faithfulness: ok';
+                    ? 'Faithfulness: corrected (' . $faithLabel . ')'
+                    : 'Faithfulness: ok (' . $faithLabel . ')';
                 if (!empty($verified['changed']) && trim((string)$verified['content']) !== '') {
                     $finalContent = (string)$verified['content'];
                 }

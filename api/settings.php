@@ -31,6 +31,7 @@ try {
             'deep_thinking_policy' => AppSettings::deepThinkingPolicy(),
             'deep_thinking_modes' => AppSettings::deepThinkingModes(),
             'deep_thinking_stats' => AppSettings::deepThinkingStats(),
+            'faithfulness' => AppSettings::faithfulness(),
             'ui' => AppSettings::uiConfig(),
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
             'ui_feature_keys' => AppSettings::uiFeatureKeys(),
@@ -62,6 +63,7 @@ try {
         $hasRagWebMix = array_key_exists('rag_web_mix', $body);
         $hasDeepPolicy = array_key_exists('deep_thinking_policy', $body);
         $hasDeepStatsReset = !empty($body['reset_deep_thinking_stats']);
+        $hasFaithfulness = array_key_exists('faithfulness', $body);
         $hasUi = array_key_exists('ui', $body);
         $ui = AppSettings::uiConfig();
         $updatedUi = false;
@@ -70,12 +72,14 @@ try {
         $deepPolicy = AppSettings::deepThinkingPolicy();
         $updatedDeepPolicy = false;
         $deepStats = AppSettings::deepThinkingStats();
+        $faithfulness = AppSettings::faithfulness();
+        $updatedFaithfulness = false;
 
         if (
             !$hasHosts && !$hasAge && !$hasLength && !$hasAdaptive && !$hasRagWebMix
-            && !$hasDeepPolicy && !$hasDeepStatsReset && !$hasUi
+            && !$hasDeepPolicy && !$hasDeepStatsReset && !$hasFaithfulness && !$hasUi
         ) {
-            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, deep_thinking_policy, reset_deep_thinking_stats, and/or ui');
+            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, deep_thinking_policy, reset_deep_thinking_stats, faithfulness, and/or ui');
         }
 
         if ($hasHosts) {
@@ -137,6 +141,17 @@ try {
             $updatedDeepPolicy = true;
         }
 
+        if ($hasFaithfulness) {
+            if (is_array($body['faithfulness'])) {
+                $faithfulness = AppSettings::saveFaithfulness($body['faithfulness']);
+            } elseif (is_numeric($body['faithfulness'])) {
+                $faithfulness = AppSettings::saveFaithfulness((int)$body['faithfulness']);
+            } else {
+                json_error('faithfulness must be {degree:0-100} or a number');
+            }
+            $updatedFaithfulness = true;
+        }
+
         if ($hasDeepStatsReset) {
             $deepStats = AppSettings::resetDeepThinkingStats();
         } else {
@@ -176,6 +191,7 @@ try {
             'deep_thinking_policy' => $deepPolicy,
             'deep_thinking_modes' => AppSettings::deepThinkingModes(),
             'deep_thinking_stats' => $deepStats,
+            'faithfulness' => $faithfulness,
             'ui' => $ui,
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
             'updated_hosts' => $updatedHosts,
@@ -184,6 +200,7 @@ try {
             'updated_adaptive' => $updatedAdaptive,
             'updated_rag_web_mix' => $updatedRagWebMix,
             'updated_deep_thinking_policy' => $updatedDeepPolicy,
+            'updated_faithfulness' => $updatedFaithfulness,
             'updated_ui' => $updatedUi,
         ]);
     }

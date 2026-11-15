@@ -35,6 +35,12 @@
   const $saveRagWebMix = document.getElementById('save-rag-web-mix');
   const $ragWebMixStatus = document.getElementById('rag-web-mix-status');
   const $ragWebMixHint = document.getElementById('rag-web-mix-hint');
+  const $faithfulnessDegree = document.getElementById('faithfulness-degree');
+  const $faithfulnessDegreeVal = document.getElementById('faithfulness-degree-val');
+  const $saveFaithfulness = document.getElementById('save-faithfulness');
+  const $faithfulnessStatus = document.getElementById('faithfulness-status');
+  const $faithfulnessHint = document.getElementById('faithfulness-hint');
+  const $faithfulnessSummaryHint = document.getElementById('faithfulness-summary-hint');
   const $deepMaxPerChat = document.getElementById('deep-max-per-chat');
   const $saveDeepPolicy = document.getElementById('save-deep-policy');
   const $deepPolicyStatus = document.getElementById('deep-policy-status');
@@ -644,6 +650,77 @@
     $ragWebMixStatus.classList.toggle('ok', !!msg && !isErr);
   }
 
+  function setFaithfulnessStatus(msg, isErr) {
+    if (!$faithfulnessStatus) return;
+    $faithfulnessStatus.textContent = msg || '';
+    $faithfulnessStatus.classList.toggle('err', !!isErr);
+    $faithfulnessStatus.classList.toggle('ok', !!msg && !isErr);
+  }
+
+  function faithfulnessBand(degree) {
+    const d = Number.isFinite(degree) ? degree : 70;
+    if (d <= 0) return 'off';
+    if (d <= 35) return 'light';
+    if (d <= 70) return 'balanced';
+    return 'strict';
+  }
+
+  function faithfulnessLaymanHint(degree) {
+    const d = Number.isFinite(degree) ? degree : 70;
+    const band = faithfulnessBand(d);
+    if (band === 'off') {
+      return 'Off: no post-stream source check. The streamed draft is kept as-is (faster, more risk of invented sections).';
+    }
+    if (band === 'light') {
+      return (
+        'Light (degree ' +
+        d +
+        '): prefers OK; rewrites only clear inventions. No orphan section/reg strip yet. Good if faithfulness was over-trimming.'
+      );
+    }
+    if (band === 'balanced') {
+      return (
+        'Balanced (degree ' +
+        d +
+        '): OK only when legal claims look sourced' +
+        (d >= 40 ? '; orphan section/reg scan on' : '') +
+        (d >= 60 ? '; local strip fallback on' : '') +
+        '. Default-ish everyday brake.'
+      );
+    }
+    return (
+      'Strict (degree ' +
+      d +
+      '): when unsure, rewrite; orphan scan + strip; allows deeper cuts of unsupported text. Best when hallucinations are the main problem.'
+    );
+  }
+
+  function updateFaithfulnessHint() {
+    const degree = $faithfulnessDegree ? parseInt($faithfulnessDegree.value, 10) : 70;
+    const d = Number.isFinite(degree) ? degree : 70;
+    if ($faithfulnessDegreeVal) $faithfulnessDegreeVal.textContent = String(d);
+    if ($faithfulnessHint) $faithfulnessHint.textContent = faithfulnessLaymanHint(d);
+    if ($faithfulnessSummaryHint) {
+      const band = faithfulnessBand(d);
+      $faithfulnessSummaryHint.textContent = band === 'off' ? 'off' : band + ' · ' + d;
+    }
+  }
+
+  function applyFaithfulness(policy) {
+    const p = policy && typeof policy === 'object' ? policy : {};
+    let degree = typeof p.degree === 'number' ? p.degree : parseInt(p.degree, 10);
+    if (!Number.isFinite(degree)) degree = 70;
+    degree = Math.max(0, Math.min(100, degree));
+    if ($faithfulnessDegree) $faithfulnessDegree.value = String(degree);
+    updateFaithfulnessHint();
+  }
+
+  function selectedFaithfulness() {
+    let degree = $faithfulnessDegree ? parseInt($faithfulnessDegree.value, 10) : 70;
+    if (!Number.isFinite(degree)) degree = 70;
+    return { degree: Math.max(0, Math.min(100, degree)) };
+  }
+
   function setDeepPolicyStatus(msg, isErr) {
     if (!$deepPolicyStatus) return;
     $deepPolicyStatus.textContent = msg || '';
@@ -905,6 +982,7 @@
       !$saveAnswerLength &&
       !$saveAdaptive &&
       !$saveDeepPolicy &&
+      !$saveFaithfulness &&
       !$saveUiFeatures
     ) {
       return;
@@ -917,6 +995,7 @@
         setAnswerLengthStatus(r.error, true);
         setAdaptiveStatus(r.error, true);
         setDeepPolicyStatus(r.error, true);
+        setFaithfulnessStatus(r.error, true);
         setUiFeaturesStatus(r.error, true);
         return;
       }
@@ -970,6 +1049,17 @@
         );
       }
       renderDeepStats(r.deep_thinking_stats);
+      if (r.faithfulness) {
+        applyFaithfulness(r.faithfulness);
+        setFaithfulnessStatus(
+          (r.faithfulness.band || faithfulnessBand(r.faithfulness.degree)) +
+          ' · ' +
+          (r.faithfulness.degree ?? 70) +
+          ' (' +
+          (r.faithfulness.source || 'default') +
+          ')'
+        );
+      }
       if (r.ui) {
         applyUiConfig(r.ui);
         setUiFeaturesStatus(r.ui_source === 'admin' ? 'Loaded (admin)' : 'Loaded (defaults)');
@@ -984,6 +1074,7 @@
       setAdaptiveStatus(e.message || 'Failed to load', true);
       setRagWebMixStatus(e.message || 'Failed to load', true);
       setDeepPolicyStatus(e.message || 'Failed to load', true);
+      setFaithfulnessStatus(e.message || 'Failed to load', true);
       setUiFeaturesStatus(e.message || 'Failed to load', true);
     }
   }
@@ -1096,6 +1187,36 @@
         setRagWebMixStatus('Saved: ' + (m.mode || 'complement') + ' · degree ' + (m.degree ?? 50));
       } catch (e) {
         setRagWebMixStatus(e.message || 'Save failed', true);
+      }
+    });
+  }
+
+  if ($faithfulnessDegree) {
+    $faithfulnessDegree.addEventListener('input', updateFaithfulnessHint);
+    updateFaithfulnessHint();
+  }
+
+  if ($saveFaithfulness) {
+    $saveFaithfulness.addEventListener('click', async () => {
+      await refreshCsrf();
+      setFaithfulnessStatus('Saving…');
+      try {
+        const r = await fetch(api('settings.php'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf(),
+          },
+          body: JSON.stringify({ faithfulness: selectedFaithfulness() }),
+        }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        applyFaithfulness(r.faithfulness || selectedFaithfulness());
+        const f = r.faithfulness || {};
+        setFaithfulnessStatus(
+          'Saved: ' + (f.band || faithfulnessBand(f.degree)) + ' · ' + (f.degree ?? 70)
+        );
+      } catch (e) {
+        setFaithfulnessStatus(e.message || 'Save failed', true);
       }
     });
   }

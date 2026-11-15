@@ -4,6 +4,13 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-15 — Faithfulness strictness slider
+
+**Done**
+
+- Admin slider `faithfulness.degree` 0–100 (0 off, default 70) → light/balanced/strict runtime knobs
+- Chat notes include `@degree band`; settings export/import
+
 ## 2026-11-15 — Faithfulness hallucination brake
 
 **Done**

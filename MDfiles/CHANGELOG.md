@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-15 — Faithfulness strictness slider
+
+- Admin **Faithfulness** card: 0–100 slider (0 = off; default 70)
+- Maps to light / balanced / strict: prefer-OK vs hard OK, orphan scan (≥40), strip (≥60), shrink ratio
+- Notes: `Faithfulness: ok|corrected (@degree band)`; export/import included
+
 ## 2026-11-15 — Stronger faithfulness hallucination brake
 
 - Faithfulness: OK only when every legal claim is sourced; rewrite when unsure

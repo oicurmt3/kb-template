@@ -367,7 +367,8 @@ class Retrieval {
      * @param array{mode?:string,degree?:int}|array<string,mixed> $mixOpts
      * @param array{docs?:string,web?:string,extra?:string} $groundingParts When non-empty, packed with web/extra reserved
      * @param string $answerLength short|medium|long — when short, rewrites must stay brief
-     * @return array{content:string,checked:bool,changed:bool,rejected?:string}
+     * @param array{degree?:int,enabled?:bool,prefer_ok?:bool,orphan_scan?:bool,strip_fallback?:bool,shrink_min_ratio?:float}|null $faithOpts
+     * @return array{content:string,checked:bool,changed:bool,rejected?:string,degree?:int,band?:string}
      */
     public static function verifyGroundedAnswer(
         string $answer,
@@ -375,9 +376,31 @@ class Retrieval {
         array $deepseekCfg = [],
         array $mixOpts = [],
         array $groundingParts = [],
-        string $answerLength = 'medium'
+        string $answerLength = 'medium',
+        ?array $faithOpts = null
     ): array {
         $answer = trim($answer);
+        $runtime = class_exists('AppSettings')
+            ? AppSettings::faithfulnessRuntime($faithOpts)
+            : [
+                'enabled' => true,
+                'degree' => 70,
+                'band' => 'balanced',
+                'prefer_ok' => false,
+                'orphan_scan' => true,
+                'strip_fallback' => true,
+                'shrink_min_ratio' => 0.40,
+            ];
+        if (empty($runtime['enabled'])) {
+            return [
+                'content' => $answer,
+                'checked' => false,
+                'changed' => false,
+                'degree' => (int)($runtime['degree'] ?? 0),
+                'band' => (string)($runtime['band'] ?? 'off'),
+            ];
+        }
+
         $packed = '';
         if ($groundingParts !== []) {
             $packed = self::packHqGrounding($groundingParts);
@@ -397,7 +420,10 @@ class Retrieval {
                 : 'Keep claims supported by docs or allowlisted web; do not invent.';
             $mode = (string)($mix['mode'] ?? 'complement');
             $len = strtolower(trim($answerLength));
-            $conservative = self::faithfulnessSystemPrompt($mixHint, $mode, $len);
+            $preferOk = !empty($runtime['prefer_ok']);
+            $shrinkRatio = isset($runtime['shrink_min_ratio']) ? (float)$runtime['shrink_min_ratio'] : 0.5;
+            $shrinkRatio = max(0.2, min(0.7, $shrinkRatio));
+            $conservative = self::faithfulnessSystemPrompt($mixHint, $mode, $len, $preferOk);
             $sourceClip = mb_substr($packed, 0, 14000);
             $res = $client->chatComplete(
                 [
@@ -417,13 +443,15 @@ class Retrieval {
             $candidate = $answer;
             $changed = false;
             if ($out !== '' && !preg_match('/^OK\b/i', $out)) {
-                $applied = self::applyFaithfulnessRewrite($answer, $out, $len);
+                $applied = self::applyFaithfulnessRewrite($answer, $out, $len, $shrinkRatio);
                 if (!empty($applied['rejected'])) {
                     return [
                         'content' => $answer,
                         'checked' => true,
                         'changed' => false,
                         'rejected' => (string)$applied['rejected'],
+                        'degree' => (int)$runtime['degree'],
+                        'band' => (string)$runtime['band'],
                     ];
                 }
                 $candidate = (string)$applied['content'];
@@ -431,45 +459,47 @@ class Retrieval {
             }
 
             // Deterministic catch: section/reg numbers in the answer that never appear in sources
-            $orphanRefs = self::unsupportedLegalRefs($candidate, $packed);
-            if ($orphanRefs !== []) {
-                $forcePrompt = $conservative
-                    . ' A local scan found these section/regulation references in the draft that do NOT '
-                    . 'appear in SOURCE MATERIAL: ' . implode(', ', $orphanRefs) . '. '
-                    . 'You must rewrite — do not reply OK. Remove or hedge those references and any '
-                    . 'duties/time limits tied only to them. Keep every claim that is supported.';
-                $res2 = $client->chatComplete(
-                    [
-                        ['role' => 'system', 'content' => $forcePrompt],
+            if (!empty($runtime['orphan_scan'])) {
+                $orphanRefs = self::unsupportedLegalRefs($candidate, $packed);
+                if ($orphanRefs !== []) {
+                    $forcePrompt = $conservative
+                        . ' A local scan found these section/regulation references in the draft that do NOT '
+                        . 'appear in SOURCE MATERIAL: ' . implode(', ', $orphanRefs) . '. '
+                        . 'You must rewrite — do not reply OK. Remove or hedge those references and any '
+                        . 'duties/time limits tied only to them. Keep every claim that is supported.';
+                    $res2 = $client->chatComplete(
                         [
-                            'role' => 'user',
-                            'content' => "SOURCE MATERIAL:\n" . $sourceClip
-                                . "\n\nDRAFT ANSWER:\n" . mb_substr($candidate, 0, 6000)
-                                . "\n\nUNSUPPORTED REFS: " . implode(', ', $orphanRefs),
+                            ['role' => 'system', 'content' => $forcePrompt],
+                            [
+                                'role' => 'user',
+                                'content' => "SOURCE MATERIAL:\n" . $sourceClip
+                                    . "\n\nDRAFT ANSWER:\n" . mb_substr($candidate, 0, 6000)
+                                    . "\n\nUNSUPPORTED REFS: " . implode(', ', $orphanRefs),
+                            ],
                         ],
-                    ],
-                    ['model' => $flash, 'max_tokens' => 900, 'temperature' => 0.0]
-                );
-                if (!empty($res2['ok'])) {
-                    $out2 = trim((string)$res2['content']);
-                    if ($out2 !== '' && !preg_match('/^OK\b/i', $out2)) {
-                        $applied2 = self::applyFaithfulnessRewrite($candidate, $out2, $len);
-                        if (empty($applied2['rejected']) && !empty($applied2['changed'])) {
-                            $candidate = (string)$applied2['content'];
-                            $changed = true;
-                        } elseif (empty($applied2['rejected'])) {
-                            // Even if "same" text, prefer rewrite body when refs remain
-                            $candidate = (string)$applied2['content'];
+                        ['model' => $flash, 'max_tokens' => 900, 'temperature' => 0.0]
+                    );
+                    if (!empty($res2['ok'])) {
+                        $out2 = trim((string)$res2['content']);
+                        if ($out2 !== '' && !preg_match('/^OK\b/i', $out2)) {
+                            $applied2 = self::applyFaithfulnessRewrite($candidate, $out2, $len, $shrinkRatio);
+                            if (empty($applied2['rejected']) && !empty($applied2['changed'])) {
+                                $candidate = (string)$applied2['content'];
+                                $changed = true;
+                            } elseif (empty($applied2['rejected'])) {
+                                $candidate = (string)$applied2['content'];
+                            }
                         }
                     }
-                }
-                // Last resort: strip orphan section/reg phrases locally if still present
-                $still = self::unsupportedLegalRefs($candidate, $packed);
-                if ($still !== []) {
-                    $stripped = self::stripUnsupportedLegalRefs($candidate, $still);
-                    if ($stripped !== $candidate && trim($stripped) !== '') {
-                        $candidate = $stripped;
-                        $changed = true;
+                    if (!empty($runtime['strip_fallback'])) {
+                        $still = self::unsupportedLegalRefs($candidate, $packed);
+                        if ($still !== []) {
+                            $stripped = self::stripUnsupportedLegalRefs($candidate, $still);
+                            if ($stripped !== $candidate && trim($stripped) !== '') {
+                                $candidate = $stripped;
+                                $changed = true;
+                            }
+                        }
                     }
                 }
             }
@@ -478,23 +508,39 @@ class Retrieval {
                 'content' => $candidate,
                 'checked' => true,
                 'changed' => $changed,
+                'degree' => (int)$runtime['degree'],
+                'band' => (string)$runtime['band'],
             ];
         } catch (Throwable $e) {
             return ['content' => $answer, 'checked' => false, 'changed' => false];
         }
     }
 
-    private static function faithfulnessSystemPrompt(string $mixHint, string $mode, string $len): string {
+    private static function faithfulnessSystemPrompt(
+        string $mixHint,
+        string $mode,
+        string $len,
+        bool $preferOk = false
+    ): string {
         $conservative = 'You are a faithfulness gate against hallucinations — not a style editor. '
             . 'SOURCE MATERIAL may include uploaded excerpts, allowlisted web/URL text, and user-provided file/text. '
-            . $mixHint . ' '
-            . 'Reply with exactly OK only if EVERY section/regulation number, time limit, dollar amount, '
-            . 'duty, entitlement, and procedural step in the draft is supported by SOURCE MATERIAL '
-            . '(or is a close paraphrase of text that is). Minor wording differences are fine. '
-            . 'If ANY such claim is missing from SOURCE MATERIAL, invents a citation, or fills gaps with '
-            . 'general legal knowledge, you MUST rewrite: drop or clearly hedge the unsupported parts; '
-            . 'preserve supported document AND web details; plain text only; no markdown. '
-            . 'When unsure whether a claim is supported, rewrite to remove it — do not reply OK.';
+            . $mixHint . ' ';
+        if ($preferOk) {
+            $conservative .= 'Prefer OK when substantive claims are supported under the mix policy. '
+                . 'Ignore minor wording differences; do not rewrite for style or tone. '
+                . 'Only rewrite when the draft clearly invents rules, section/regulation numbers, duties, '
+                . 'or facts not supported by SOURCE MATERIAL. '
+                . 'When rewriting: drop only clear inventions; preserve supported document AND web details; '
+                . 'plain text only; no markdown.';
+        } else {
+            $conservative .= 'Reply with exactly OK only if EVERY section/regulation number, time limit, dollar amount, '
+                . 'duty, entitlement, and procedural step in the draft is supported by SOURCE MATERIAL '
+                . '(or is a close paraphrase of text that is). Minor wording differences are fine. '
+                . 'If ANY such claim is missing from SOURCE MATERIAL, invents a citation, or fills gaps with '
+                . 'general legal knowledge, you MUST rewrite: drop or clearly hedge the unsupported parts; '
+                . 'preserve supported document AND web details; plain text only; no markdown. '
+                . 'When unsure whether a claim is supported, rewrite to remove it — do not reply OK.';
+        }
         if ($len === 'short') {
             $conservative .= ' Admin answer length is SHORT: if you rewrite, keep at most 4 sentences; '
                 . 'removing unsupported padding is allowed. Do not expand the answer.';
@@ -510,13 +556,19 @@ class Retrieval {
     /**
      * @return array{content:string,changed:bool,rejected?:string}
      */
-    private static function applyFaithfulnessRewrite(string $answer, string $out, string $len): array {
+    private static function applyFaithfulnessRewrite(
+        string $answer,
+        string $out,
+        string $len,
+        float $shrinkMinRatio = 0.5
+    ): array {
         $origLen = mb_strlen($answer);
         $newLen = mb_strlen($out);
+        $ratio = max(0.2, min(0.7, $shrinkMinRatio));
         if (
             $len !== 'short'
             && $origLen >= 200
-            && $newLen < (int)floor($origLen * 0.5)
+            && $newLen < (int)floor($origLen * $ratio)
         ) {
             return ['content' => $answer, 'changed' => false, 'rejected' => 'shrink'];
         }

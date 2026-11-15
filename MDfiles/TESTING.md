@@ -15,6 +15,7 @@
 9. Admin → Export chunks → JSON has `documents` + `chunks` counts.
 10. Upload: select files → pending list → **Upload** (not auto); paste still **Add & chunk**.
 11. Admin → Deep thinking: save Auto + max 3; ask a long multi-part WorkCover question → `Deep: on (auto_on…)`; Reset Deep stats clears counters.
+12. Admin → Faithfulness: set 0 → notes `Faithfulness: off`; set 70 → `Faithfulness: ok|corrected (@70 …)`; set 100 on a draft with a fake section → corrected/strip more often.
 
 ## Accuracy checklist
 

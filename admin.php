@@ -168,6 +168,25 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
     <section class="card admin-collapse-card">
       <details class="admin-card-details">
         <summary class="admin-card-summary">
+          <span class="admin-card-summary-title">Faithfulness</span>
+          <span id="faithfulness-summary-hint" class="admin-card-summary-hint"></span>
+        </summary>
+        <div class="admin-card-body">
+          <p class="hint">Post-stream hallucination brake when grounding exists (docs / allowlisted web / URL / attach). <strong>0 = off</strong>. Higher = stricter: more rewrites, orphan section/reg scan (≥40), local strip fallback (≥60). Does not replace RAG↔Web mix — that still steers what to keep from docs vs web.</p>
+          <div class="inline" style="margin-top:12px;align-items:center;gap:12px">
+            <label class="hint" for="faithfulness-degree">Strictness <span id="faithfulness-degree-val">70</span></label>
+            <input type="range" id="faithfulness-degree" min="0" max="100" step="5" value="70" style="flex:1;min-width:160px" title="0 = off; 100 = strictest">
+            <button type="button" id="save-faithfulness" class="btn btn-primary">Save</button>
+            <span id="faithfulness-status" class="hint" aria-live="polite"></span>
+          </div>
+          <p id="faithfulness-hint" class="hint" style="margin-top:12px" aria-live="polite"></p>
+        </div>
+      </details>
+    </section>
+
+    <section class="card admin-collapse-card">
+      <details class="admin-card-details">
+        <summary class="admin-card-summary">
           <span class="admin-card-summary-title">RAG ↔ Web mix</span>
         </summary>
         <div class="admin-card-body">
