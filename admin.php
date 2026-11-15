@@ -97,6 +97,23 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
     </section>
 
     <section class="card">
+      <h2>RAG ↔ Web mix</h2>
+      <p class="hint">When <strong>WorkCover</strong> is on, Docs mode always runs uploaded RAG plus allowlisted live web. This setting controls whether they <strong>complement</strong>, prefer <strong>docs first</strong>, prefer <strong>web first</strong>, or <strong>compete</strong> (pick a winner), and how strongly (0–100).</p>
+      <div class="inline" style="margin-top:10px;flex-wrap:wrap" role="group" aria-label="RAG Web mix mode">
+        <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-complement" value="complement" checked> <span>Complement</span></label>
+        <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-docs-first" value="docs_first"> <span>Docs first</span></label>
+        <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-web-first" value="web_first"> <span>Web first</span></label>
+        <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-compete" value="compete"> <span>Compete</span></label>
+      </div>
+      <div class="inline" style="margin-top:12px;align-items:center;gap:12px">
+        <label class="hint" for="rag-web-degree">Degree <span id="rag-web-degree-val">50</span></label>
+        <input type="range" id="rag-web-degree" min="0" max="100" step="5" value="50" style="flex:1;min-width:160px" title="0 = prefer primary side strongly; 100 = push the other side hard">
+        <button type="button" id="save-rag-web-mix" class="btn btn-primary">Save mix</button>
+        <span id="rag-web-mix-status" class="hint" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>Chat UI &amp; features</h2>
       <p class="hint">Intro message for new chats, chat history (turn off for multi-user kiosks), and feature controls. <strong>WorkCover / HQ / Deep / Web</strong>: Default + Show/Hide. HQ Default off = Basic language; Default on = HQ. <strong>Tags / URL / File / Sources / Related</strong>: Show or Hide only.</p>
       <label class="hint" for="ui-intro">Intro message</label>

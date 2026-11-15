@@ -26,6 +26,8 @@ try {
             'answer_length_source' => ($lenRaw !== null && $lenRaw !== '') ? 'admin' : 'default',
             'adaptive_retrieval' => AppSettings::adaptiveRetrievalEnabled($ragCfg),
             'adaptive_retrieval_source' => AppSettings::adaptiveRetrievalSource($ragCfg),
+            'rag_web_mix' => AppSettings::ragWebMix(),
+            'rag_web_mix_modes' => AppSettings::ragWebMixModes(),
             'ui' => AppSettings::uiConfig(),
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
             'ui_feature_keys' => AppSettings::uiFeatureKeys(),
@@ -54,12 +56,15 @@ try {
         $hasAge = array_key_exists('simple_explain_age', $body);
         $hasLength = array_key_exists('answer_length', $body);
         $hasAdaptive = array_key_exists('adaptive_retrieval', $body);
+        $hasRagWebMix = array_key_exists('rag_web_mix', $body);
         $hasUi = array_key_exists('ui', $body);
         $ui = AppSettings::uiConfig();
         $updatedUi = false;
+        $ragWebMix = AppSettings::ragWebMix();
+        $updatedRagWebMix = false;
 
-        if (!$hasHosts && !$hasAge && !$hasLength && !$hasAdaptive && !$hasUi) {
-            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, and/or ui');
+        if (!$hasHosts && !$hasAge && !$hasLength && !$hasAdaptive && !$hasRagWebMix && !$hasUi) {
+            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, and/or ui');
         }
 
         if ($hasHosts) {
@@ -105,6 +110,14 @@ try {
             $updatedAdaptive = true;
         }
 
+        if ($hasRagWebMix) {
+            if (!is_array($body['rag_web_mix'])) {
+                json_error('rag_web_mix must be an object with mode and degree');
+            }
+            $ragWebMix = AppSettings::saveRagWebMix($body['rag_web_mix']);
+            $updatedRagWebMix = true;
+        }
+
         if ($hasUi) {
             if (!is_array($body['ui'])) {
                 json_error('ui must be an object');
@@ -133,12 +146,15 @@ try {
             ) ? 'admin' : 'default',
             'adaptive_retrieval' => $adaptive,
             'adaptive_retrieval_source' => AppSettings::adaptiveRetrievalSource($ragCfg),
+            'rag_web_mix' => $ragWebMix,
+            'rag_web_mix_modes' => AppSettings::ragWebMixModes(),
             'ui' => $ui,
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
             'updated_hosts' => $updatedHosts,
             'updated_age' => $updatedAge,
             'updated_length' => $updatedLength,
             'updated_adaptive' => $updatedAdaptive,
+            'updated_rag_web_mix' => $updatedRagWebMix,
             'updated_ui' => $updatedUi,
         ]);
     }

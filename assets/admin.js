@@ -23,6 +23,10 @@
   const $answerLengthStatus = document.getElementById('answer-length-status');
   const $saveAdaptive = document.getElementById('save-adaptive-retrieval');
   const $adaptiveStatus = document.getElementById('adaptive-retrieval-status');
+  const $ragWebDegree = document.getElementById('rag-web-degree');
+  const $ragWebDegreeVal = document.getElementById('rag-web-degree-val');
+  const $saveRagWebMix = document.getElementById('save-rag-web-mix');
+  const $ragWebMixStatus = document.getElementById('rag-web-mix-status');
   const $uiIntro = document.getElementById('ui-intro');
   const $uiFeaturesList = document.getElementById('ui-features-list');
   const $saveUiFeatures = document.getElementById('save-ui-features');
@@ -551,6 +555,45 @@
     return el ? el.value === '1' : false;
   }
 
+  function setRagWebMixStatus(msg, isErr) {
+    if (!$ragWebMixStatus) return;
+    $ragWebMixStatus.textContent = msg || '';
+    $ragWebMixStatus.classList.toggle('err', !!isErr);
+    $ragWebMixStatus.classList.toggle('ok', !!msg && !isErr);
+  }
+
+  function applyRagWebMix(mix) {
+    const mode = (mix && mix.mode) || 'complement';
+    const degree = mix && typeof mix.degree === 'number' ? mix.degree : 50;
+    const map = {
+      complement: 'rag-web-complement',
+      docs_first: 'rag-web-docs-first',
+      web_first: 'rag-web-web-first',
+      compete: 'rag-web-compete',
+    };
+    const id = map[mode] || map.complement;
+    const el = document.getElementById(id);
+    if (el) el.checked = true;
+    if ($ragWebDegree) $ragWebDegree.value = String(degree);
+    if ($ragWebDegreeVal) $ragWebDegreeVal.textContent = String(degree);
+  }
+
+  function selectedRagWebMix() {
+    const el = document.querySelector('input[name="rag-web-mode"]:checked');
+    const mode = el ? el.value : 'complement';
+    const degree = $ragWebDegree ? parseInt($ragWebDegree.value, 10) : 50;
+    return {
+      mode,
+      degree: Number.isFinite(degree) ? degree : 50,
+    };
+  }
+
+  if ($ragWebDegree) {
+    $ragWebDegree.addEventListener('input', () => {
+      if ($ragWebDegreeVal) $ragWebDegreeVal.textContent = $ragWebDegree.value;
+    });
+  }
+
   function setUiFeaturesStatus(msg, isErr) {
     if (!$uiFeaturesStatus) return;
     $uiFeaturesStatus.textContent = msg || '';
@@ -674,6 +717,17 @@
           ' (' + (r.adaptive_retrieval_source || 'default') + ')'
         );
       }
+      if (r.rag_web_mix) {
+        applyRagWebMix(r.rag_web_mix);
+        setRagWebMixStatus(
+          (r.rag_web_mix.mode || 'complement') +
+          ' · degree ' +
+          (r.rag_web_mix.degree ?? 50) +
+          ' (' +
+          (r.rag_web_mix.source || 'default') +
+          ')'
+        );
+      }
       if (r.ui) {
         applyUiConfig(r.ui);
         setUiFeaturesStatus(r.ui_source === 'admin' ? 'Loaded (admin)' : 'Loaded (defaults)');
@@ -686,6 +740,7 @@
       setSimpleAgeStatus(e.message || 'Failed to load', true);
       setAnswerLengthStatus(e.message || 'Failed to load', true);
       setAdaptiveStatus(e.message || 'Failed to load', true);
+      setRagWebMixStatus(e.message || 'Failed to load', true);
       setUiFeaturesStatus(e.message || 'Failed to load', true);
     }
   }
@@ -775,6 +830,29 @@
         setAdaptiveStatus('Saved: ' + (r.adaptive_retrieval ? 'On' : 'Off (legacy)'));
       } catch (e) {
         setAdaptiveStatus(e.message || 'Save failed', true);
+      }
+    });
+  }
+
+  if ($saveRagWebMix) {
+    $saveRagWebMix.addEventListener('click', async () => {
+      await refreshCsrf();
+      setRagWebMixStatus('Saving…');
+      try {
+        const r = await fetch(api('settings.php'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf(),
+          },
+          body: JSON.stringify({ rag_web_mix: selectedRagWebMix() }),
+        }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        applyRagWebMix(r.rag_web_mix || selectedRagWebMix());
+        const m = r.rag_web_mix || {};
+        setRagWebMixStatus('Saved: ' + (m.mode || 'complement') + ' · degree ' + (m.degree ?? 50));
+      } catch (e) {
+        setRagWebMixStatus(e.message || 'Save failed', true);
       }
     });
   }

@@ -329,10 +329,14 @@ class Retrieval {
      * $grounding may include document excerpts and/or allowlisted web/URL context.
      * @param array<string,mixed> $deepseekCfg
      */
+    /**
+     * @param array{mode?:string,degree?:int}|array<string,mixed> $mixOpts Optional RAG↔Web mix for HQ policy
+     */
     public static function verifyGroundedAnswer(
         string $answer,
         string $grounding,
-        array $deepseekCfg = []
+        array $deepseekCfg = [],
+        array $mixOpts = []
     ): array {
         $answer = trim($answer);
         if ($answer === '' || trim($grounding) === '' || $deepseekCfg === []) {
@@ -341,18 +345,19 @@ class Retrieval {
         try {
             $client = new DeepSeekClient($deepseekCfg);
             $flash = (string)(($deepseekCfg['flash_model'] ?? '') ?: ($deepseekCfg['model'] ?? 'deepseek-chat'));
+            $mixHint = class_exists('AppSettings')
+                ? AppSettings::ragWebMixHqHint($mixOpts !== [] ? $mixOpts : AppSettings::ragWebMix())
+                : 'Keep claims supported by docs or allowlisted web; do not invent.';
             $res = $client->chatComplete(
                 [
                     [
                         'role' => 'system',
                         'content' => 'You check answers for faithfulness to the provided SOURCE MATERIAL only '
                             . '(uploaded document excerpts AND/OR allowlisted web/URL text). '
-                            . 'Treat docs and allowlisted web as one combined source set: keep every claim supported by either. '
-                            . 'NEVER remove or rewrite away content that is supported by allowlisted web/URL text, '
-                            . 'even if the uploaded documents are silent on that point — web enriches the docs. '
-                            . 'If every substantive claim is supported by docs and/or web/URL, reply with exactly: OK '
-                            . 'Otherwise reply with a corrected plain-text answer that keeps all web-supported and doc-supported '
-                            . 'claims, drops only unsupported inventions, and briefly notes anything still uncovered. No markdown.',
+                            . $mixHint . ' '
+                            . 'If every substantive claim is supported per that mix policy, reply with exactly: OK '
+                            . 'Otherwise reply with a corrected plain-text answer that follows the mix policy, '
+                            . 'drops only unsupported inventions, and briefly notes anything still uncovered. No markdown.',
                     ],
                     [
                         'role' => 'user',

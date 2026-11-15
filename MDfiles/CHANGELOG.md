@@ -12,7 +12,7 @@
 - Plan only: science teacher ↔ lab-tech coordinator — `MDfiles/PLAN-science-lab-coordinator.md`
 - Fix: RAG/HQ no longer wipe allowlisted web/URL answers; HQ checks docs+web; UI note when answer replaced
 - Combine: WorkCover mode = RAG + live allowlisted web as one pipeline; Web toggle only when WorkCover off; HQ preserves web content
-- Backlog: admin setting for RAG↔Web mix (complement / docs_first / web_first / compete + degree) — see `HANDOFF.md`
+- Admin RAG↔Web mix setting (complement / docs_first / web_first / compete + degree 0–100) wired into chat + HQ
 
 ## Earlier (same project arc)
 

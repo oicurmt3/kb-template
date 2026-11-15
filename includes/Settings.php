@@ -12,7 +12,15 @@ class AppSettings {
     public const KEY_ANSWER_LENGTH = 'answer_length';
     public const DEFAULT_ANSWER_LENGTH = 'medium';
     public const KEY_ADAPTIVE_RETRIEVAL = 'adaptive_retrieval';
+    public const KEY_RAG_WEB_MIX = 'rag_web_mix';
+    public const DEFAULT_RAG_WEB_MODE = 'complement';
+    public const DEFAULT_RAG_WEB_DEGREE = 50;
     public const KEY_UI = 'ui_features';
+
+    /** @return list<string> */
+    public static function ragWebMixModes(): array {
+        return ['complement', 'docs_first', 'web_first', 'compete'];
+    }
 
     /** @return list<string> */
     public static function uiFeatureKeys(): array {
@@ -302,6 +310,104 @@ class AppSettings {
             return 'admin';
         }
         return array_key_exists('adaptive_retrieval', $ragCfg) ? 'config' : 'default';
+    }
+
+    /**
+     * How Docs mode mixes uploaded RAG with allowlisted live web.
+     * @return array{mode:string,degree:int,source:string}
+     */
+    public static function ragWebMix(): array {
+        $defaults = [
+            'mode' => self::DEFAULT_RAG_WEB_MODE,
+            'degree' => self::DEFAULT_RAG_WEB_DEGREE,
+            'source' => 'default',
+        ];
+        $raw = self::get(self::KEY_RAG_WEB_MIX);
+        if ($raw === null || $raw === '') {
+            return $defaults;
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return $defaults;
+        }
+        $mode = strtolower(trim((string)($decoded['mode'] ?? self::DEFAULT_RAG_WEB_MODE)));
+        if (!in_array($mode, self::ragWebMixModes(), true)) {
+            $mode = self::DEFAULT_RAG_WEB_MODE;
+        }
+        $degree = isset($decoded['degree']) && is_numeric($decoded['degree'])
+            ? (int)$decoded['degree']
+            : self::DEFAULT_RAG_WEB_DEGREE;
+        $degree = max(0, min(100, $degree));
+        return ['mode' => $mode, 'degree' => $degree, 'source' => 'admin'];
+    }
+
+    /**
+     * @param array<string,mixed> $input
+     * @return array{mode:string,degree:int,source:string}
+     */
+    public static function saveRagWebMix(array $input): array {
+        $mode = strtolower(trim((string)($input['mode'] ?? self::DEFAULT_RAG_WEB_MODE)));
+        if (!in_array($mode, self::ragWebMixModes(), true)) {
+            $mode = self::DEFAULT_RAG_WEB_MODE;
+        }
+        $degree = isset($input['degree']) && is_numeric($input['degree'])
+            ? (int)$input['degree']
+            : self::DEFAULT_RAG_WEB_DEGREE;
+        $degree = max(0, min(100, $degree));
+        self::set(
+            self::KEY_RAG_WEB_MIX,
+            json_encode(['mode' => $mode, 'degree' => $degree], JSON_UNESCAPED_SLASHES)
+        );
+        return ['mode' => $mode, 'degree' => $degree, 'source' => 'admin'];
+    }
+
+    /**
+     * System-prompt instructions for combining document excerpts with allowlisted web.
+     * @param array{mode?:string,degree?:int} $mix
+     */
+    public static function ragWebMixInstruction(array $mix): string {
+        $mode = (string)($mix['mode'] ?? self::DEFAULT_RAG_WEB_MODE);
+        $degree = isset($mix['degree']) ? (int)$mix['degree'] : self::DEFAULT_RAG_WEB_DEGREE;
+        $degree = max(0, min(100, $degree));
+        $strength = $degree <= 25 ? 'lightly' : ($degree <= 60 ? 'moderately' : 'strongly');
+
+        return match ($mode) {
+            'docs_first' => "RAG↔Web mix: DOCS FIRST (degree {$degree}/100). "
+                . "Lead with uploaded document excerpts for every answer. "
+                . "Use allowlisted web {$strength} only to fill gaps when excerpts are weak, silent, or outdated on process details. "
+                . "Do not let web override Act/Regulations text. "
+                . "Keep web-supported facts that fill those gaps — do not drop them.",
+            'web_first' => "RAG↔Web mix: WEB FIRST (degree {$degree}/100). "
+                . "Lead with allowlisted live web for current guidance and public process pages. "
+                . "Use uploaded Act/Regulations excerpts {$strength} for statutory rules, section numbers, and legal duties. "
+                . "When both apply, state the legal rule from excerpts and how the website describes it. "
+                . "Do not drop either side's supported claims.",
+            'compete' => "RAG↔Web mix: COMPETE / PICK WINNER (degree {$degree}/100). "
+                . "Do not blend sources into a soft merge. Choose the clearer, more on-topic side for the user's question "
+                . "(degree high → prefer web when both are plausible; degree low → prefer documents). "
+                . "For WA workers compensation statute questions, uploaded Act/Regulations still win if they clearly answer. "
+                . "You may briefly note the other side was weaker, but answer primarily from the winner. "
+                . "Still do not invent beyond the winning sources.",
+            default => "RAG↔Web mix: COMPLEMENT (degree {$degree}/100). "
+                . "Combine document excerpts and allowlisted web into one answer. "
+                . "Enrich {$strength} with web for currency and omitted process detail; "
+                . "prefer Act/Regulations excerpts for WA workers compensation law. "
+                . "Never discard relevant web content that the excerpts omit.",
+        };
+    }
+
+    /**
+     * Extra HQ-check system line so verification respects the same mix.
+     * @param array{mode?:string,degree?:int} $mix
+     */
+    public static function ragWebMixHqHint(array $mix): string {
+        $mode = (string)($mix['mode'] ?? self::DEFAULT_RAG_WEB_MODE);
+        return match ($mode) {
+            'docs_first' => 'When correcting: keep doc-supported claims; keep web-supported claims only where they fill gaps. Do not invent.',
+            'web_first' => 'When correcting: keep web-supported claims; keep Act/Regs excerpt claims for legal duties. Do not invent.',
+            'compete' => 'When correcting: keep claims from the stronger on-topic side; drop the weaker side rather than forcing a blend. Do not invent.',
+            default => 'When correcting: keep every claim supported by docs OR allowlisted web; never strip web-backed enrichment. Do not invent.',
+        };
     }
 
     /**

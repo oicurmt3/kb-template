@@ -77,6 +77,7 @@ try {
     if ($mode === 'rag' && !empty($webCfg['enabled'])) {
         $webSearch = true;
     }
+    $ragWebMix = AppSettings::ragWebMix();
     $maxCtx = (int)($webCfg['max_context_chars'] ?? 12000);
     if (mb_strlen($extraContext) > $maxCtx) {
         $extraContext = mb_substr($extraContext, 0, $maxCtx) . "\n…";
@@ -344,22 +345,19 @@ try {
             if ($sr['ok'] && $sr['text'] !== '') {
                 if ($mode === 'rag') {
                     $webBlock = "LIVE ALLOWLISTED WEB ENRICHMENT (hosts: {$hostsLabel}) — part of Docs/WorkCover mode:\n"
-                        . "Combine this with DOCUMENT EXCERPTS above into one answer. "
-                        . "Do not drop or ignore web content that is relevant. "
-                        . "Use excerpts as the legal source for WA workers compensation Act/Regulations; "
-                        . "use web results to add current guidance, process pages, and anything the excerpts omit. "
-                        . "If both speak to the same point, lead with Act/Regs then note how the website explains it. "
-                        . "Do not invent or cite other websites.\n"
                         . $sr['text'];
-                    $webNotes[] = 'Web+RAG: ' . count($sr['results']) . ' results (' . $hostsLabel . ')';
+                    $systemPrompt .= "\n\n" . $webBlock;
+                    $webNotes[] = 'Web+RAG: ' . count($sr['results']) . ' results (' . $hostsLabel . ')'
+                        . '; mix=' . ($ragWebMix['mode'] ?? 'complement')
+                        . '@' . (int)($ragWebMix['degree'] ?? 50);
                 } else {
                     $webBlock = "ALLOWED-DOMAIN WEB SEARCH (restricted to: {$hostsLabel}):\n"
                         . "Use these results as grounded sources for what those pages state. "
                         . "Do not invent or cite other websites.\n"
                         . $sr['text'];
+                    $systemPrompt .= "\n\n" . $webBlock;
                     $webNotes[] = 'Web search: ' . count($sr['results']) . ' results (' . $hostsLabel . ')';
                 }
-                $systemPrompt .= "\n\n" . $webBlock;
                 if (!isset($groundingForCheck)) {
                     $groundingForCheck = '';
                 }
@@ -383,6 +381,13 @@ try {
 
     if (!isset($dsFiles)) {
         $dsFiles = [];
+    }
+
+    // Docs mode: apply admin RAG↔Web mix policy after enrichment blocks are attached
+    if ($mode === 'rag' && ($webSearch || $contextUrl !== '')) {
+        $systemPrompt .= "\n\n" . AppSettings::ragWebMixInstruction($ragWebMix);
+        $webNotes[] = 'RAG↔Web mix: ' . ($ragWebMix['mode'] ?? 'complement')
+            . ' @' . (int)($ragWebMix['degree'] ?? 50);
     }
 
     $reminder = latest_reminder_content($config['app'] ?? []);
@@ -497,7 +502,8 @@ try {
             $verified = Retrieval::verifyGroundedAnswer(
                 $finalContent,
                 $groundingForCheck,
-                $config['deepseek'] ?? []
+                $config['deepseek'] ?? [],
+                $ragWebMix
             );
             if (!empty($verified['checked'])) {
                 $webNotes[] = !empty($verified['changed'])
