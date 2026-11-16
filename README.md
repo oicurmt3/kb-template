@@ -30,16 +30,17 @@ WANDA is a plain PHP + vanilla JS chatbot that answers Western Australian worker
 | **Sources** | Show citation chips after RAG answers |
 | **Related** | Follow-up suggestion chips |
 
-Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → grounded prompt → **automatic faithfulness** when sources exist) is documented in **[MDfiles/ACCURACY.md](MDfiles/ACCURACY.md)**.
+Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → grounded prompt → optional **Faithfulness** audit) is documented in **[MDfiles/ACCURACY.md](MDfiles/ACCURACY.md)**.
 
-**Roles:** HQ = style · Deep = API thinking · Faithfulness = automatic source audit (docs and/or web/URL/attach) · WorkCover = RAG + allowlisted web.
+**Roles:** HQ = style · Deep = API thinking · Faithfulness = admin-slidered source audit (default **off**; surgical only at high degree) · WorkCover = RAG + allowlisted web.
 
 ### Admin (summary)
 
 - Collapsible cards (closed by default): chats, export/import, settings, upload, documents, chunks, retrieval test
 - **Export / import settings** JSON; **export all chunks** (no chunk import yet)
 - Upload: stage files → **Upload** button; paste → **Add & chunk**
-- RAG↔Web mix, Adaptive RAG, UI features, hosts, caps — see Accuracy / handover docs
+- Document **Source URL**: citation link; optional live fetch (Web settings Include/Exclude)
+- Faithfulness slider, RAG↔Web mix, Adaptive RAG, Deep policy, UI features, hosts — see Accuracy / handover docs
 
 ## Docs
 

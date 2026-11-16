@@ -28,9 +28,9 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 6. Allowlisted web enrichment + RAG↔Web mix instructions (**first pass**)  
 7. Style: HQ (richer) or Basic (simple explain)  
 8. DeepSeek API thinking — resolved by admin Deep policy (manual / auto heuristics / always) + per-chat cap; notes `Deep: on|off (…)`  
-9. **Faithfulness** after stream when grounding exists — same mix mode+degree policy via `ragWebMixHqHint` (may replace bubble via `done.content`)
+9. **Faithfulness** after stream when grounding exists and slider &gt; 0 — default **off**. Degrees 1–50 never replace the stream; ≥55 may apply a surgical rewrite only (≥85% length, reject hedges). `done.content` only when a rewrite actually applied.
 
-See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, shared mix rules; prefer OK; shrink guard).
+See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, shared mix rules; prefer keep draft).
 
 ## Key files
 
@@ -83,7 +83,7 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 
 - No automated eval suite yet — use Admin → Retrieval test + manual chat scripts (see TESTING.md)
 - Query rewrite costs an extra flash call on follow-ups
-- Faithfulness costs a second flash call after grounded streams
+- Faithfulness (when degree ≥55) may cost a second flash call; lower degrees do not rewrite the stream
 - DeepSeek API thinking adds CoT cost when Deep is on
 - Chunk import not built (export only)
 - Admin-editable synonyms / tag-inference maps still backlog (see HANDOFF.md)

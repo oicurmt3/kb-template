@@ -20,8 +20,8 @@ Browser (index.php + chat.js)
         → optional WebFetch (always with WorkCover when web.enabled; else standalone Web)
         → RAG↔Web mix instructions
         → DeepSeek chatStream → SSE deltas
-        → optional DeepSeek API thinking (Deep toggle)
-        → automatic faithfulness if grounding (packHqGrounding: docs + reserved web + extra; skip if DeepSeek Files)
+        → optional DeepSeek API thinking (Deep policy + toggle)
+        → optional Faithfulness if slider > 0 and grounding (default off; ≥55 surgical rewrite only; skip Files stubs / attached Files)
         → persist assistant message + done event
 ```
 

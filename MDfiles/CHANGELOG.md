@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-16 — Docs sync (Faithfulness + Source URL)
+
+- ACCURACY / TESTING / README / handover / ARCHITECTURE / HANDOFF aligned with keep-draft Faithfulness and doc Source URL Include/Exclude
+
 ## 2026-11-16 — Faithfulness no longer guts streamed answers
 
 - Default Faithfulness **0 (off)**; 1–50 never replaces the draft; ≥55 surgical rewrite only (≥85% length)

@@ -209,7 +209,7 @@ Keep the “plain text / no citation numbers” rules.
 5. Soft-rename WorkCover label in UI strings.  
 6. Adjust `buildContext` / `rag_system_prompt` hierarchy.  
 7. Retrieval test 20 real questions; fix tags/synonyms until scores are strong.  
-8. Smoke: RAG on/off, Faithfulness notes, HQ style, Deep thinking, Sources, kiosk history off.  
+8. Smoke: RAG on/off, Faithfulness off by default (stream unchanged), HQ style, Deep manual, Sources, doc Source URL include/exclude, kiosk history off.  
 9. Lock installer; rotate admin password; confirm `config.php` not in git.
 
 ---

@@ -52,7 +52,7 @@ User message
 |---------|----------------|-------------------------|
 | **HQ** | Richer / more precise wording in the first answer | Post-stream rewrite; faithfulness |
 | **Deep** | DeepSeek API `thinking: enabled` (chain-of-thought before answer) | Source faithfulness audit |
-| **Faithfulness** | Automatic second flash call vs packed sources when grounding exists | Style / “make language fancier” |
+| **Faithfulness** | Admin slider (default **off**); ≥55 may surgically rewrite vs packed sources | Style; gutting a good stream (rewrites must stay ≥85% length) |
 | **WorkCover** | RAG + allowlisted web (Docs mode) | — |
 
 ### Stage details
@@ -135,7 +135,7 @@ Admin **Deep thinking** policy (`deep_thinking_policy` in settings):
 
 #### E2b. Answer length enforcement
 
-Admin **Short / Medium / Long** is applied twice: early instruction + **closing reminder after** HQ/mix/web so length wins over “be thorough”. HQ wording is length-aware (Short = precision without expansion). Faithfulness in Short mode may trim unsupported padding.
+Admin **Short / Medium / Long** is applied twice: early instruction + **closing reminder after** HQ/mix/web so length wins over “be thorough”. HQ wording is length-aware (Short = precision without expansion). Faithfulness must not use Short as a reason to gut the draft.
 
 #### F. Faithfulness check (`verifyGroundedAnswer`) — automatic QA after the mix
 
@@ -202,15 +202,15 @@ Important: “more web weight” means the check **protects web more** (treats w
 ##### Packing / skip / outcomes
 
 - **SOURCE MATERIAL** packed by `Retrieval::packHqGrounding()` (budget ~14k chars): docs + reserved web (~35%) + attach (~20%) so long RAG cannot crowd web out of the auditor’s window.
-- Draft sent to checker ≤ ~6k chars; `max_tokens` 900; temperature 0.1.
-- Prefer exact `OK`; rewrite only clear inventions.
-- If correction shrinks a ≥200-char draft to &lt;50% → keep streamed draft (`Faithfulness: kept draft`).
-- **Skipped** when DeepSeek Files are attached (file body not in grounding window).
+- Draft sent to checker ≤ ~6k chars; `max_tokens` 900; temperature 0.
+- Prefer exact `OK`; when unsure, keep the draft. Rewrite only clear inventions, and only if degree ≥55.
+- If a rewrite drops below **~85%** of draft length, or uses hedge language (“excerpts don’t show…”), **keep streamed draft** (`Faithfulness: kept draft (shrink|hedge|…)`).
+- **Skipped** when DeepSeek Files are attached, or SOURCE is mostly Files stubs.
 - **Skipped** for plain general LLM chat with no docs/web/URL/attach grounding.
-- Notes: `Faithfulness: ok` | `corrected` | `kept draft` | `skipped…`
-- Corrected text → SSE `done.content`; UI may show an update note.
+- Notes: `Faithfulness: ok` | `corrected` | `kept draft (…)` | `off` | `skipped…`
+- Corrected text → SSE `done.content` **only** when a rewrite actually applied; UI update note only then.
 
-Cost: one extra non-streaming flash call when not skipped.
+Cost: second flash call only when degree ≥55 and not skipped. Degrees 1–50 do not replace the stream.
 
 **Note:** Live web still only hits admin-allowlisted hosts. WorkCover mode always tries to enrich RAG with that web (when `web.enabled` in config).
 
@@ -221,7 +221,7 @@ Cost: one extra non-streaming flash call when not skipped.
 1. Mix is applied when **writing** the first answer.  
 2. Faithfulness runs **after**, as QA.  
 3. Same admin mode + degree steers both write and audit.  
-4. Faithfulness is optional only when there is **no** grounding; it is not a user toggle.  
+4. Faithfulness is admin-slidered (default **off**); not a chat toggle. Degrees 1–50 never replace the stream.  
 5. HQ and Deep are orthogonal (style / API CoT).  
 
 ---
@@ -239,9 +239,9 @@ When **Show**: user’s toggle wins for that request.
 |---------|-----------------|--------------------------------|
 | **WorkCover** | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts. Off = no doc retrieval. Standalone **Web** toggle only appears when WorkCover is off. Triggers faithfulness when excerpts (and/or web) exist. |
 | **HQ** | On = richer language; Off = Basic | **Style only** (`hqInstruction` vs simple explain). Does **not** run the post-stream faithfulness check. |
-| **Deep thinking** | Composer toggle + admin policy (manual / auto / always) + per-chat cap | DeepSeek API thinking / CoT when the turn resolves on. Extra latency/cost. Does **not** replace faithfulness. Auto mode turns Deep on for hard / weak-retrieval turns; toggle forces on under auto. |
-| **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. Still provides grounding → faithfulness runs. When WorkCover is on, that same search is automatic inside Docs mode. |
-| **Faithfulness** | Admin slider 0–100 (not a chat toggle) | Automatic when grounding exists unless degree = 0. Higher = stricter rewrite / orphan section-reg scan / strip. Mix mode+degree still steers docs vs web keep/cut. Skip DeepSeek Files. |
+| **Deep thinking** | Composer toggle + admin policy (manual / auto / always) + per-chat cap | DeepSeek API thinking / CoT when the turn resolves on. Extra latency/cost. Does **not** replace faithfulness. Auto is conservative (long/multi-part only); toggle forces on under auto. Prefer Manual with Short answers. |
+| **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. Still provides grounding → faithfulness may run if slider &gt; 0. When WorkCover is on, that same search is automatic inside Docs mode. |
+| **Faithfulness** | Admin slider 0–100 (default **0**) | Off by default. 1–50 never replaces stream; ≥55 surgical rewrite only. Document Source URL live fetch is a separate Web-settings Include/Exclude. |
 
 ### 3.2 Visibility-only features (Show / Hide only)
 
@@ -728,7 +728,7 @@ After merge with keyword \(w_c=1.5\) and alsoQuery \(w_q=1.15\): \(S \approx 8.1
 
 - HQ vs Basic — prompt style only, not retrieval scores and not faithfulness
 - Deep thinking — API CoT; admin policy manual/auto/always + max per chat + stats
-- Faithfulness — automatic post-stream source check when grounding exists
+- Faithfulness — admin slider (default off); surgical rewrite only at high degree; keep draft on shrink/hedge
 - Answer length — prompt instruction only  
 - Web / URL / file context — concatenated into the system prompt after retrieval; they do not change chunk \(S\)  
 - Sources visibility — UI only  

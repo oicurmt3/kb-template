@@ -4,11 +4,23 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-16 — Docs sync + Faithfulness keep-draft behaviour
+
+**Done**
+
+- Faithfulness default **0**; 1–50 never replace stream; ≥55 surgical (≥85%, reject hedges); stub skip; silent cite strip
+- Document Source URL live fetch + Web settings Include/Exclude
+- MD suite updated (ACCURACY, TESTING, README, handover, ARCHITECTURE, CHANGELOG)
+
+**Ops**
+
+- If Admin still has Faithfulness saved at 70 from earlier, set to **0** and Save (or ≥55 only if surgical rewrites are wanted).
+
 ## 2026-11-15 — Faithfulness strictness slider
 
 **Done**
 
-- Admin slider `faithfulness.degree` 0–100 (0 off, default 70) → light/balanced/strict runtime knobs
+- Admin slider `faithfulness.degree` 0–100 (later retargeted: default 0; rewrite only ≥55)
 - Chat notes include `@degree band`; settings export/import
 
 ## 2026-11-15 — Faithfulness hallucination brake
