@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-16 — Faithfulness no longer guts streamed answers
+
+- Default Faithfulness **0 (off)**; 1–50 never replaces the draft; ≥55 surgical rewrite only (≥85% length)
+- Rejects hedge rewrites (“excerpts don’t show…”); silent cite strip (no “not clearly shown” text)
+- Skips stub-only DeepSeek Files SOURCE; Prefer-OK prompt; Short no longer disables shrink guard
+
 ## 2026-11-16 — Toggle document Source URL web fetch
 
 - Admin **Web search & fetch domains**: Include / Exclude document Source URLs as live web (`doc_source_url_web`, default Include)

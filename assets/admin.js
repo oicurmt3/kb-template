@@ -669,46 +669,45 @@
   }
 
   function faithfulnessBand(degree) {
-    const d = Number.isFinite(degree) ? degree : 70;
+    const d = Number.isFinite(degree) ? degree : 0;
     if (d <= 0) return 'off';
-    if (d <= 35) return 'light';
+    if (d < 55) return 'light';
     if (d <= 70) return 'balanced';
     return 'strict';
   }
 
   function faithfulnessLaymanHint(degree) {
-    const d = Number.isFinite(degree) ? degree : 70;
+    const d = Number.isFinite(degree) ? degree : 0;
     const band = faithfulnessBand(d);
     if (band === 'off') {
-      return 'Off: no post-stream source check. The streamed draft is kept as-is (faster, more risk of invented sections).';
+      return 'Off (recommended default): no post-stream rewrite. You keep the streamed answer.';
     }
     if (band === 'light') {
       return (
         'Light (degree ' +
         d +
-        '): prefers OK; rewrites only clear inventions. No orphan section/reg strip yet. Good if faithfulness was over-trimming.'
+        '): records Faithfulness: ok but never replaces the streamed answer. Safe if you want the feature on without risk of gutting drafts.'
       );
     }
     if (band === 'balanced') {
       return (
         'Balanced (degree ' +
         d +
-        '): OK only when legal claims look sourced' +
-        (d >= 40 ? '; orphan section/reg scan on' : '') +
-        (d >= 60 ? '; local strip fallback on' : '') +
-        '. Default-ish everyday brake.'
+        '): may apply a surgical rewrite only (≥85% of draft kept). Rejects hedge rewrites (“excerpts don’t show…”). Orphan scan on.'
       );
     }
     return (
       'Strict (degree ' +
       d +
-      '): when unsure, rewrite; orphan scan + strip; allows deeper cuts of unsupported text. Best when hallucinations are the main problem.'
+      '): surgical rewrites + orphan scan' +
+      (d >= 75 ? ' + silent cite strip' : '') +
+      '. Still rejects heavy trims and hedge language. Use only if invented section numbers are a real problem.'
     );
   }
 
   function updateFaithfulnessHint() {
-    const degree = $faithfulnessDegree ? parseInt($faithfulnessDegree.value, 10) : 70;
-    const d = Number.isFinite(degree) ? degree : 70;
+    const degree = $faithfulnessDegree ? parseInt($faithfulnessDegree.value, 10) : 0;
+    const d = Number.isFinite(degree) ? degree : 0;
     if ($faithfulnessDegreeVal) $faithfulnessDegreeVal.textContent = String(d);
     if ($faithfulnessHint) $faithfulnessHint.textContent = faithfulnessLaymanHint(d);
     if ($faithfulnessSummaryHint) {
@@ -720,15 +719,15 @@
   function applyFaithfulness(policy) {
     const p = policy && typeof policy === 'object' ? policy : {};
     let degree = typeof p.degree === 'number' ? p.degree : parseInt(p.degree, 10);
-    if (!Number.isFinite(degree)) degree = 70;
+    if (!Number.isFinite(degree)) degree = 0;
     degree = Math.max(0, Math.min(100, degree));
     if ($faithfulnessDegree) $faithfulnessDegree.value = String(degree);
     updateFaithfulnessHint();
   }
 
   function selectedFaithfulness() {
-    let degree = $faithfulnessDegree ? parseInt($faithfulnessDegree.value, 10) : 70;
-    if (!Number.isFinite(degree)) degree = 70;
+    let degree = $faithfulnessDegree ? parseInt($faithfulnessDegree.value, 10) : 0;
+    if (!Number.isFinite(degree)) degree = 0;
     return { degree: Math.max(0, Math.min(100, degree)) };
   }
 
@@ -1073,7 +1072,7 @@
         setFaithfulnessStatus(
           (r.faithfulness.band || faithfulnessBand(r.faithfulness.degree)) +
           ' · ' +
-          (r.faithfulness.degree ?? 70) +
+          (r.faithfulness.degree ?? 0) +
           ' (' +
           (r.faithfulness.source || 'default') +
           ')'
@@ -1245,7 +1244,7 @@
         applyFaithfulness(r.faithfulness || selectedFaithfulness());
         const f = r.faithfulness || {};
         setFaithfulnessStatus(
-          'Saved: ' + (f.band || faithfulnessBand(f.degree)) + ' · ' + (f.degree ?? 70)
+          'Saved: ' + (f.band || faithfulnessBand(f.degree)) + ' · ' + (f.degree ?? 0)
         );
       } catch (e) {
         setFaithfulnessStatus(e.message || 'Save failed', true);

@@ -922,7 +922,7 @@
           const prevLen = prevVisible.length;
           const nextLen = serverVisible.length;
           // Guard: don't let a "correction" gut a good long draft in the UI
-          const overShrunk = prevLen >= 120 && nextLen < Math.floor(prevLen * 0.65);
+          const overShrunk = prevLen >= 80 && nextLen < Math.floor(prevLen * 0.85);
           if (overShrunk) {
             setMessageText(assistantEl, prevVisible);
             setMessageNote(

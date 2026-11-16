@@ -139,16 +139,16 @@ Admin **Short / Medium / Long** is applied twice: early instruction + **closing 
 
 #### F. Faithfulness check (`verifyGroundedAnswer`) — automatic QA after the mix
 
-Runs after the stream when grounding exists — WorkCover docs **and/or** allowlisted web/URL **and/or** pasted file/attach text — unless Admin **Faithfulness** degree is **0** (off). **Not** gated on HQ or Deep. Admin slider (default 70):
+Runs after the stream when grounding exists — unless Admin **Faithfulness** degree is **0** (off, **default**). **Not** gated on HQ or Deep.
 
-| Degree | Band | Behaviour |
-|--------|------|-----------|
-| 0 | off | No check |
-| 1–35 | light | Prefer OK; rewrite clear inventions only |
-| 36–70 | balanced | Harder OK; orphan section/reg scan from 40; strip from 60 |
-| 71–100 | strict | When unsure, rewrite; orphan + strip; deeper cuts allowed |
+| Degree | Behaviour |
+|--------|-----------|
+| 0 | Off — keep streamed answer |
+| 1–50 | Light: may note `ok` but **never replaces** the draft |
+| ≥55 | May apply a **surgical** rewrite only (≥85% of draft kept); rejects hedge language |
+| ≥75 | + silent orphan cite strip (no “not clearly shown” hedges) |
 
-Designed as a **hallucination brake**. Notes: `Faithfulness: ok|corrected (@70 balanced)`.
+Skips when SOURCE is mostly DeepSeek Files stubs. Notes: `Faithfulness: ok|corrected|kept draft (shrink|hedge|…)`.
 
 Who runs it: WANDA PHP calls DeepSeek **flash** (`chatComplete`) with packed sources + draft.
 

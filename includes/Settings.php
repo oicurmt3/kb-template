@@ -22,8 +22,8 @@ class AppSettings {
     public const DEFAULT_DEEP_MAX_PER_CHAT = 3;
     public const KEY_DEEP_STATS = 'deep_thinking_stats';
     public const KEY_FAITHFULNESS = 'faithfulness';
-    /** 0 = off; default ~current brake strength */
-    public const DEFAULT_FAITHFULNESS_DEGREE = 70;
+    /** 0 = off; default off — rewrites were gutting good streamed answers */
+    public const DEFAULT_FAITHFULNESS_DEGREE = 0;
     /** When true, fetch document Source URLs as live web on RAG hits (allowlisted hosts). */
     public const KEY_DOC_SOURCE_URL_WEB = 'doc_source_url_web';
     public const DEFAULT_DOC_SOURCE_URL_WEB = true;
@@ -115,12 +115,15 @@ class AppSettings {
             'enabled' => $degree > 0,
             'degree' => $degree,
             'band' => $band,
-            // Below mid: soft OK; at/above 50: OK only when fully sourced
-            'prefer_ok' => $degree > 0 && $degree < 50,
-            'orphan_scan' => $degree >= 40,
-            'strip_fallback' => $degree >= 60,
-            // Higher strictness → allow more aggressive cuts of inventions
-            'shrink_min_ratio' => $degree >= 80 ? 0.30 : ($degree >= 55 ? 0.40 : 0.50),
+            // Always soft OK wording — hard “when unsure rewrite” destroyed good drafts
+            'prefer_ok' => true,
+            // Model rewrites only at higher strictness; light/low = keep streamed answer
+            'apply_rewrites' => $degree >= 55,
+            'orphan_scan' => $degree >= 55,
+            // Silent cite cleanup only (never inject “not clearly shown…” hedges)
+            'strip_fallback' => $degree >= 75,
+            // Never accept a rewrite that drops more than ~15% of the draft
+            'shrink_min_ratio' => 0.85,
         ];
     }
 
@@ -1060,15 +1063,15 @@ class AppSettings {
 
         return $prefix . match ($mode) {
             'docs_first' => "Prefer doc-supported claims {$lean}; keep web-supported claims that fill gaps or current process detail already in the draft or SOURCE MATERIAL. "
-                . 'Do not invent. OK only when every legal claim is sourced; rewrite to drop inventions. Higher degree → allow more web gap-fill; lower degree → stick closer to docs.',
+                . 'Do not invent. Prefer OK; rewrite only clear inventions. Higher degree → allow more web gap-fill; lower degree → stick closer to docs.',
             'web_first' => "Prefer web-supported claims {$lean}; keep Act/Regs excerpt claims for legal duties and section numbers. "
-                . 'Do not invent. OK only when every legal claim is sourced; rewrite to drop inventions. Higher degree → lean harder on web for process; lower degree → still protect statute text.',
+                . 'Do not invent. Prefer OK; rewrite only clear inventions. Higher degree → lean harder on web for process; lower degree → still protect statute text.',
             'compete' => "If the draft already picked a clear winner per compete rules and all claims are sourced, OK is fine. "
                 . "Drop the weaker side when it invents or contradicts SOURCE MATERIAL. "
                 . "Higher degree → tolerate web-leaning winners more; lower degree → tolerate docs-leaning winners more. Do not invent.",
             default => 'Keep every claim supported by docs OR allowlisted web; never strip web-backed enrichment present in SOURCE MATERIAL. '
                 . "Enrichment strength was {$lean} in the first pass — do not undo that blend. "
-                . 'OK only when fully sourced; rewrite inventions. Do not invent.',
+                . 'Prefer OK; only rewrite clear inventions. Do not invent.',
         };
     }
 

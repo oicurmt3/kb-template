@@ -667,10 +667,13 @@ try {
                 $answerLength,
                 $faithPolicy
             );
-            $faithLabel = '@' . (int)($verified['degree'] ?? $faithPolicy['degree'] ?? 70)
-                . ' ' . (string)($verified['band'] ?? $faithPolicy['band'] ?? 'balanced');
-            if (!empty($verified['rejected']) && $verified['rejected'] === 'shrink') {
-                $webNotes[] = 'Faithfulness: kept draft (correction too short; ' . $faithLabel . ')';
+            $faithLabel = '@' . (int)($verified['degree'] ?? $faithPolicy['degree'] ?? 0)
+                . ' ' . (string)($verified['band'] ?? $faithPolicy['band'] ?? 'off');
+            $rej = isset($verified['rejected']) ? (string)$verified['rejected'] : '';
+            if ($rej === 'stub_grounding') {
+                $webNotes[] = 'Faithfulness: skipped (SOURCE mostly DeepSeek Files stubs; kept draft; ' . $faithLabel . ')';
+            } elseif ($rej !== '') {
+                $webNotes[] = 'Faithfulness: kept draft (' . $rej . '; ' . $faithLabel . ')';
             } elseif (!empty($verified['checked'])) {
                 $webNotes[] = !empty($verified['changed'])
                     ? 'Faithfulness: corrected (' . $faithLabel . ')'

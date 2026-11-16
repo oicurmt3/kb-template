@@ -177,10 +177,10 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
           <span id="faithfulness-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">Post-stream hallucination brake when grounding exists (docs / allowlisted web / URL / attach). <strong>0 = off</strong>. Higher = stricter: more rewrites, orphan section/reg scan (≥40), local strip fallback (≥60). Does not replace RAG↔Web mix — that still steers what to keep from docs vs web.</p>
+          <p class="hint">Post-stream hallucination brake when grounding exists. <strong>0 = off</strong> (default). <strong>1–50</strong> marks ok but <em>never replaces</em> the streamed answer. <strong>≥55</strong> may apply a <em>surgical</em> rewrite only (keeps ≥85% of draft; rejects hedges like “excerpts don’t show”). Orphan scan ≥55; silent cite strip ≥75. Skips DeepSeek Files stub-only SOURCE.</p>
           <div class="inline" style="margin-top:12px;align-items:center;gap:12px">
-            <label class="hint" for="faithfulness-degree">Strictness <span id="faithfulness-degree-val">70</span></label>
-            <input type="range" id="faithfulness-degree" min="0" max="100" step="5" value="70" style="flex:1;min-width:160px" title="0 = off; 100 = strictest">
+            <label class="hint" for="faithfulness-degree">Strictness <span id="faithfulness-degree-val">0</span></label>
+            <input type="range" id="faithfulness-degree" min="0" max="100" step="5" value="0" style="flex:1;min-width:160px" title="0 = off; ≥55 may surgically rewrite">
             <button type="button" id="save-faithfulness" class="btn btn-primary">Save</button>
             <span id="faithfulness-status" class="hint" aria-live="polite"></span>
           </div>

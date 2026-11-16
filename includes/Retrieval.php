@@ -359,15 +359,14 @@ class Retrieval {
 
     /**
      * Post-stream faithfulness check — hallucination brake, not an editor.
-     * Runs whenever grounding exists (WorkCover docs and/or allowlisted web/URL and/or attach).
-     * Independent of HQ (style) and Deep (API thinking). OK only when legal claims are sourced;
-     * local section/reg scan can force a second pass; reject harmful shrinks (except Short).
+     * Keeps the streamed draft unless a surgical rewrite is clearly better.
+     * Light/low degrees audit with Prefer-OK but do not replace the answer.
      *
      * @param array<string,mixed> $deepseekCfg
      * @param array{mode?:string,degree?:int}|array<string,mixed> $mixOpts
      * @param array{docs?:string,web?:string,extra?:string} $groundingParts When non-empty, packed with web/extra reserved
-     * @param string $answerLength short|medium|long — when short, rewrites must stay brief
-     * @param array{degree?:int,enabled?:bool,prefer_ok?:bool,orphan_scan?:bool,strip_fallback?:bool,shrink_min_ratio?:float}|null $faithOpts
+     * @param string $answerLength short|medium|long
+     * @param array{degree?:int,enabled?:bool,prefer_ok?:bool,apply_rewrites?:bool,orphan_scan?:bool,strip_fallback?:bool,shrink_min_ratio?:float}|null $faithOpts
      * @return array{content:string,checked:bool,changed:bool,rejected?:string,degree?:int,band?:string}
      */
     public static function verifyGroundedAnswer(
@@ -384,21 +383,20 @@ class Retrieval {
             ? AppSettings::faithfulnessRuntime($faithOpts)
             : [
                 'enabled' => true,
-                'degree' => 70,
-                'band' => 'balanced',
-                'prefer_ok' => false,
-                'orphan_scan' => true,
-                'strip_fallback' => true,
-                'shrink_min_ratio' => 0.40,
+                'degree' => 0,
+                'band' => 'off',
+                'prefer_ok' => true,
+                'apply_rewrites' => false,
+                'orphan_scan' => false,
+                'strip_fallback' => false,
+                'shrink_min_ratio' => 0.85,
             ];
+        $meta = [
+            'degree' => (int)($runtime['degree'] ?? 0),
+            'band' => (string)($runtime['band'] ?? 'off'),
+        ];
         if (empty($runtime['enabled'])) {
-            return [
-                'content' => $answer,
-                'checked' => false,
-                'changed' => false,
-                'degree' => (int)($runtime['degree'] ?? 0),
-                'band' => (string)($runtime['band'] ?? 'off'),
-            ];
+            return ['content' => $answer, 'checked' => false, 'changed' => false] + $meta;
         }
 
         $packed = '';
@@ -409,8 +407,27 @@ class Retrieval {
             $packed = trim($grounding);
         }
         if ($answer === '' || $packed === '' || $deepseekCfg === []) {
-            return ['content' => $answer, 'checked' => false, 'changed' => false];
+            return ['content' => $answer, 'checked' => false, 'changed' => false] + $meta;
         }
+        // First pass may use DeepSeek Files; stub-only SOURCE cannot fairly audit
+        if (self::groundingIsStubHeavy($packed, $groundingParts)) {
+            return [
+                'content' => $answer,
+                'checked' => false,
+                'changed' => false,
+                'rejected' => 'stub_grounding',
+            ] + $meta;
+        }
+
+        $applyRewrites = !empty($runtime['apply_rewrites']);
+        $shrinkRatio = isset($runtime['shrink_min_ratio']) ? (float)$runtime['shrink_min_ratio'] : 0.85;
+        $shrinkRatio = max(0.75, min(0.95, $shrinkRatio));
+
+        // Light / low: keep streamed answer — no second-model rewrite (avoids gutting good drafts)
+        if (!$applyRewrites) {
+            return ['content' => $answer, 'checked' => true, 'changed' => false] + $meta;
+        }
+
         try {
             $client = new DeepSeekClient($deepseekCfg);
             $flash = (string)(($deepseekCfg['flash_model'] ?? '') ?: ($deepseekCfg['model'] ?? 'deepseek-chat'));
@@ -420,10 +437,7 @@ class Retrieval {
                 : 'Keep claims supported by docs or allowlisted web; do not invent.';
             $mode = (string)($mix['mode'] ?? 'complement');
             $len = strtolower(trim($answerLength));
-            $preferOk = !empty($runtime['prefer_ok']);
-            $shrinkRatio = isset($runtime['shrink_min_ratio']) ? (float)$runtime['shrink_min_ratio'] : 0.5;
-            $shrinkRatio = max(0.2, min(0.7, $shrinkRatio));
-            $conservative = self::faithfulnessSystemPrompt($mixHint, $mode, $len, $preferOk);
+            $conservative = self::faithfulnessSystemPrompt($mixHint, $mode, $len, true);
             $sourceClip = mb_substr($packed, 0, 14000);
             $res = $client->chatComplete(
                 [
@@ -437,36 +451,30 @@ class Retrieval {
                 ['model' => $flash, 'max_tokens' => 900, 'temperature' => 0.0]
             );
             if (empty($res['ok'])) {
-                return ['content' => $answer, 'checked' => false, 'changed' => false];
+                return ['content' => $answer, 'checked' => false, 'changed' => false] + $meta;
             }
             $out = trim((string)$res['content']);
             $candidate = $answer;
             $changed = false;
+            $rejected = null;
             if ($out !== '' && !preg_match('/^OK\b/i', $out)) {
                 $applied = self::applyFaithfulnessRewrite($answer, $out, $len, $shrinkRatio);
                 if (!empty($applied['rejected'])) {
-                    return [
-                        'content' => $answer,
-                        'checked' => true,
-                        'changed' => false,
-                        'rejected' => (string)$applied['rejected'],
-                        'degree' => (int)$runtime['degree'],
-                        'band' => (string)$runtime['band'],
-                    ];
+                    $rejected = (string)$applied['rejected'];
+                } elseif (!empty($applied['changed'])) {
+                    $candidate = (string)$applied['content'];
+                    $changed = true;
                 }
-                $candidate = (string)$applied['content'];
-                $changed = !empty($applied['changed']);
             }
 
-            // Deterministic catch: section/reg numbers in the answer that never appear in sources
-            if (!empty($runtime['orphan_scan'])) {
+            if (!empty($runtime['orphan_scan']) && $rejected === null) {
                 $orphanRefs = self::unsupportedLegalRefs($candidate, $packed);
                 if ($orphanRefs !== []) {
                     $forcePrompt = $conservative
-                        . ' A local scan found these section/regulation references in the draft that do NOT '
-                        . 'appear in SOURCE MATERIAL: ' . implode(', ', $orphanRefs) . '. '
-                        . 'You must rewrite — do not reply OK. Remove or hedge those references and any '
-                        . 'duties/time limits tied only to them. Keep every claim that is supported.';
+                        . ' A local scan flagged these section/regulation references as missing from SOURCE MATERIAL: '
+                        . implode(', ', $orphanRefs) . '. '
+                        . 'If they are truly unsupported, remove ONLY those citations in a minimal edit. '
+                        . 'Do not shorten, hedge, or rewrite the rest. Prefer OK if the rest of the draft is fine.';
                     $res2 = $client->chatComplete(
                         [
                             ['role' => 'system', 'content' => $forcePrompt],
@@ -483,20 +491,21 @@ class Retrieval {
                         $out2 = trim((string)$res2['content']);
                         if ($out2 !== '' && !preg_match('/^OK\b/i', $out2)) {
                             $applied2 = self::applyFaithfulnessRewrite($candidate, $out2, $len, $shrinkRatio);
-                            if (empty($applied2['rejected']) && !empty($applied2['changed'])) {
+                            if (!empty($applied2['rejected'])) {
+                                $rejected = (string)$applied2['rejected'];
+                            } elseif (!empty($applied2['changed'])) {
                                 $candidate = (string)$applied2['content'];
                                 $changed = true;
-                            } elseif (empty($applied2['rejected'])) {
-                                $candidate = (string)$applied2['content'];
                             }
                         }
                     }
-                    if (!empty($runtime['strip_fallback'])) {
+                    if (!empty($runtime['strip_fallback']) && $rejected === null) {
                         $still = self::unsupportedLegalRefs($candidate, $packed);
                         if ($still !== []) {
                             $stripped = self::stripUnsupportedLegalRefs($candidate, $still);
-                            if ($stripped !== $candidate && trim($stripped) !== '') {
-                                $candidate = $stripped;
+                            $stripApplied = self::applyFaithfulnessRewrite($candidate, $stripped, $len, $shrinkRatio);
+                            if (empty($stripApplied['rejected']) && !empty($stripApplied['changed'])) {
+                                $candidate = (string)$stripApplied['content'];
                                 $changed = true;
                             }
                         }
@@ -504,48 +513,75 @@ class Retrieval {
                 }
             }
 
+            if ($rejected !== null) {
+                return [
+                    'content' => $answer,
+                    'checked' => true,
+                    'changed' => false,
+                    'rejected' => $rejected,
+                ] + $meta;
+            }
+
             return [
                 'content' => $candidate,
                 'checked' => true,
                 'changed' => $changed,
-                'degree' => (int)$runtime['degree'],
-                'band' => (string)$runtime['band'],
-            ];
+            ] + $meta;
         } catch (Throwable $e) {
-            return ['content' => $answer, 'checked' => false, 'changed' => false];
+            return ['content' => $answer, 'checked' => false, 'changed' => false] + $meta;
         }
+    }
+
+    /**
+     * True when packed SOURCE is mostly DeepSeek Files stubs / empty of real excerpt text.
+     * @param array{docs?:string,web?:string,extra?:string} $parts
+     */
+    public static function groundingIsStubHeavy(string $packed, array $parts = []): bool {
+        $web = trim((string)($parts['web'] ?? ''));
+        $extra = trim((string)($parts['extra'] ?? ''));
+        if ($web !== '' || $extra !== '') {
+            return false;
+        }
+        $docs = trim((string)($parts['docs'] ?? $packed));
+        if ($docs === '') {
+            return true;
+        }
+        $stub = (bool)preg_match('/DeepSeek Files API/i', $docs);
+        if (!$stub) {
+            return false;
+        }
+        // Strip stub lines; if little real chunk text remains, auditor is blind
+        $without = preg_replace(
+            '/\[.*?\][^\n]*\n\(Full document attached via DeepSeek Files API[^\)]*\)\s*/iu',
+            '',
+            $docs
+        ) ?? $docs;
+        $without = trim(preg_replace('/\s+/u', ' ', $without) ?? $without);
+        return mb_strlen($without) < 400;
     }
 
     private static function faithfulnessSystemPrompt(
         string $mixHint,
         string $mode,
         string $len,
-        bool $preferOk = false
+        bool $preferOk = true
     ): string {
-        $conservative = 'You are a faithfulness gate against hallucinations — not a style editor. '
+        $conservative = 'You are a faithfulness gate against clear hallucinations — not an editor. '
             . 'SOURCE MATERIAL may include uploaded excerpts, allowlisted web/URL text, and user-provided file/text. '
-            . $mixHint . ' ';
+            . 'SOURCE MATERIAL may be incomplete relative to the full chat context; never claim the draft is wrong '
+            . 'just because a detail is missing from this truncated window. '
+            . $mixHint . ' '
+            . 'Default to exactly: OK. Ignore wording, tone, and length. '
+            . 'Only rewrite for a clear invention of a section/regulation number, duty, time limit, or dollar amount '
+            . 'that SOURCE MATERIAL contradicts or cannot possibly support. '
+            . 'When rewriting: make the SMALLEST possible edit; keep nearly all of the draft; '
+            . 'do not hedge with phrases like "the excerpts do not show", "not clearly shown", or "cannot find"; '
+            . 'do not shorten a good answer; plain text only; no markdown.';
         if ($preferOk) {
-            $conservative .= 'Prefer OK when substantive claims are supported under the mix policy. '
-                . 'Ignore minor wording differences; do not rewrite for style or tone. '
-                . 'Only rewrite when the draft clearly invents rules, section/regulation numbers, duties, '
-                . 'or facts not supported by SOURCE MATERIAL. '
-                . 'When rewriting: drop only clear inventions; preserve supported document AND web details; '
-                . 'plain text only; no markdown.';
-        } else {
-            $conservative .= 'Reply with exactly OK only if EVERY section/regulation number, time limit, dollar amount, '
-                . 'duty, entitlement, and procedural step in the draft is supported by SOURCE MATERIAL '
-                . '(or is a close paraphrase of text that is). Minor wording differences are fine. '
-                . 'If ANY such claim is missing from SOURCE MATERIAL, invents a citation, or fills gaps with '
-                . 'general legal knowledge, you MUST rewrite: drop or clearly hedge the unsupported parts; '
-                . 'preserve supported document AND web details; plain text only; no markdown. '
-                . 'When unsure whether a claim is supported, rewrite to remove it — do not reply OK.';
+            $conservative .= ' When unsure, reply OK.';
         }
         if ($len === 'short') {
-            $conservative .= ' Admin answer length is SHORT: if you rewrite, keep at most 4 sentences; '
-                . 'removing unsupported padding is allowed. Do not expand the answer.';
-        } else {
-            $conservative .= ' Do not shorten a good fully-supported answer for style reasons.';
+            $conservative .= ' Admin answer length is SHORT — do not use that as a reason to rewrite.';
         }
         if ($mode === 'complement') {
             $conservative .= ' Under complement: never strip web-backed enrichment that appears in SOURCE MATERIAL.';
@@ -560,17 +596,31 @@ class Retrieval {
         string $answer,
         string $out,
         string $len,
-        float $shrinkMinRatio = 0.5
+        float $shrinkMinRatio = 0.85
     ): array {
+        $out = trim($out);
+        if ($out === '') {
+            return ['content' => $answer, 'changed' => false, 'rejected' => 'empty'];
+        }
+        // Reject auditor hedges that destroy good answers
+        if (preg_match(
+            '/\b(not clearly shown in the sources|excerpts? (do not|don\'t|cannot|can\'t)|'
+            . 'uploaded documents? (do not|don\'t)|cannot find it in the uploaded|'
+            . 'sources? (do not|don\'t) (clearly )?(show|support|cover)|'
+            . 'not (clearly )?supported by (the )?(excerpts?|sources?))\b/iu',
+            $out
+        )) {
+            return ['content' => $answer, 'changed' => false, 'rejected' => 'hedge'];
+        }
         $origLen = mb_strlen($answer);
         $newLen = mb_strlen($out);
-        $ratio = max(0.2, min(0.7, $shrinkMinRatio));
-        if (
-            $len !== 'short'
-            && $origLen >= 200
-            && $newLen < (int)floor($origLen * $ratio)
-        ) {
+        $ratio = max(0.75, min(0.95, $shrinkMinRatio));
+        // Always enforce surgical length — including Short mode
+        if ($origLen >= 80 && $newLen < (int)floor($origLen * $ratio)) {
             return ['content' => $answer, 'changed' => false, 'rejected' => 'shrink'];
+        }
+        if ($origLen >= 80 && $newLen > (int)floor($origLen * 1.35)) {
+            return ['content' => $answer, 'changed' => false, 'rejected' => 'expand'];
         }
         $norm = static function (string $s): string {
             $s = mb_strtolower($s);
@@ -626,21 +676,23 @@ class Retrieval {
                 continue;
             }
             $num = preg_quote($m[2], '/');
+            // Silent removal only — never inject “not clearly shown…” hedges into the answer
             if ($m[1] === 'regulation') {
                 $out = preg_replace(
                     '/\b(?:regulations?|regs?\.?)\s*' . $num . '\b/iu',
-                    'a regulation not clearly shown in the sources',
+                    '',
                     $out
                 ) ?? $out;
             } else {
                 $out = preg_replace(
                     '/\b(?:sections?|secs?\.?|s\.?)\s*' . $num . '\b/iu',
-                    'a section not clearly shown in the sources',
+                    '',
                     $out
                 ) ?? $out;
             }
         }
         $out = preg_replace('/\s+/u', ' ', $out) ?? $out;
+        $out = preg_replace('/\s+([,.;:])/u', '$1', $out) ?? $out;
         return trim($out);
     }
 
