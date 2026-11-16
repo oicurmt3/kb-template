@@ -32,6 +32,8 @@ try {
             'deep_thinking_modes' => AppSettings::deepThinkingModes(),
             'deep_thinking_stats' => AppSettings::deepThinkingStats(),
             'faithfulness' => AppSettings::faithfulness(),
+            'doc_source_url_web' => AppSettings::docSourceUrlWebEnabled(),
+            'doc_source_url_web_source' => AppSettings::docSourceUrlWebSource(),
             'ui' => AppSettings::uiConfig(),
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
             'ui_feature_keys' => AppSettings::uiFeatureKeys(),
@@ -64,6 +66,7 @@ try {
         $hasDeepPolicy = array_key_exists('deep_thinking_policy', $body);
         $hasDeepStatsReset = !empty($body['reset_deep_thinking_stats']);
         $hasFaithfulness = array_key_exists('faithfulness', $body);
+        $hasDocSourceUrlWeb = array_key_exists('doc_source_url_web', $body);
         $hasUi = array_key_exists('ui', $body);
         $ui = AppSettings::uiConfig();
         $updatedUi = false;
@@ -74,12 +77,15 @@ try {
         $deepStats = AppSettings::deepThinkingStats();
         $faithfulness = AppSettings::faithfulness();
         $updatedFaithfulness = false;
+        $docSourceUrlWeb = AppSettings::docSourceUrlWebEnabled();
+        $updatedDocSourceUrlWeb = false;
 
         if (
             !$hasHosts && !$hasAge && !$hasLength && !$hasAdaptive && !$hasRagWebMix
-            && !$hasDeepPolicy && !$hasDeepStatsReset && !$hasFaithfulness && !$hasUi
+            && !$hasDeepPolicy && !$hasDeepStatsReset && !$hasFaithfulness
+            && !$hasDocSourceUrlWeb && !$hasUi
         ) {
-            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, deep_thinking_policy, reset_deep_thinking_stats, faithfulness, and/or ui');
+            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, deep_thinking_policy, reset_deep_thinking_stats, faithfulness, doc_source_url_web, and/or ui');
         }
 
         if ($hasHosts) {
@@ -96,6 +102,20 @@ try {
                 json_encode($hosts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
             );
             $updatedHosts = true;
+        }
+
+        if ($hasDocSourceUrlWeb) {
+            $raw = $body['doc_source_url_web'];
+            $on = false;
+            if (is_bool($raw)) {
+                $on = $raw;
+            } elseif (is_numeric($raw)) {
+                $on = ((int)$raw) === 1;
+            } else {
+                $on = in_array(strtolower(trim((string)$raw)), ['1', 'true', 'yes', 'on'], true);
+            }
+            $docSourceUrlWeb = AppSettings::saveDocSourceUrlWeb($on);
+            $updatedDocSourceUrlWeb = true;
         }
 
         if ($hasAge) {
@@ -192,9 +212,12 @@ try {
             'deep_thinking_modes' => AppSettings::deepThinkingModes(),
             'deep_thinking_stats' => $deepStats,
             'faithfulness' => $faithfulness,
+            'doc_source_url_web' => $docSourceUrlWeb,
+            'doc_source_url_web_source' => AppSettings::docSourceUrlWebSource(),
             'ui' => $ui,
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
             'updated_hosts' => $updatedHosts,
+            'updated_doc_source_url_web' => $updatedDocSourceUrlWeb,
             'updated_age' => $updatedAge,
             'updated_length' => $updatedLength,
             'updated_adaptive' => $updatedAdaptive,

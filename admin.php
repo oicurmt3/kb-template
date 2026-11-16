@@ -78,8 +78,13 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
         <div class="admin-card-body">
           <p class="hint">One hostname per line (subdomains allowed). Web search and URL fetch are limited to these domains. Example: <code>workcover.wa.gov.au</code></p>
           <textarea id="web-hosts" class="settings-textarea" rows="5" placeholder="workcover.wa.gov.au" spellcheck="false"></textarea>
+          <p class="hint" style="margin-top:14px"><strong>Document Source URLs</strong> — when a retrieved upload has a Source URL on an allowlisted host, fetch that live page as web enrichment (same allowlist). Citation links still work either way.</p>
+          <div class="inline" style="margin-top:8px;flex-wrap:wrap" role="group" aria-label="Document Source URL web fetch">
+            <label class="mode-toggle"><input type="radio" name="doc-source-url-web" id="doc-source-url-web-on" value="1" checked> <span>Include</span></label>
+            <label class="mode-toggle"><input type="radio" name="doc-source-url-web" id="doc-source-url-web-off" value="0"> <span>Exclude</span></label>
+          </div>
           <div class="inline" style="margin-top:10px">
-            <button type="button" id="save-web-hosts" class="btn btn-primary">Save domains</button>
+            <button type="button" id="save-web-hosts" class="btn btn-primary">Save web settings</button>
             <span id="web-hosts-status" class="hint" aria-live="polite"></span>
           </div>
         </div>

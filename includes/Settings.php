@@ -24,6 +24,9 @@ class AppSettings {
     public const KEY_FAITHFULNESS = 'faithfulness';
     /** 0 = off; default ~current brake strength */
     public const DEFAULT_FAITHFULNESS_DEGREE = 70;
+    /** When true, fetch document Source URLs as live web on RAG hits (allowlisted hosts). */
+    public const KEY_DOC_SOURCE_URL_WEB = 'doc_source_url_web';
+    public const DEFAULT_DOC_SOURCE_URL_WEB = true;
 
     /** @return list<string> */
     public static function ragWebMixModes(): array {
@@ -577,6 +580,7 @@ class AppSettings {
             self::KEY_RAG_WEB_MIX,
             self::KEY_DEEP_POLICY,
             self::KEY_FAITHFULNESS,
+            self::KEY_DOC_SOURCE_URL_WEB,
             self::KEY_UI,
         ];
     }
@@ -607,6 +611,7 @@ class AppSettings {
             || isset($payload['rag_web_mix'])
             || isset($payload['faithfulness'])
             || isset($payload['deep_thinking_policy'])
+            || array_key_exists('doc_source_url_web', $payload)
         ) {
             $effective = $payload;
         } elseif (isset($payload['raw']) && is_array($payload['raw'])) {
@@ -688,6 +693,20 @@ class AppSettings {
             $updated[] = 'faithfulness';
         }
 
+        if (array_key_exists('doc_source_url_web', $effective)) {
+            $raw = $effective['doc_source_url_web'];
+            $on = false;
+            if (is_bool($raw)) {
+                $on = $raw;
+            } elseif (is_numeric($raw)) {
+                $on = ((int)$raw) === 1;
+            } else {
+                $on = in_array(strtolower(trim((string)$raw)), ['1', 'true', 'yes', 'on'], true);
+            }
+            self::saveDocSourceUrlWeb($on);
+            $updated[] = 'doc_source_url_web';
+        }
+
         if (isset($effective['ui']) && is_array($effective['ui'])) {
             self::saveUiConfig($effective['ui']);
             $updated[] = 'ui';
@@ -714,6 +733,7 @@ class AppSettings {
                 'rag_web_mix' => self::ragWebMix(),
                 'deep_thinking_policy' => self::deepThinkingPolicy(),
                 'faithfulness' => self::faithfulness(),
+                'doc_source_url_web' => self::docSourceUrlWebEnabled(),
                 'ui' => self::uiConfig(),
                 'chat_limits' => self::chatLimits($appCfg),
             ],
@@ -780,6 +800,13 @@ class AppSettings {
             } elseif (is_numeric($map[self::KEY_FAITHFULNESS])) {
                 $out['faithfulness'] = ['degree' => (int)$map[self::KEY_FAITHFULNESS]];
             }
+        }
+        if (isset($map[self::KEY_DOC_SOURCE_URL_WEB])) {
+            $out['doc_source_url_web'] = in_array(
+                strtolower(trim($map[self::KEY_DOC_SOURCE_URL_WEB])),
+                ['1', 'true', 'yes', 'on'],
+                true
+            );
         }
         if (isset($map[self::KEY_UI])) {
             $decoded = json_decode($map[self::KEY_UI], true);
@@ -880,6 +907,32 @@ class AppSettings {
         }
         self::set(self::KEY_ANSWER_LENGTH, $length);
         return $length;
+    }
+
+    /**
+     * Fetch admin document Source URLs as allowlisted live web when those docs are retrieved.
+     * Default on (matches prior behaviour after Source URL web fetch shipped).
+     */
+    public static function docSourceUrlWebEnabled(): bool {
+        $raw = self::get(self::KEY_DOC_SOURCE_URL_WEB);
+        if ($raw === null || $raw === '') {
+            return self::DEFAULT_DOC_SOURCE_URL_WEB;
+        }
+        $v = strtolower(trim($raw));
+        return in_array($v, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    public static function saveDocSourceUrlWeb(bool $enabled): bool {
+        self::set(self::KEY_DOC_SOURCE_URL_WEB, $enabled ? '1' : '0');
+        return $enabled;
+    }
+
+    public static function docSourceUrlWebSource(): string {
+        $raw = self::get(self::KEY_DOC_SOURCE_URL_WEB);
+        if ($raw !== null && $raw !== '') {
+            return 'admin';
+        }
+        return 'default';
     }
 
     /**

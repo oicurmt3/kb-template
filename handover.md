@@ -13,7 +13,7 @@ WANDA answers WA workers compensation questions. **WorkCover mode** retrieves ch
 - **Answer length Short** must win over HQ “thorough” — closing length reminder after mix; HQ is length-aware.
 - **No citation numbers in model text** — sources render in the UI from `citations` / `sources` blocks.
 - **Web search is host-restricted** — never enable unrestricted DeepSeek open-web search; use `WebFetch` + allowed hosts.
-- **Document Source URL** (admin) is both a citation link and a live web fetch when that doc is retrieved (allowlisted hosts only; max 3/turn).
+- **Document Source URL** (admin) is a citation link; live web fetch when that doc is retrieved is gated by **Web settings → Include/Exclude** (`doc_source_url_web`, default include; allowlisted hosts only; max 3/turn).
 - **Session isolation** — conversations are keyed by `session_id` cookie; do not leak across sessions.
 - **Secrets** stay in `includes/config.php` (gitignored). Never commit API keys or DB dumps.
 - **Settings import** only restores whitelisted keys via `AppSettings::importSettingsExport`.

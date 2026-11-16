@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-16 — Toggle document Source URL web fetch
+
+- Admin **Web search & fetch domains**: Include / Exclude document Source URLs as live web (`doc_source_url_web`, default Include)
+- When excluded, citation links remain; no live page fetch for those URLs
+
 ## 2026-11-15 — Document Source URL as live web
 
 - Admin document **Source URL** (`source-url-input`) is fetched as allowlisted live web when that doc appears in RAG hits (max 3/turn)

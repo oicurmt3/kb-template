@@ -39,6 +39,7 @@ try {
                     'rag_web_mix' => AppSettings::ragWebMix(),
                     'deep_thinking_policy' => AppSettings::deepThinkingPolicy(),
                     'faithfulness' => AppSettings::faithfulness(),
+                    'doc_source_url_web' => AppSettings::docSourceUrlWebEnabled(),
                     'ui' => AppSettings::uiConfig(),
                     'chat_limits' => AppSettings::chatLimits($appCfg),
                 ],

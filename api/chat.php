@@ -356,7 +356,9 @@ try {
     if ($contextUrl !== '') {
         $fetchedUrlKeys[strtolower($contextUrl)] = true;
     }
-    if ($mode === 'rag' && $docSourceUrls !== []) {
+    if ($mode === 'rag' && $docSourceUrls !== [] && !AppSettings::docSourceUrlWebEnabled()) {
+        $webNotes[] = 'Doc source URL fetch excluded (admin Web settings)';
+    } elseif ($mode === 'rag' && $docSourceUrls !== []) {
         if (empty($webCfg['enabled'])) {
             $webNotes[] = 'Doc source URL fetch skipped (web disabled in config).';
         } else {

@@ -602,6 +602,16 @@
     $webHostsStatus.classList.toggle('ok', !!msg && !isErr);
   }
 
+  function applyDocSourceUrlWeb(on) {
+    const el = document.getElementById(on ? 'doc-source-url-web-on' : 'doc-source-url-web-off');
+    if (el) el.checked = true;
+  }
+
+  function selectedDocSourceUrlWeb() {
+    const el = document.querySelector('input[name="doc-source-url-web"]:checked');
+    return el ? el.value === '1' : true;
+  }
+
   function setSimpleAgeStatus(msg, isErr) {
     if (!$simpleAgeStatus) return;
     $simpleAgeStatus.textContent = msg || '';
@@ -1002,7 +1012,15 @@
       }
       if ($webHosts) {
         $webHosts.value = r.hosts_text || (r.allowed_hosts || []).join('\n');
-        setHostsStatus(r.source === 'admin' ? 'Loaded (admin override)' : 'Loaded (config default)');
+        const docWeb =
+          typeof r.doc_source_url_web === 'boolean' ? r.doc_source_url_web : true;
+        applyDocSourceUrlWeb(docWeb);
+        setHostsStatus(
+          (r.source === 'admin' ? 'Loaded (admin override)' : 'Loaded (config default)') +
+          ' · Source URLs ' +
+          (docWeb ? 'included' : 'excluded') +
+          (r.doc_source_url_web_source ? ' (' + r.doc_source_url_web_source + ')' : '')
+        );
       }
       if ($simpleAge && r.simple_explain_age != null) {
         $simpleAge.value = r.simple_explain_age;
@@ -1091,11 +1109,24 @@
             'Content-Type': 'application/json',
             'X-CSRF-Token': csrf(),
           },
-          body: JSON.stringify({ hosts_text: $webHosts.value }),
+          body: JSON.stringify({
+            hosts_text: $webHosts.value,
+            doc_source_url_web: selectedDocSourceUrlWeb(),
+          }),
         }).then((x) => x.json());
         if (r.error) throw new Error(r.error);
         $webHosts.value = r.hosts_text || (r.allowed_hosts || []).join('\n');
-        setHostsStatus('Saved ' + (r.allowed_hosts || []).length + ' domain(s)');
+        const docWeb =
+          typeof r.doc_source_url_web === 'boolean'
+            ? r.doc_source_url_web
+            : selectedDocSourceUrlWeb();
+        applyDocSourceUrlWeb(docWeb);
+        setHostsStatus(
+          'Saved ' +
+            (r.allowed_hosts || []).length +
+            ' domain(s); Source URLs ' +
+            (docWeb ? 'included' : 'excluded')
+        );
       } catch (e) {
         setHostsStatus(e.message || 'Save failed', true);
       }
