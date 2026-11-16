@@ -16,8 +16,9 @@ Browser (index.php + chat.js)
     → POST api/chat.php (JSON)
         → session cookie + rate limit
         → resolve UI features (Settings)
-        → if WorkCover: Retrieval → system prompt excerpts
-        → optional WebFetch (always with WorkCover when web.enabled; else standalone Web)
+        → if Docs & Web: Retrieval → system prompt excerpts
+        → optional WebFetch (always with Docs & Web when web.enabled; else Web only)
+        → optional turn File attach (api/context.php: local text / OCR / Files file_id)
         → RAG↔Web mix instructions
         → DeepSeek chatStream → SSE deltas
         → optional DeepSeek API thinking (Deep policy + toggle)
@@ -66,7 +67,7 @@ Each chunk row is uniquely identifiable (`id` + `document_id` + `chunk_index` / 
 
 ## Modes
 
-- `chat` — general assistant (`app.system_prompt`); optional standalone Web
-- `rag` — WorkCover Docs mode (`app.rag_system_prompt` + retrieved excerpts + allowlisted web + mix)
+- `chat` — general assistant (`app.system_prompt`); optional **Web only**
+- `rag` — Docs & Web mode (`app.rag_system_prompt` + retrieved excerpts + allowlisted web + mix)
 
 See [ACCURACY.md](ACCURACY.md) for the RAG accuracy path.

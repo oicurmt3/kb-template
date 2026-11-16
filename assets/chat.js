@@ -15,9 +15,14 @@
   const $modeHq = document.getElementById('mode-hq');
   const $contextUrl = document.getElementById('context-url');
   const $contextFile = document.getElementById('context-file');
-  const $clearContext = document.getElementById('clear-context');
+  const $contextSlotUrl = document.getElementById('context-slot-url');
+  const $contextSlotFile = document.getElementById('context-slot-file');
+  const $clearUrlContext = document.getElementById('clear-url-context');
+  const $clearFileContext = document.getElementById('clear-file-context');
   const $clearInput = document.getElementById('clear-input');
-  const $contextStatus = document.getElementById('context-status');
+  const $urlContextStatus = document.getElementById('url-context-status');
+  const $fileContextStatus = document.getElementById('file-context-status');
+  const $contextFileName = document.getElementById('context-file-name');
   const $tagPills = document.getElementById('tag-pills');
   const $tagPillsList = document.getElementById('tag-pills-list');
   const $tagPillsCount = document.getElementById('tag-pills-count');
@@ -38,7 +43,7 @@
 
   let conversationId = null;
   let streaming = false;
-  let pendingContext = { text: '', label: '', url: '' };
+  let pendingContext = { text: '', label: '', url: '', file_id: '' };
   let availableTags = [];
   let selectedTags = new Set();
 
@@ -109,18 +114,13 @@
     );
     setElHidden($tagPills, !tagsShow);
 
-    const urlWrap = $contextUrl ? ($contextUrl.closest('.field-wrap') || $contextUrl) : null;
-    const fileWrap = $contextFile
-      ? ($contextFile.closest('label.file-btn') || $contextFile.closest('label') || $contextFile)
-      : null;
-    setElHidden(urlWrap, !urlShow);
-    setElHidden(fileWrap, !fileShow);
+    setElHidden($contextSlotUrl, !urlShow);
+    setElHidden($contextSlotFile, !fileShow);
 
     const ctx = document.querySelector('.composer-context');
     setElHidden(ctx, !urlShow && !fileShow);
-    if ($contextStatus && !urlShow && !fileShow) {
-      setElHidden($contextStatus, true);
-    }
+    if (!urlShow && $urlContextStatus) setElHidden($urlContextStatus, true);
+    if (!fileShow && $fileContextStatus) setElHidden($fileContextStatus, true);
 
     const moreUseful = tagsShow || urlShow || fileShow;
     setElHidden($openOptions, !moreUseful);
@@ -227,10 +227,27 @@
     $clearInput.hidden = !$input.value.trim();
   }
 
-  function updateClearContextBtn() {
-    if (!$clearContext) return;
-    const has = !!(pendingContext.text || ($contextUrl && $contextUrl.value.trim()));
-    $clearContext.hidden = !has;
+  function updateClearUrlBtn() {
+    if (!$clearUrlContext) return;
+    $clearUrlContext.hidden = !($contextUrl && $contextUrl.value.trim());
+  }
+
+  function updateClearFileBtn() {
+    const hasFile = !!(pendingContext.text || pendingContext.file_id || pendingContext.label);
+    if ($clearFileContext) $clearFileContext.hidden = !hasFile;
+    if ($contextFileName) {
+      if (hasFile && pendingContext.label) {
+        $contextFileName.hidden = false;
+        $contextFileName.textContent = pendingContext.label;
+        $contextFileName.title = pendingContext.file_id
+          ? (pendingContext.label + ' (DeepSeek Files)')
+          : pendingContext.label;
+      } else {
+        $contextFileName.hidden = true;
+        $contextFileName.textContent = '';
+        $contextFileName.title = '';
+      }
+    }
   }
 
   function persistSelectedTags() {
@@ -325,7 +342,7 @@
       try { localStorage.setItem(HQ_KEY, $modeHq.checked ? '1' : '0'); } catch { /* ignore */ }
       const hqBtn = document.getElementById('tool-hq');
       if (hqBtn) {
-        hqBtn.title = $modeHq.checked ? 'HQ language on' : 'HQ language off (Basic)';
+        hqBtn.title = $modeHq.checked ? 'HQ on' : 'HQ off (Basic)';
       }
       syncToolButtons();
     });
@@ -333,34 +350,59 @@
 
   function updatePlaceholder() {
     $input.placeholder = currentMode() === 'rag'
-      ? 'Ask about WorkCover docs + live site — follow-ups are fine…'
+      ? 'Ask about docs + allowlisted live web — follow-ups are fine…'
       : 'Send a message…';
   }
   updatePlaceholder();
   renderTagPills();
 
-  function showContextStatus(msg) {
+  function showUrlContextStatus(msg) {
+    if (!$urlContextStatus) return;
     if (!msg) {
-      $contextStatus.hidden = true;
-      $contextStatus.textContent = '';
-      updateClearContextBtn();
-      return;
+      $urlContextStatus.hidden = true;
+      $urlContextStatus.textContent = '';
+    } else {
+      $urlContextStatus.hidden = false;
+      $urlContextStatus.textContent = msg;
     }
-    $contextStatus.hidden = false;
-    $contextStatus.textContent = msg;
-    updateClearContextBtn();
+    updateClearUrlBtn();
+  }
+
+  function showFileContextStatus(msg) {
+    if (!$fileContextStatus) return;
+    if (!msg) {
+      $fileContextStatus.hidden = true;
+      $fileContextStatus.textContent = '';
+    } else {
+      $fileContextStatus.hidden = false;
+      $fileContextStatus.textContent = msg;
+    }
+    updateClearFileBtn();
+  }
+
+  function clearUrlContext() {
+    if ($contextUrl) $contextUrl.value = '';
+    showUrlContextStatus('');
+    updateClearUrlBtn();
+  }
+
+  function clearFileContext() {
+    pendingContext = { text: '', label: '', url: '', file_id: '' };
+    if ($contextFile) $contextFile.value = '';
+    showFileContextStatus('');
+    updateClearFileBtn();
   }
 
   function clearPendingContext() {
-    pendingContext = { text: '', label: '', url: '' };
-    if ($contextFile) $contextFile.value = '';
-    if ($contextUrl) $contextUrl.value = '';
-    showContextStatus('');
-    updateClearContextBtn();
+    clearUrlContext();
+    clearFileContext();
   }
 
-  if ($clearContext) {
-    $clearContext.addEventListener('click', clearPendingContext);
+  if ($clearUrlContext) {
+    $clearUrlContext.addEventListener('click', clearUrlContext);
+  }
+  if ($clearFileContext) {
+    $clearFileContext.addEventListener('click', clearFileContext);
   }
   if ($clearInput) {
     $clearInput.addEventListener('click', () => {
@@ -375,26 +417,49 @@
     if (!featureVisible('file_context')) return;
     const file = $contextFile.files && $contextFile.files[0];
     if (!file) return;
-    showContextStatus('Reading ' + file.name + '…');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const textLike = ['md', 'txt', 'csv', 'json', 'html', 'htm'];
+    const busy = textLike.includes(ext)
+      ? ('Reading ' + file.name + '…')
+      : ('Parsing ' + file.name + ' via DeepSeek…');
+    showFileContextStatus(busy);
+    pendingContext.label = file.name;
+    pendingContext.text = '';
+    pendingContext.file_id = '';
+    updateClearFileBtn();
     try {
       const fd = new FormData();
       fd.append('file', file);
       const r = await fetch(api('context.php'), { method: 'POST', body: fd }).then((x) => x.json());
       if (r.error) throw new Error(r.error);
-      pendingContext.text = r.text || '';
       pendingContext.label = r.name || file.name;
       pendingContext.url = '';
-      showContextStatus('Attached: ' + pendingContext.label + ' (' + (r.chars || 0) + ' chars)');
+      pendingContext.file_id = r.file_id || '';
+      pendingContext.text = r.text || '';
+      if (pendingContext.file_id) {
+        showFileContextStatus('Ready · DeepSeek Files');
+      } else if ((r.mode || '') === 'ocr') {
+        showFileContextStatus('Ready · OCR · ' + (r.chars || 0) + ' chars');
+      } else {
+        showFileContextStatus('Ready · ' + (r.chars || 0) + ' chars');
+      }
+      updateClearFileBtn();
     } catch (e) {
       pendingContext.text = '';
       pendingContext.label = '';
-      showContextStatus('Attach failed: ' + e.message);
+      pendingContext.file_id = '';
+      if ($contextFile) $contextFile.value = '';
+      showFileContextStatus('Attach failed: ' + e.message);
+      updateClearFileBtn();
     }
   });
 
   if ($contextUrl) {
-    $contextUrl.addEventListener('input', updateClearContextBtn);
-    $contextUrl.addEventListener('change', updateClearContextBtn);
+    $contextUrl.addEventListener('input', () => {
+      updateClearUrlBtn();
+      if ($urlContextStatus && !$contextUrl.value.trim()) showUrlContextStatus('');
+    });
+    $contextUrl.addEventListener('change', updateClearUrlBtn);
   }
 
   // ---- Mobile drawers (history + options) ----
@@ -819,6 +884,7 @@
         ? (pendingContext.text || '')
         : '',
       context_label: featureVisible('file_context') ? (pendingContext.label || '') : '',
+      context_file_id: featureVisible('file_context') ? (pendingContext.file_id || '') : '',
       context_url: featureVisible('url_context') ? (urlInfo.url || '') : '',
     };
 
@@ -976,7 +1042,8 @@
   });
   resizeInput();
   updateClearInput();
-  updateClearContextBtn();
+  updateClearUrlBtn();
+  updateClearFileBtn();
 
   if ($newChat) $newChat.addEventListener('click', newChat);
   if ($headerNewChat) $headerNewChat.addEventListener('click', newChat);

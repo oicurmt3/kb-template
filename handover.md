@@ -2,11 +2,13 @@
 
 ## What this app is
 
-WANDA answers WA workers compensation questions. **WorkCover mode** retrieves chunks from uploaded documents (Act, Regulations, guides, fact sheets) **and** enriches with allowlisted live web; DeepSeek answers are grounded on those sources. Blend behaviour is controlled by **Admin → RAG ↔ Web mix**. Without WorkCover it is a general chat (optional standalone Web) with the configured system prompt.
+WANDA answers WA workers compensation questions. **Docs & Web** (composer / feature key `workcover`) retrieves chunks from uploaded documents (Act, Regulations, guides, fact sheets) **and** enriches with allowlisted live web; DeepSeek answers are grounded on those sources. Blend behaviour is controlled by **Admin → RAG ↔ Web mix**. Without Docs & Web it is a general chat (optional **Web only**) with the configured system prompt.
 
 ## Do not break
 
-- **Grounding contract** in `Retrieval::buildContext()` — answers must stay excerpt-bound when WorkCover is on.
+- **Grounding contract** in `Retrieval::buildContext()` — answers must stay excerpt-bound when Docs & Web is on.
+- **Chat File attach** (`api/context.php`) — text-like files read locally; PDF/Office/images → DeepSeek OCR into turn text; spreadsheets/ebooks → Files `file_id` on the turn. Not the same as Admin corpus ingest.
+- **Admin UI feature rows** — short coloured names + live status hints from Default / Show-Hide (Docs & Web vs Web only interaction).
 - **HQ vs Basic** — HQ = richer/precise language only (`hqInstruction`). HQ off = `simpleExplain` by admin age. Do **not** hang the post-stream faithfulness rewrite on HQ (legacy “Plain” was removed; faithfulness is separate).
 - **Faithfulness** admin slider (default **0 = off**). 1–50 never replaces the stream; ≥55 surgical only (≥85% length, reject hedges); skip stub-only Files SOURCE. Do not strip allowlisted web under complement.
 - **Deep** = DeepSeek API `"thinking": {"type":"enabled"}` only — not the faithfulness auditor. Admin policy `manual` (default) / `auto` / `always` + max per chat. Prefer Manual with Short answers; auto must not fire on weak retrieval.
@@ -46,7 +48,8 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 | `assets/chat.js` | Composer toggles, SSE, sources, faithfulness replace on done |
 | `assets/admin.js` | Collapsible cards, staged upload, export/import, settings |
 | `admin.php` | Admin shell (all cards `<details>`, closed by default) |
-| `index.php` | Chat help copy for HQ / Deep / faithfulness |
+| `api/context.php` | Turn-only URL fetch + File attach (local / OCR / Files parse) |
+| `index.php` | Chat help + compact inline URL/File Options UI |
 
 ## Secrets & config
 
@@ -70,7 +73,7 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 
 | Setting | Prefer for accuracy |
 |---------|---------------------|
-| WorkCover default **on**, visible | Docs mode + automatic faithfulness when grounded |
+| Docs & Web default **on**, visible | Docs mode + automatic faithfulness when grounded |
 | Adaptive RAG **on** | Focused context, less noise |
 | RAG↔Web mix **complement** ~50 | Blend docs + web; use docs_first if Act text must dominate |
 | HQ default **off** for public kiosks; **on** for staff | Style only (precise vs Basic) |

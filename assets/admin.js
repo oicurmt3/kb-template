@@ -58,13 +58,13 @@
   const $exportStatus = document.getElementById('export-status');
 
   const UI_FEATURE_LABELS = {
-    workcover: 'WorkCover (docs + live allowlisted web)',
-    hq: 'HQ language (off = Basic; style only)',
-    deep_thinking: 'Deep thinking toggle (policy may auto-on)',
-    web_search: 'Web only (when WorkCover off)',
+    workcover: 'Docs & Web',
+    hq: 'HQ',
+    deep_thinking: 'Deep think',
+    web_search: 'Web only',
     tags: 'Focus tags',
     url_context: 'URL context',
-    file_context: 'File attach context',
+    file_context: 'File attach',
     sources: 'Sources (citations)',
     related_questions: 'Related questions',
   };
@@ -76,6 +76,160 @@
     sources: true,
     related_questions: true,
   };
+
+  function uiFeatureLabelHtml(key) {
+    switch (key) {
+      case 'workcover':
+        return '<span class="feat-kw feat-kw-docs">Docs &amp; Web</span>';
+      case 'hq':
+        return '<span class="feat-kw feat-kw-hq">HQ</span>';
+      case 'deep_thinking':
+        return '<span class="feat-kw feat-kw-deep">Deep think</span>';
+      case 'web_search':
+        return '<span class="feat-kw feat-kw-web">Web only</span>';
+      case 'tags':
+        return '<span class="feat-kw feat-kw-tags">Focus tags</span>';
+      case 'url_context':
+        return '<span class="feat-kw feat-kw-url">URL</span> context';
+      case 'file_context':
+        return '<span class="feat-kw feat-kw-file">File</span> attach';
+      case 'sources':
+        return '<span class="feat-kw feat-kw-sources">Sources</span> (citations)';
+      case 'related_questions':
+        return '<span class="feat-kw feat-kw-related">Related questions</span>';
+      default:
+        return UI_FEATURE_LABELS[key] || key;
+    }
+  }
+
+  function readUiFeatureState(row) {
+    const key = row && row.dataset.feature;
+    if (!key) return null;
+    const vis = row.querySelector('.ui-feat-visibility');
+    const defCb = row.querySelector('.ui-feat-default');
+    const visibilityOnly = !!UI_VISIBILITY_ONLY[key];
+    return {
+      key,
+      visibility: (vis && vis.value) || 'show',
+      defaultOn: visibilityOnly ? true : !!(defCb && defCb.checked),
+      visibilityOnly,
+    };
+  }
+
+  function uiFeatureHintText(state, all) {
+    if (!state) return '';
+    const show = state.visibility === 'show';
+    const on = !!state.defaultOn;
+    const docs = all && all.workcover;
+    const docsLockedOn = docs && docs.visibility === 'hide' && docs.defaultOn;
+    const docsLockedOff = docs && docs.visibility === 'hide' && !docs.defaultOn;
+    const docsCanOff = docs && (docs.visibility === 'show' || !docs.defaultOn);
+
+    switch (state.key) {
+      case 'workcover':
+        if (show && on) {
+          return 'Chat shows Docs & Web; starts on. On = uploaded docs (RAG) plus allowlisted live web together.';
+        }
+        if (show && !on) {
+          return 'Chat shows Docs & Web; starts off (plain chat). Turning it on adds docs + allowlisted web.';
+        }
+        if (!show && on) {
+          return 'Docs & Web locked on — users always get docs + allowlisted web. No toggle. Web only has no effect while this stays locked on.';
+        }
+        return 'Docs & Web locked off — no document retrieval. Allowlisted web only via Web only (if enabled below).';
+
+      case 'hq':
+        if (show && on) {
+          return 'HQ starts on (richer wording). Off = Basic plain language. Style only — does not change facts.';
+        }
+        if (show && !on) {
+          return 'HQ starts off (Basic). Users can turn on richer wording. Style only — not a source check.';
+        }
+        if (!show && on) {
+          return 'HQ locked on — always richer wording. No toggle.';
+        }
+        return 'HQ locked off — always Basic plain language. No toggle.';
+
+      case 'deep_thinking':
+        if (show && on) {
+          return 'Deep think starts on (DeepSeek API thinking; slower). Admin Deep policy may still auto-enable on hard questions.';
+        }
+        if (show && !on) {
+          return 'Deep think starts off. User toggle forces thinking on; Admin → Deep policy (Auto/Always) may still enable it.';
+        }
+        if (!show && on) {
+          return 'Deep think toggle hidden and locked on (still subject to per-chat Deep cap / policy).';
+        }
+        return 'Deep think toggle hidden and locked off — only Admin → Deep policy (Auto/Always) can enable thinking.';
+
+      case 'web_search':
+        if (docsLockedOn) {
+          return 'No effect while Docs & Web is locked on — allowlisted web is already included with docs.';
+        }
+        if (show && on) {
+          return docsCanOff
+            ? 'Web only starts on when Docs & Web is off. Same allowlisted hosts as Docs & Web — not open internet.'
+            : 'Web only starts on. Allowlisted hosts only — not open internet.';
+        }
+        if (show && !on) {
+          return docsLockedOff
+            ? 'Web only shown; starts off. This is the only way to use allowlisted live web while Docs & Web stays locked off.'
+            : 'Web only starts off when Docs & Web is off. Same allowlisted hosts — not open internet.';
+        }
+        if (!show && on) {
+          return docsLockedOff
+            ? 'Web only locked on — allowlisted live web always runs while Docs & Web is locked off.'
+            : 'Web only locked on whenever Docs & Web is off. Toggle hidden.';
+        }
+        return docsLockedOff
+          ? 'Web only locked off — no docs and no allowlisted web (plain chat only).'
+          : 'Web only locked off — when Docs & Web is off, answers stay plain chat with no allowlisted web.';
+
+      case 'tags':
+        return show
+          ? 'Users can narrow Docs & Web retrieval with focus tags (More menu / pills).'
+          : 'Focus tags hidden from chat.';
+
+      case 'url_context':
+        return show
+          ? 'Separate URL field in Options. Host must be on Admin → Web allowlist — not any internet URL.'
+          : 'URL context field hidden.';
+
+      case 'file_context':
+        return show
+          ? 'Inline File picker in Options. Text files read locally; PDF/Office/images use DeepSeek OCR (or Files parse for spreadsheets/ebooks). This turn only.'
+          : 'File attach hidden.';
+
+      case 'sources':
+        return show
+          ? 'Citation / sources list shown under answers when available.'
+          : 'Sources / citations hidden from chat.';
+
+      case 'related_questions':
+        return show
+          ? 'Related follow-up questions shown after answers when available.'
+          : 'Related questions hidden.';
+
+      default:
+        return show
+          ? (on ? 'Shown in chat; default on.' : 'Shown in chat; default off.')
+          : (on ? 'Hidden; locked on.' : 'Hidden; locked off.');
+    }
+  }
+
+  function updateUiFeatureHints() {
+    if (!$uiFeaturesList) return;
+    const all = {};
+    $uiFeaturesList.querySelectorAll('.ui-feature-row').forEach((row) => {
+      const st = readUiFeatureState(row);
+      if (st) all[st.key] = st;
+    });
+    $uiFeaturesList.querySelectorAll('.ui-feature-row').forEach((row) => {
+      const st = readUiFeatureState(row);
+      const hint = row.querySelector('.ui-feat-hint');
+      if (hint && st) hint.textContent = uiFeatureHintText(st, all);
+    });
+  }
   const $chatSummaryHint = document.getElementById('chat-summary-hint');
   const $chatList = document.getElementById('chat-list');
   const $chatTotal = document.getElementById('chat-total');
@@ -919,9 +1073,12 @@
       row.dataset.feature = key;
       if (UI_VISIBILITY_ONLY[key]) row.dataset.visibilityOnly = '1';
 
+      const controls = document.createElement('div');
+      controls.className = 'ui-feature-controls';
+
       const lab = document.createElement('span');
       lab.className = 'ui-feature-label';
-      lab.textContent = UI_FEATURE_LABELS[key];
+      lab.innerHTML = uiFeatureLabelHtml(key);
 
       const vis = document.createElement('select');
       vis.className = 'ui-feat-visibility';
@@ -937,9 +1094,10 @@
         if (savedVis === val) opt.selected = true;
         vis.appendChild(opt);
       });
+      vis.addEventListener('change', updateUiFeatureHints);
 
       if (UI_VISIBILITY_ONLY[key]) {
-        row.append(lab, vis);
+        controls.append(lab, vis);
       } else {
         const defLabel = document.createElement('label');
         defLabel.className = 'mode-toggle';
@@ -947,11 +1105,19 @@
         defCb.type = 'checkbox';
         defCb.className = 'ui-feat-default';
         defCb.checked = !!f.default;
+        defCb.addEventListener('change', updateUiFeatureHints);
         defLabel.append(defCb, document.createTextNode(' Default on'));
-        row.append(lab, defLabel, vis);
+        controls.append(lab, defLabel, vis);
       }
+
+      const hint = document.createElement('p');
+      hint.className = 'hint ui-feat-hint';
+      hint.setAttribute('aria-live', 'polite');
+
+      row.append(controls, hint);
       $uiFeaturesList.appendChild(row);
     });
+    updateUiFeatureHints();
   }
 
   function collectUiConfig() {

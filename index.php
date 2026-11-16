@@ -41,7 +41,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
       <div class="help-modal-body">
         <section>
           <h3>What is <?= htmlspecialchars($appTitle) ?>?</h3>
-          <p><?= htmlspecialchars($appTitle) ?> is a Western Australian workers compensation assistant. Ask questions in everyday language and get answers grounded in WorkCover documents when WorkCover mode is on.</p>
+          <p><?= htmlspecialchars($appTitle) ?> is a Western Australian workers compensation assistant. Ask questions in everyday language and get answers grounded in uploaded WorkCover documents when <strong>Docs &amp; Web</strong> is on.</p>
         </section>
         <section>
           <h3>Toolbar icons</h3>
@@ -50,7 +50,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>
               </span>
-              <span><strong>WorkCover</strong> — combined Docs mode: uploaded Acts/Regulations/guides <em>plus</em> live search of admin-allowed WorkCover domains (web enriches the documents; it is not a separate switch when WorkCover is on).</span>
+              <span><strong>Docs &amp; Web</strong> — uploaded Acts/Regulations/guides <em>plus</em> live search of admin-allowed domains (web is included automatically; no separate Web switch while this is on).</span>
             </li>
             <li>
               <span class="help-icon tool-btn" aria-hidden="true">
@@ -62,25 +62,25 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M9 21h6v-1.5H9V21zm3-19C7.03 2 3.2 5.6 3.02 10.5c-.1 2.7 1.1 5.1 3.1 6.6.6.45.9 1.1.9 1.9V19h10v-.01c0-.8.3-1.44.9-1.89 2-1.5 3.2-3.9 3.1-6.6C20.8 5.6 16.97 2 12 2zm0 15c-.55 0-1-.45-1-1h2c0 .55-.45 1-1 1zm4.05-3.35c-.7.52-1.2 1.2-1.4 1.95h-5.3c-.2-.75-.7-1.43-1.4-1.95C6.6 12.5 5.9 11 6 9.35 6.15 6.4 8.7 4 12 4s5.85 2.4 6 5.35c.1 1.65-.6 3.15-1.95 4.3z"/></svg>
               </span>
-              <span><strong>Deep</strong> — DeepSeek API thinking (chain-of-thought) before the answer; slower, often more careful. Admin may auto-enable Deep on hard questions; your toggle forces it on.</span>
+              <span><strong>Deep think</strong> — DeepSeek API thinking before the answer; slower, often more careful. Admin may auto-enable it on hard questions; your toggle forces it on.</span>
             </li>
             <li>
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
               </span>
-              <span><strong>Web</strong> — only shown when WorkCover is off; searches admin-allowed domains. With WorkCover on, that live search is included automatically.</span>
+              <span><strong>Web only</strong> — only shown when Docs &amp; Web is off; searches admin-allowed domains. With Docs &amp; Web on, that live search is included automatically.</span>
             </li>
             <li>
               <span class="help-icon tool-btn" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
               </span>
-              <span><strong>More</strong> (phones) — focus tags, context URL, and file attach.</span>
+              <span><strong>More</strong> (phones) — focus tags, URL (allowlisted), and File (text locally; PDF/Office via DeepSeek).</span>
             </li>
           </ul>
         </section>
         <section>
           <h3>Focus tags</h3>
-          <p>When WorkCover is on, open <strong>More</strong> (or use Focus tags on desktop) to narrow retrieval to topics like act, regulations, worker, or employer.</p>
+          <p>When <strong>Docs &amp; Web</strong> is on, open <strong>More</strong> (or use Focus tags on desktop) to narrow retrieval to topics like act, regulations, worker, or employer.</p>
         </section>
         <section>
           <h3>Faithfulness check</h3>
@@ -99,7 +99,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
           <ul>
             <li>Ask follow-ups in the same chat — history is used for context.</li>
             <li>Enter sends; Shift+Enter starts a new line.</li>
-            <li>Clear the message or context URL with the × inside the field.</li>
+            <li>URL context and File attach are separate — clear each with its own control.</li>
             <li>This is guidance only, not legal advice.</li>
           </ul>
         </section>
@@ -147,17 +147,37 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
           </summary>
           <div id="tag-pills-list" class="tag-pills-list"></div>
         </details>
+        <?php
+          $ctxLocal = $config['rag']['allowed_ext'] ?? ['md', 'txt', 'csv', 'json', 'html', 'htm'];
+          $ctxOcr = $config['rag']['ocr_ext'] ?? [];
+          $ctxParse = $config['rag']['parser_ext'] ?? [];
+          $ctxAccept = array_values(array_unique(array_merge(
+              array_map(static fn($e) => '.' . ltrim(strtolower((string)$e), '.'), $ctxLocal),
+              array_map(static fn($e) => '.' . ltrim(strtolower((string)$e), '.'), $ctxOcr),
+              array_map(static fn($e) => '.' . ltrim(strtolower((string)$e), '.'), $ctxParse)
+          )));
+          $ctxAcceptAttr = htmlspecialchars(implode(',', $ctxAccept));
+        ?>
         <div class="composer-context">
-          <div class="field-wrap">
-            <input type="url" id="context-url" placeholder="Context URL (allowed domains only)" autocomplete="off">
-            <button type="button" id="clear-context" class="field-clear" hidden aria-label="Clear context">×</button>
+          <div class="context-inline" id="context-slot-url">
+            <label class="context-inline-label" for="context-url"><span class="feat-kw feat-kw-url">URL</span></label>
+            <div class="field-wrap context-inline-field">
+              <input type="url" id="context-url" placeholder="https://… (allowlisted)" autocomplete="off">
+              <button type="button" id="clear-url-context" class="field-clear" hidden aria-label="Clear URL">×</button>
+            </div>
           </div>
-          <label class="file-btn btn btn-secondary">
-            Attach file
-            <input type="file" id="context-file" accept=".md,.txt,.csv,.json,.html,.htm,text/plain,text/markdown,text/html,application/json" hidden>
-          </label>
+          <p id="url-context-status" class="hint context-status" hidden></p>
+          <div class="context-inline" id="context-slot-file">
+            <span class="context-inline-label"><span class="feat-kw feat-kw-file">File</span></span>
+            <div class="context-file-row">
+              <label class="file-btn btn btn-secondary" for="context-file">Choose</label>
+              <input type="file" id="context-file" accept="<?= $ctxAcceptAttr ?>" hidden>
+              <span id="context-file-name" class="context-file-name" hidden></span>
+              <button type="button" id="clear-file-context" class="field-clear context-file-x" hidden aria-label="Clear file">×</button>
+            </div>
+          </div>
+          <p id="file-context-status" class="hint context-status" hidden></p>
         </div>
-        <p id="context-status" class="hint context-status" hidden></p>
       </div>
       <div class="composer-row">
         <div class="field-wrap input-wrap">
@@ -167,21 +187,21 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
         <button type="submit" id="send" class="btn btn-primary" aria-label="Send">➤</button>
       </div>
       <div class="composer-tools" role="toolbar" aria-label="Chat modes">
-        <button type="button" class="tool-btn" id="tool-workcover" data-for="mode-rag" aria-pressed="true" title="WorkCover">
+        <button type="button" class="tool-btn" id="tool-workcover" data-for="mode-rag" aria-pressed="true" title="Docs & Web">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>
-          <span class="tool-label">WorkCover</span>
+          <span class="tool-label">Docs &amp; Web</span>
         </button>
-        <button type="button" class="tool-btn" id="tool-hq" data-for="mode-hq" aria-pressed="false" title="HQ language (off = Basic)">
+        <button type="button" class="tool-btn" id="tool-hq" data-for="mode-hq" aria-pressed="false" title="HQ (off = Basic)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m-8 11H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11zm7-1c0 .55-.45 1-1 1h-.75v1.5h-1.5V15H14c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1zm-3.5-.5h2v-3h-2z"/></svg>
           <span class="tool-label">HQ</span>
         </button>
-        <button type="button" class="tool-btn" id="tool-think" data-for="deep-thinking" aria-pressed="false" title="Deep thinking (DeepSeek API)">
+        <button type="button" class="tool-btn" id="tool-think" data-for="deep-thinking" aria-pressed="false" title="Deep think (DeepSeek API)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6v-1.5H9V21zm3-19C7.03 2 3.2 5.6 3.02 10.5c-.1 2.7 1.1 5.1 3.1 6.6.6.45.9 1.1.9 1.9V19h10v-.01c0-.8.3-1.44.9-1.89 2-1.5 3.2-3.9 3.1-6.6C20.8 5.6 16.97 2 12 2zm0 15c-.55 0-1-.45-1-1h2c0 .55-.45 1-1 1zm4.05-3.35c-.7.52-1.2 1.2-1.4 1.95h-5.3c-.2-.75-.7-1.43-1.4-1.95C6.6 12.5 5.9 11 6 9.35 6.15 6.4 8.7 4 12 4s5.85 2.4 6 5.35c.1 1.65-.6 3.15-1.95 4.3z"/></svg>
-          <span class="tool-label">Deep</span>
+          <span class="tool-label">Deep think</span>
         </button>
-        <button type="button" class="tool-btn" id="tool-web" data-for="web-search" aria-pressed="false" title="Web search">
+        <button type="button" class="tool-btn" id="tool-web" data-for="web-search" aria-pressed="false" title="Web only">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-          <span class="tool-label">Web</span>
+          <span class="tool-label">Web only</span>
         </button>
         <button type="button" class="tool-btn tool-more" id="open-options" aria-expanded="false" aria-controls="composer-options" title="More options">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>

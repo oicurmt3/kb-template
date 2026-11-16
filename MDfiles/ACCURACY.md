@@ -53,7 +53,7 @@ User message
 | **HQ** | Richer / more precise wording in the first answer | Post-stream rewrite; faithfulness |
 | **Deep** | DeepSeek API `thinking: enabled` (chain-of-thought before answer) | Source faithfulness audit |
 | **Faithfulness** | Admin slider (default **off**); ≥55 may surgically rewrite vs packed sources | Style; gutting a good stream (rewrites must stay ≥85% length) |
-| **WorkCover** | RAG + allowlisted web (Docs mode) | — |
+| **Docs & Web** | RAG + allowlisted web (Docs mode) | — |
 
 ### Stage details
 
@@ -212,7 +212,7 @@ Important: “more web weight” means the check **protects web more** (treats w
 
 Cost: second flash call only when degree ≥55 and not skipped. Degrees 1–50 do not replace the stream.
 
-**Note:** Live web still only hits admin-allowlisted hosts. WorkCover mode always tries to enrich RAG with that web (when `web.enabled` in config).
+**Note:** Live web still only hits admin-allowlisted hosts. Docs & Web mode always tries to enrich RAG with that web (when `web.enabled` in config). Open internet search is intentionally disabled.
 
 ---
 
@@ -237,10 +237,10 @@ When **Show**: user’s toggle wins for that request.
 
 | Feature | Default meaning | Effect on accuracy / relevance |
 |---------|-----------------|--------------------------------|
-| **WorkCover** | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts. Off = no doc retrieval. Standalone **Web** toggle only appears when WorkCover is off. Triggers faithfulness when excerpts (and/or web) exist. |
+| **Docs & Web** (`workcover`) | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts. Off = no doc retrieval. Standalone **Web only** toggle only appears when Docs & Web is off. Triggers faithfulness when excerpts (and/or web) exist. |
 | **HQ** | On = richer language; Off = Basic | **Style only** (`hqInstruction` vs simple explain). Does **not** run the post-stream faithfulness check. |
-| **Deep thinking** | Composer toggle + admin policy (manual / auto / always) + per-chat cap | DeepSeek API thinking / CoT when the turn resolves on. Extra latency/cost. Does **not** replace faithfulness. Auto is conservative (long/multi-part only); toggle forces on under auto. Prefer Manual with Short answers. |
-| **Web** | Only when WorkCover is **off** | Allowlisted live search without RAG. Still provides grounding → faithfulness may run if slider &gt; 0. When WorkCover is on, that same search is automatic inside Docs mode. |
+| **Deep think** | Composer toggle + admin policy (manual / auto / always) + per-chat cap | DeepSeek API thinking / CoT when the turn resolves on. Extra latency/cost. Does **not** replace faithfulness. Auto is conservative (long/multi-part only); toggle forces on under auto. Prefer Manual with Short answers. |
+| **Web only** | Only when Docs & Web is **off** | Allowlisted live search without RAG. Still provides grounding → faithfulness may run if slider &gt; 0. When Docs & Web is on, that same search is automatic inside Docs mode. |
 | **Faithfulness** | Admin slider 0–100 (default **0**) | Off by default. 1–50 never replaces stream; ≥55 surgical rewrite only. Document Source URL live fetch is a separate Web-settings Include/Exclude. |
 
 ### 3.2 Visibility-only features (Show / Hide only)
@@ -250,8 +250,8 @@ When **Hide**, the capability is **forced off** (no default-on bypass).
 | Feature | Shown | Hidden |
 |---------|-------|--------|
 | **Tags** | User can pick tags; auto-tags still apply if none picked | No user tags; **auto-tags also disabled** (`focusTags` forced empty). Retrieval is broader/noisier. For accuracy, keep **Show** and tag documents well. |
-| **URL context** | User may attach one URL (allowed host) for this turn | No URL injection. Safer/simpler; less “page says X” grounding. |
-| **File context** | User may paste/upload text for this turn only | No ephemeral file text. Corpus RAG only. |
+| **URL context** | Inline Options field: one URL (allowlisted host) for this turn | No URL injection. Safer/simpler; less “page says X” grounding. |
+| **File attach** | Inline Options file picker for this turn: text-like → local PHP; PDF/Office/images → DeepSeek OCR text; xls/xlsx/epub → Files `file_id` on the turn | No ephemeral attach. Corpus RAG only. Files `file_id` turns skip Faithfulness (body not in grounding window). |
 | **Sources** | Citation chips after RAG answers | Citations cleared before `done` — model still saw excerpts; user just doesn’t see which docs. Hiding does **not** reduce hallucination risk; it reduces transparency. Prefer **Show**. |
 | **Related questions** | Model asked for follow-ups; chips shown | No follow-up instruction; chips off. Neutral for factual accuracy; slightly shorter prompts. |
 
@@ -299,7 +299,7 @@ These often matter **more** than toggles:
 
 ### Public kiosk (workers / employers)
 
-- WorkCover: Default **on**, Show  
+- Docs & Web: Default **on**, Show  
 - HQ: Default **off**, Show (Basic language)  
 - Deep: Default **off**, Hide or Show  
 - Web: Default **off**, Show optional  
@@ -310,7 +310,7 @@ These often matter **more** than toggles:
 
 ### Staff / legal support desk
 
-- WorkCover: Default **on** (faithfulness automatic)  
+- Docs & Web: Default **on** (faithfulness automatic)  
 - HQ: Default **on** (precise language)  
 - Deep: **on** for hard multi-instrument questions (API thinking)  
 - Web: **on** with tight hosts for site procedures  
@@ -320,7 +320,7 @@ These often matter **more** than toggles:
 
 ### Maximum anti-hallucination
 
-1. WorkCover **on** (faithfulness runs on docs+web grounding)  
+1. Docs & Web **on** (faithfulness runs on docs+web grounding)  
 2. Adaptive RAG **on**  
 3. HQ **on** for precise terms (optional style)  
 4. Deep **on** for hard questions (optional API thinking)  
@@ -332,7 +332,7 @@ These often matter **more** than toggles:
 
 ## 5. What each mode combination does
 
-| WorkCover | HQ | Deep | Standalone Web | Result |
+| Docs & Web | HQ | Deep think | Web only | Result |
 |-----------|----|------|----------------|--------|
 | Off | * | * | Off | General chat; no faithfulness (no grounding) |
 | Off | * | * | On | Web grounding + **faithfulness** on web text |
@@ -347,10 +347,10 @@ Faithfulness is independent of HQ/Deep whenever grounding exists.
 ## 6. Debugging accuracy
 
 1. **Admin → Retrieval test** — same rewrite → synonyms → tags → search path; inspect search query, quality score, weak flag, and each **matched chunk** (title, header_path, score, text).  
-2. Chat with WorkCover on — expand Sources; check titles and excerpt counts.  
+2. Chat with Docs & Web on — expand Sources; check titles and excerpt counts.  
 3. Read SSE / UI notes when exposed (`Query rewrite`, `Auto tags`, `Retrieval: weak`, `Faithfulness: ok|corrected|kept draft|skipped`).  
 4. If wrong section: improve document tags/titles, or ask with section number (legal-ref bonus).  
-5. If invented law: confirm WorkCover (or web grounding) was on; check weak/no-hit notes; confirm `Faithfulness:` ran; check `Deep:` note / admin Deep policy (auto may already be on for hard questions).  
+5. If invented law: confirm Docs & Web (or web grounding) was on; check weak/no-hit notes; confirm `Faithfulness:` ran; check `Deep:` note / admin Deep policy (auto may already be on for hard questions).  
 6. If follow-up missed context: ensure chat history messages exist (same conversation); rewrite needs prior user turns.
 
 For systematic fixes, use **§7** (tune corpus → tags → synonyms → tag inference). Prefer that over adding embeddings.
@@ -367,7 +367,7 @@ Lexical retrieval improves most when the **right text exists**, is **tagged**, a
 2. Run each in **Admin → Retrieval test** (same path as chat).  
 3. For each miss, fix **one** layer — in order: **corpus → tags → synonyms → tag inference**.  
 4. Re-test until the top hit is the right Act/Regs/guide section.  
-5. Spot-check the same prompts in chat with WorkCover on and Sources on.
+5. Spot-check the same prompts in chat with Docs & Web on and Sources on.
 
 ### 7.2 Corpus (biggest lever)
 

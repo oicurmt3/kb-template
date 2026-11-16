@@ -56,15 +56,24 @@ try {
     $focusTags = AppSettings::uiFeatureActive('tags', true)
         ? normalize_document_tags($body['tags'] ?? ($body['focus_tags'] ?? []))
         : [];
-    $extraContext = AppSettings::uiFeatureActive('file_context', true)
+    $fileCtxOn = AppSettings::uiFeatureActive('file_context', true);
+    $extraContext = $fileCtxOn
         && isset($body['extra_context']) && is_string($body['extra_context'])
         ? trim($body['extra_context']) : '';
+    $contextFileId = '';
+    if ($fileCtxOn && isset($body['context_file_id']) && is_string($body['context_file_id'])) {
+        $rawFid = trim($body['context_file_id']);
+        // DeepSeek file ids look like file-… — reject anything else
+        if ($rawFid !== '' && preg_match('/^file-[A-Za-z0-9_-]{6,128}$/', $rawFid)) {
+            $contextFileId = $rawFid;
+        }
+    }
     $contextUrl = AppSettings::uiFeatureActive('url_context', true)
         && isset($body['context_url']) && is_string($body['context_url'])
         ? trim($body['context_url']) : '';
     $contextLabel = isset($body['context_label']) && is_string($body['context_label'])
         ? trim($body['context_label']) : '';
-    if ($extraContext === '') {
+    if ($extraContext === '' && $contextFileId === '') {
         $contextLabel = '';
     }
 
@@ -500,6 +509,37 @@ try {
 
     if (!isset($dsFiles)) {
         $dsFiles = [];
+    }
+    // Turn-only DeepSeek Files attach (Options → File, non-OCR types)
+    if ($contextFileId !== '') {
+        $already = false;
+        foreach ($dsFiles as $f) {
+            if (($f['file_id'] ?? '') === $contextFileId) {
+                $already = true;
+                break;
+            }
+        }
+        if (!$already) {
+            $title = $contextLabel !== '' ? $contextLabel : 'Attached file';
+            $dsFiles[] = [
+                'file_id' => $contextFileId,
+                'document_id' => 0,
+                'title' => $title,
+            ];
+            $webNotes[] = 'Attached DeepSeek file: ' . $title;
+            $systemPrompt .= "\n\nDeepSeek-parsed user attachment for this turn: {$title}. "
+                . 'Treat the attached file contents as authoritative for that upload.';
+            if (AppSettings::uiFeatureEnabled('sources')) {
+                $citations[] = [
+                    'n' => count($citations) + 1,
+                    'document_id' => 0,
+                    'title' => 'File: ' . $title,
+                    'filename' => $title,
+                    'source_url' => null,
+                    'chunk_count' => 1,
+                ];
+            }
+        }
     }
 
     // Docs mode: apply admin RAG↔Web mix policy after enrichment blocks are attached

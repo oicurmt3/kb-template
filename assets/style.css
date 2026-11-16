@@ -524,25 +524,68 @@ a.cite-link:focus {
 }
 .composer-context {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+}
+.context-inline {
+  display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 44px;
+}
+.context-inline-label {
+  flex: 0 0 auto;
+  min-width: 2.75rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.context-inline-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.context-file-row {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.context-file-name {
+  flex: 1 1 80px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 28px;
+}
+.context-file-x {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 /* display:flex on these beats the native [hidden] rule — force hide */
 .composer-context[hidden],
+.composer-context .context-inline[hidden],
 .composer-context .field-wrap[hidden],
 .composer-context .file-btn[hidden],
 .composer-context .btn[hidden],
 .tool-btn[hidden],
 #open-options[hidden],
-.context-status[hidden] {
+.context-status[hidden],
+.context-file-name[hidden] {
   display: none !important;
 }
 .composer-context input[type="url"] {
   flex: 1;
-  min-width: 160px;
+  min-width: 0;
   min-height: 42px;
-  padding: 8px 12px;
+  padding: 8px 40px 8px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   font: inherit;
@@ -556,8 +599,14 @@ a.cite-link:focus {
   position: relative;
   cursor: pointer;
   margin: 0;
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 8px 12px;
 }
-.context-status { margin: 0; }
+.context-status {
+  margin: 0 0 0 calc(2.75rem + 8px);
+  font-size: 12px;
+}
 .composer-row {
   display: flex;
   gap: 8px;
@@ -695,15 +744,7 @@ a.cite-link:focus {
 }
 .composer-context .field-wrap {
   flex: 1;
-  min-width: 160px;
-}
-.composer-context .field-wrap input[type="url"] {
-  min-height: 42px;
-  padding: 8px 40px 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font: inherit;
-  background: var(--surface);
+  min-width: 0;
 }
 
 /* ---- Admin + login + install ---- */
@@ -853,13 +894,18 @@ code { background: var(--bg-alt); padding: 1px 6px; border-radius: 4px; font-siz
 }
 .ui-feature-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: center;
-  padding: 8px 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
 .ui-feature-row:last-child { border-bottom: none; }
+.ui-feature-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
 .ui-feature-label {
   flex: 1 1 140px;
   font-weight: 600;
@@ -874,6 +920,21 @@ code { background: var(--bg-alt); padding: 1px 6px; border-radius: 4px; font-siz
   font: inherit;
 }
 .ui-feature-row .mode-toggle { margin: 0; }
+.ui-feat-hint {
+  margin: 0;
+  flex: 1 1 100%;
+  max-width: 52rem;
+}
+.feat-kw { font-weight: 700; }
+.feat-kw-docs { color: var(--destructive); }
+.feat-kw-hq { color: var(--accent); }
+.feat-kw-deep { color: #0f766e; }
+.feat-kw-web { color: #b45309; }
+.feat-kw-tags { color: #6d28d9; }
+.feat-kw-url { color: #0369a1; }
+.feat-kw-file { color: #4b5563; }
+.feat-kw-sources { color: #1d4ed8; }
+.feat-kw-related { color: #be185d; }
 .doc-meta-shared {
   margin-top: 14px;
   padding-top: 12px;
@@ -1216,14 +1277,11 @@ code { background: var(--bg-alt); padding: 1px 6px; border-radius: 4px; font-siz
   .options-sheet-head .btn {
     min-height: 40px;
   }
-  .composer-context {
-    flex-direction: column;
-    align-items: stretch;
+  .context-inline-label {
+    min-width: 2.5rem;
   }
-  .composer-context .field-wrap,
-  .composer-context .file-btn,
-  .composer-context .btn {
-    width: 100%;
+  .context-status {
+    margin-left: calc(2.5rem + 8px);
   }
   .composer-tools {
     justify-content: flex-start;

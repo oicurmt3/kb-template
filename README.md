@@ -1,6 +1,6 @@
 # WANDA — WA Workers Compensation Chatbot
 
-WANDA is a plain PHP + vanilla JS chatbot that answers Western Australian workers compensation questions. With **WorkCover** on, answers are grounded in uploaded Act, Regulations, and WorkCover guidance via RAG (retrieval-augmented generation) through DeepSeek.
+WANDA is a plain PHP + vanilla JS chatbot that answers Western Australian workers compensation questions. With **Docs & Web** on, answers are grounded in uploaded Act, Regulations, and WorkCover guidance via RAG (retrieval-augmented generation) through DeepSeek, plus allowlisted live web.
 
 ## Stack
 
@@ -21,18 +21,18 @@ WANDA is a plain PHP + vanilla JS chatbot that answers Western Australian worker
 
 | Control | Role |
 |---------|------|
-| **WorkCover** | Docs mode: uploaded RAG **plus** allowlisted live web (blend via admin RAG↔Web mix) |
+| **Docs & Web** | Docs mode: uploaded RAG **plus** allowlisted live web (blend via admin RAG↔Web mix) |
 | **HQ** | Richer / more precise language only (off = Basic / simple explain) |
-| **Deep** | DeepSeek API thinking (chain-of-thought) before the answer |
-| **Web** | Live search/fetch on allowlisted hosts — only when WorkCover is **off** |
+| **Deep think** | DeepSeek API thinking (chain-of-thought) before the answer |
+| **Web only** | Allowlisted live search/fetch — only when Docs & Web is **off** |
 | **Tags** | Focus retrieval on document tags |
-| **URL / File** | Attach one URL or pasted file text for this turn |
+| **URL / File** | Inline Options: allowlisted URL; File = local text or DeepSeek OCR/Files for PDF/Office |
 | **Sources** | Show citation chips after RAG answers |
 | **Related** | Follow-up suggestion chips |
 
 Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → grounded prompt → optional **Faithfulness** audit) is documented in **[MDfiles/ACCURACY.md](MDfiles/ACCURACY.md)**.
 
-**Roles:** HQ = style · Deep = API thinking · Faithfulness = admin-slidered source audit (default **off**; surgical only at high degree) · WorkCover = RAG + allowlisted web.
+**Roles:** HQ = style · Deep think = API thinking · Faithfulness = admin-slidered source audit (default **off**; surgical only at high degree) · Docs & Web = RAG + allowlisted web.
 
 ### Admin (summary)
 

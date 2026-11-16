@@ -15,7 +15,7 @@
 ## CSRF & rate limits
 
 - CSRF tokens on admin and sensitive POSTs (including settings import)
-- Per-IP rate limits: login, chat, web_search, web_fetch, admin export/import (files under `storage/ratelimit/`)
+- Per-IP rate limits: login, chat, web_search, web_fetch, **context_parse** (chat File OCR/Files), admin export/import (files under `storage/ratelimit/`)
 
 ## Output & input
 
@@ -23,10 +23,11 @@
 - Chat UI uses `textContent` for user-influenced strings where possible
 - Message length capped; upload size capped in config
 
-## Web fetch
+## Web fetch / turn File attach
 
-- Only hosts in admin/config allowlist
+- Only hosts in admin/config allowlist (URL context + live web)
 - Do not enable unrestricted DeepSeek open-web search tools
+- Chat File attach: `context_file_id` must match `file-…` pattern; OCR/Files parse rate-limited; size caps from `max_upload_bytes` / `max_parser_bytes`
 
 ## Admin export / import
 

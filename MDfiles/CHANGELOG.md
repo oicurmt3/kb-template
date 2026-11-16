@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-16 — UI labels, feature hints, File OCR, docs sync
+
+- Composer/admin names: **Docs & Web**, **HQ**, **Deep think**, **Web only**
+- Admin Chat UI: coloured keywords + live status hints for every feature row
+- Options URL/File: compact inline rows (separate controls)
+- Chat File attach: local text; DeepSeek OCR for PDF/Office/images; Files parse for spreadsheets/ebooks (`api/context.php` + `context_file_id`)
+- MD suite + code sync to GitHub
+
 ## 2026-11-16 — Docs sync (Faithfulness + Source URL)
 
 - ACCURACY / TESTING / README / handover / ARCHITECTURE / HANDOFF aligned with keep-draft Faithfulness and doc Source URL Include/Exclude

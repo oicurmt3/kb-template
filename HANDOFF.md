@@ -4,6 +4,19 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-16 — Docs & Web labels, UI hints, File OCR, sync
+
+**Done**
+
+- UI rename: Docs & Web / HQ / Deep think / Web only; admin coloured keywords + live feature hints
+- Compact inline URL/File Options; File attach via DeepSeek OCR/Files for non-text
+- Docs + code pushed to GitHub
+
+**Ops**
+
+- Deploy `api/context.php`, `api/chat.php`, `assets/*`, `index.php`, `admin.php`
+- Confirm Faithfulness still **0** on live if older saves had 70
+
 ## 2026-11-16 — Docs sync + Faithfulness keep-draft behaviour
 
 **Done**
@@ -139,7 +152,7 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 - Accuracy pipeline wired end-to-end: rewrite, synonyms, auto-tags, hitQuality grounding, HQ `verifyGroundedAnswer`, admin retrieval-test quality display, chat.js uses `done.content` after HQ.
 - Full documentation suite: refreshed `README.md` / `handover.md`; added `MDfiles/ACCURACY.md` (feature × accuracy matrix) plus architecture/design/security/deploy/testing/changelog/contributing; root `AGENTS.md`, `AREA.md`, this log.
-- WorkCover = RAG + allowlisted web; RAG↔Web mix admin setting; HQ preserves web-supported claims.
+- Docs & Web = RAG + allowlisted web; RAG↔Web mix admin setting; HQ preserves web-supported claims.
 
 **API contracts (stable)**
 

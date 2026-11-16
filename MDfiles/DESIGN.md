@@ -19,7 +19,9 @@ Touch targets ~44px minimum on mobile.
 
 - Sidebar: conversation list (when history enabled)
 - Main: messages + composer
-- Composer toolbar: WorkCover / HQ (language) / Deep (API thinking) / Web (+ tags, URL, file when shown)
+- Composer toolbar: **Docs & Web** / **HQ** / **Deep think** / **Web only** (+ tags when shown)
+- Options sheet: compact **inline** `URL` + field and `File` + Choose (separate controls; coloured keyword labels)
+- Admin Chat UI features: coloured keywords + live per-row status hints from Default / Show-Hide
 - Sources and Related questions chips below assistant messages when enabled
 - Optional note under assistant bubble when faithfulness revises the streamed draft
 - Clear-input control sits left of the textarea scrollbar (no heavy background)

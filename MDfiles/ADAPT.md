@@ -15,7 +15,7 @@ Related: [ACCURACY.md](ACCURACY.md) (how grounding works), [DEPLOY.md](DEPLOY.md
 | Retrieval, Adaptive RAG, weak-hit grounding | Synonym map, tag synonyms, source hierarchy wording |
 | Automatic faithfulness check + HQ style / Deep thinking | `system_prompt` / `rag_system_prompt` |
 | Admin ingest, tags, Retrieval test, settings export/import | Web allowlist hosts |
-| Feature toggles (Default / Show-Hide), RAG↔Web mix | Label “WorkCover” → your product mode name (optional code tweak) |
+| Feature toggles (Default / Show-Hide), RAG↔Web mix | Label “Docs & Web” (`workcover` key) → your product mode name (optional code tweak) |
 
 You do **not** need embeddings, Node, or a rewrite of the architecture for a typical SMB knowledge base.
 
