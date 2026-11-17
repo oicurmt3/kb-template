@@ -20,6 +20,14 @@ Shared cPanel hosting over HTTPS. Webroot = project root (contains `index.php`, 
 8. Admin → expand **Upload documents** → stage files → **Upload** Act/Regs/guides → Retrieval test → smoke chat with Docs & Web on.
 9. Optional: **Export all settings** / **Export all chunks** after a good baseline so you can restore settings on another host.
 
+## Existing DB upgrade (structure parse)
+
+1. Run `sql/alter_rag_structure.sql` once (phpMyAdmin / mysql).
+2. Deploy new `includes/` (Chunker, Ingest, StructureParse, PromptLibrary, SchemaCompat, `prompts/`), `api/documents.php`, `api/health.php`, `assets/admin.js`.
+3. Confirm `api/health.php` has no `alter_rag_structure` hints.
+4. For each corpus doc: Admin **Re-parse** → **Continue** until stage `parsed` → **Re-chunk** (docs are `processing` / out of search until Re-chunk).
+5. Copy any new `rag.*` keys from `config.example.php` into live `config.php` if missing (`structure_parse`, token targets, etc.).
+
 ## SSE tips
 
 If streaming stalls:

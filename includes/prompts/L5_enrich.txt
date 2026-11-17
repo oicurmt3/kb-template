@@ -1,0 +1,4 @@
+LEGISLATION ENRICH RULES
+1. Summary: who, what (must/may), when/trigger, exceptions, penalty. Keep must vs may distinct.
+2. Questions in plain business wording.
+3. Extra: duty_holder, decision_maker, trigger, timeframes, penalty_text, defined_terms_used, provisions_to_read_with.

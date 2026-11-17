@@ -32,27 +32,48 @@ Browser (index.php + chat.js)
 |-------|------|
 | `conversations` | Per-session chat threads |
 | `messages` | User/assistant turns; `blocks` JSON for citations/suggestions |
-| `documents` | Uploaded/pasted corpus metadata, tags, source_url, ingest_mode |
-| `chunks` | Searchable text + `chunk_index` / `chunk_key` / `header_path` + FULLTEXT |
+| `documents` | Corpus metadata: tags, source_url, ingest_mode, `domain_set`, version/as-at/`status_text`, `pipeline_stage` / `pipeline_state`, intake/sidecar JSON |
+| `chunks` | Verbatim `text` + `header_path` + FULLTEXT `search_text`; optional content_type/flags/extra, denorm version/domain |
 | `settings` | Admin JSON/string overrides (UI, adaptive RAG, RAG↔Web mix, hosts, caps, …) |
 
-Each chunk row is uniquely identifiable (`id` + `document_id` + `chunk_index` / `chunk_key`).
+Each chunk row is uniquely identifiable (`id` + `document_id` + `chunk_index` / `chunk_key`).  
+`chunks.embedding` BLOB is unused — DeepSeek has no embeddings API here; “embed” = contextual `search_text`.
+
+## Ingest pipeline (corpus)
+
+```
+Upload / paste
+  → OCR (DeepSeek) or local Markdown
+  → optional G1 intake + G2 structure parse (page batches, resumable)
+  → storage/markdown/*.md (+ sidecar on document)
+  → Chunker: RAG:CHUNK markers OR header→size atomic split
+     (optional model G4 when rag.model_chunker)
+  → insert chunks + search_text templates → status ready
+```
+
+Admin migration: **Re-parse** (OCR + G2) → **Continue** until `parsed` → **Re-chunk** (markdown only).  
+While `status=processing`, chunks are out of retrieval.
 
 ## Storage on disk
 
 | Path | Role |
 |------|------|
 | `storage/uploads/` | Original uploads |
+| `storage/markdown/` | Parsed Markdown used for chunking |
+| `storage/pipeline/` | Temporary OCR page JSON for G2 resume (gitignored) |
 | `storage/ratelimit/` | IP rate-limit counters |
 | `storage/install.lock` | Locks installer |
 | `includes/config.php` | Secrets (gitignored) |
+| `includes/prompts/` | G*/L* ASCII prompt templates |
 
 ## Modules
 
 | Module | Responsibility |
 |--------|----------------|
-| `Retrieval` | Query prep, search, scoring, context, HQ verify |
-| `Ingest` / `Chunker` | File/paste → documents + chunks |
+| `Retrieval` | Query prep, search, scoring, context, L7/G7 grounding, HQ verify |
+| `Ingest` / `Chunker` | File/paste → documents + structure-aware chunks |
+| `StructureParse` / `PromptLibrary` | G1/G2 DeepSeek parse + prompt loader |
+| `SchemaCompat` | Optional column detection after alters |
 | `DeepSeekClient` | API wrappers |
 | `WebFetch` | Host-restricted search/fetch + length instructions |
 | `AppSettings` | Feature flags, mix, chat limits, settings import |

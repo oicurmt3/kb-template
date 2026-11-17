@@ -22,6 +22,9 @@ $includes = [
     'auth.php',
     'DeepSeek.php',
     'Chunker.php',
+    'SchemaCompat.php',
+    'PromptLibrary.php',
+    'StructureParse.php',
     'Ingest.php',
     'Retrieval.php',
     'WebFetch.php',
@@ -47,6 +50,22 @@ try {
                 $out['schema_hints'][] = "documents.{$need} missing — {$hint}";
                 $out['ok'] = false;
             }
+        }
+        foreach (['domain_set', 'pipeline_stage', 'doc_version'] as $need) {
+            if (!in_array($need, $names, true)) {
+                $out['schema_hints'][] = "documents.{$need} missing — run sql/alter_rag_structure.sql";
+                $out['ok'] = false;
+            }
+        }
+        try {
+            $ccols = DB::all('SHOW COLUMNS FROM chunks');
+            $cnames = array_map(static fn($c) => (string)($c['Field'] ?? ''), $ccols);
+            if (!in_array('domain_set', $cnames, true)) {
+                $out['schema_hints'][] = 'chunks.domain_set missing — run sql/alter_rag_structure.sql';
+                $out['ok'] = false;
+            }
+        } catch (Throwable $e) {
+            // ignore
         }
         $settings = DB::one("SHOW TABLES LIKE 'settings'");
         if (!$settings) {

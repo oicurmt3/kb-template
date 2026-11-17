@@ -75,7 +75,7 @@ Rewrite **fails soft**: if the API fails or JSON is bad, the synonym-expanded ba
 - Focus tags multiply/add score; Adaptive RAG may slim to activated docs.
 - Diversification caps chunks per document (`max_per_document` / slim variants).
 
-There is **no embedding / vector** path — DeepSeek does not expose embeddings here. Relevance is lexical + structure. Full formulas: **§9**.
+There is **no embedding / vector** path — DeepSeek does not expose embeddings here. Relevance is lexical + structure: verbatim chunk `text` for answers/citations; contextual `search_text` (title, section path, version/as-at) for FULLTEXT. Full formulas: **§9**.
 
 #### C. Quality gate (`hitQuality`)
 
@@ -275,12 +275,14 @@ These often matter **more** than toggles:
 
 | Practice | Why |
 |----------|-----|
-| Upload Act + Regulations with clear titles/tags (`act`, `regulations`) | Kind detection boosts Act/Regs in scoring and hierarchy instructions |
+| Upload Act + Regulations with clear titles/tags (`act`, `regulations`) | Kind detection boosts Act/Regs; G1 may set `domain_set=legislation` |
 | Tag guides/fact sheets distinctly | Focus tags + auto-tags work |
 | Set **source URL** on docs | User can open the official page from Sources |
-| Prefer **OCR → chunks** for PDFs used as law | Chunks are searchable; Files-parse-only docs attach as `file_id` and help less in lexical search |
+| Prefer **OCR → structure parse → chunks** for PDFs used as law | Searchable Markdown with real headings/tables; Files-parse stubs rank poorly |
+| After code upgrade: **Re-parse → Continue → Re-chunk** each corpus doc | Do not only rechunk old OCR page dumps if you want structure-aware cuts |
 | Paste clean Act excerpts with good title/tags | Same as upload; empty title → AI title |
-| Use **Retrieval test** after ingest | Confirms rewrite + quality score before trusting chat |
+| Use **Retrieval test** after ingest / rechunk | Confirms rewrite + quality score before trusting chat |
+| Fill version / as-at / status when known | Citations + filter of superseded material |
 
 ### 3.5 Config (`includes/config.php`) knobs
 
@@ -289,7 +291,10 @@ These often matter **more** than toggles:
 | `rag.top_k` / `max_per_document` | Recall vs noise when Adaptive is off (or as ceilings) |
 | `rag.top_k_slim*` / `activate_docs_slim` | Adaptive focused retrieval size |
 | `rag.max_history_messages` | How much chat context rewrite + model see |
-| `rag.chunk_max_chars` / `chunk_overlap` | Chunk granularity — too large = noisy hits; too small = broken sections |
+| `rag.chunk_max_chars` / `chunk_overlap` | Size fallback limits; **legislation overlap forced to 0** in Chunker |
+| `rag.chunk_target_tokens` / `chunk_max_tokens` | Structure chunker targets (defaults ~800 / ~2000) |
+| `rag.structure_parse` / `pages_per_batch` | G1/G2 after OCR (resumable batches) |
+| `rag.model_chunker` / `enrich_chunks` / `audit_chunks` | Optional G4/G5/G6 (default **off**) |
 | `app.rag_system_prompt` | Base RAG personality / hierarchy (overrides defaults if set) |
 | `deepseek.flash_model` | Used for rewrite, titles, web tools, HQ verify — keep a reliable flash model |
 
@@ -373,11 +378,12 @@ Lexical retrieval improves most when the **right text exists**, is **tagged**, a
 
 | Do | Why |
 |----|-----|
-| Prefer **OCR → chunks** for Act/Regs PDFs | Search needs chunk text; Files-parse stubs rank poorly |
+| Prefer **OCR → structure parse → chunks** for Act/Regs PDFs | Search needs structured chunk text; Files-parse stubs rank poorly |
 | Clear **titles** (`WCIM Act 2023`, not `scan_final2`) | Title hits score +4; `documentKind` uses title/filename/tags |
 | Set **source URL** | Transparency in Sources chips |
 | Keep Act and Regulations as **separate** ready docs | Quota + ×1.25 kind boost need both kinds |
 | Preserve headings when pasting/chunking | `header_path` drives section-ref bonuses |
+| Confirm **ready** after Re-chunk (`processing` excluded from search) | Incomplete migrate leaves docs invisible |
 | Confirm status **ready** and skim chunks after ingest | Bad OCR = bad retrieval |
 
 **Failure sign:** weak/no hits, or a long guide ranks above the Act rule → missing/mis-chunked Act text or title doesn’t look like an act.
@@ -492,7 +498,7 @@ Other caps:
 | HQ verify packing / draft caps | packed SOURCE ≤14000 (docs + reserved web ~35% + extra ~20%); draft ≤6000; `max_tokens` 900; reject rewrite if new length &lt; 50% of draft (≥200 chars) |
 | Query rewrite | `max_tokens` 180, temperature 0.1; history ≤8 turns × 400 chars |
 | Chat history into model | `rag.max_history_messages` default 24 |
-| Chunking (ingest) | `chunk_max_chars` 3200, `chunk_overlap` 200 |
+| Chunking (ingest) | structure-first headers + atomic tables/lists; `chunk_max_chars` 3200; overlap 200 general / **0** legislation; targets `chunk_target_tokens`/`chunk_max_tokens` |
 
 ### 9.2 Query preparation triggers
 

@@ -1,0 +1,11 @@
+LEGISLATION PARSE RULES
+1. Keep numbering exactly: 12, 12A, 12AA, (1), (1A), (a), (i), (A). Never renumber.
+2. Heading ranks: # instrument title; ## Chapter/Part/Schedule; ### Division; #### Subdivision; ##### section as "12 Heading text". Skipping a missing rank is allowed; record low severity warning.
+3. Subsections/paragraphs are never headings. Own line with label, indent 2 spaces per depth. Chapeau stays above paragraphs.
+4. Penalty lines stay under their subsection. Notes/Examples stay under their provision.
+5. Definitions: one per line, defined term first.
+6. Endnotes/amendment history in final "Endnotes" section.
+7. Document control: instrument, jurisdiction, compilation, as-at, commencement, status.
+8. Keep repealed/omitted/not yet in force stubs with printed words.
+9. Cross-references verbatim. Amounts and time periods exact.
+10. Keep must, shall, should, may exactly for standards/policies.

@@ -7,6 +7,7 @@ includes/config.php
 # Database dumps
 *.sql
 !sql/schema.sql
+!sql/alter_*.sql
 
 # Logs
 *.log
@@ -17,6 +18,7 @@ storage/ratelimit/
 storage/install.lock
 storage/uploads/
 storage/markdown/
+storage/pipeline/
 
 # OS junk
 .DS_Store

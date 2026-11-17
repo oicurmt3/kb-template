@@ -1719,12 +1719,11 @@ class Retrieval {
     /** @return list<array> */
     private function naturalLanguageSearch(string $query, ?int $documentId): array {
         try {
-            $sql = 'SELECT c.id, c.document_id, c.chunk_index, c.text, c.header_path,
-                           d.title, d.filename, d.tags, d.source_url, d.ingest_mode, d.deepseek_file_id,
+            $sql = 'SELECT ' . $this->chunkSelectList() . ',
                            MATCH(c.search_text) AGAINST (? IN NATURAL LANGUAGE MODE) AS score
                     FROM chunks c
                     INNER JOIN documents d ON d.id = c.document_id
-                    WHERE d.status = "ready"
+                    WHERE d.status = "ready"' . $this->chunkFilterSql() . '
                       AND MATCH(c.search_text) AGAINST (? IN NATURAL LANGUAGE MODE)';
             $args = [$query, $query];
             if ($documentId) {
@@ -1743,12 +1742,11 @@ class Retrieval {
         $boolean = $this->toBooleanOrQuery($query);
         if ($boolean === '') return [];
         try {
-            $sql = 'SELECT c.id, c.document_id, c.chunk_index, c.text, c.header_path,
-                           d.title, d.filename, d.tags, d.source_url, d.ingest_mode, d.deepseek_file_id,
+            $sql = 'SELECT ' . $this->chunkSelectList() . ',
                            MATCH(c.search_text) AGAINST (? IN BOOLEAN MODE) AS score
                     FROM chunks c
                     INNER JOIN documents d ON d.id = c.document_id
-                    WHERE d.status = "ready"
+                    WHERE d.status = "ready"' . $this->chunkFilterSql() . '
                       AND MATCH(c.search_text) AGAINST (? IN BOOLEAN MODE)';
             $args = [$boolean, $boolean];
             if ($documentId) {
@@ -1760,6 +1758,30 @@ class Retrieval {
         } catch (Throwable $e) {
             return [];
         }
+    }
+
+    private function chunkSelectList(): string {
+        $base = 'c.id, c.document_id, c.chunk_index, c.text, c.header_path,
+                 d.title, d.filename, d.tags, d.source_url, d.ingest_mode, d.deepseek_file_id';
+        if (class_exists('SchemaCompat') && SchemaCompat::hasDocumentColumn('domain_set')) {
+            $base .= ', d.domain_set, d.doc_version, d.as_at_or_review_date, d.status_text';
+        }
+        if (class_exists('SchemaCompat') && SchemaCompat::hasChunkColumn('flags')) {
+            $base .= ', c.flags, c.domain_set AS chunk_domain_set, c.doc_version AS chunk_doc_version, c.as_at_or_review_date AS chunk_as_at';
+        }
+        return $base;
+    }
+
+    /** Extra WHERE fragments for superseded / exclude flags. */
+    private function chunkFilterSql(): string {
+        $sql = '';
+        if (class_exists('SchemaCompat') && SchemaCompat::hasDocumentColumn('status_text')) {
+            $sql .= ' AND (d.status_text IS NULL OR (d.status_text NOT LIKE "%superseded%" AND d.status_text NOT LIKE "%withdrawn%" AND d.status_text NOT LIKE "%repealed%"))';
+        }
+        if (class_exists('SchemaCompat') && SchemaCompat::hasChunkColumn('flags')) {
+            $sql .= ' AND (c.flags IS NULL OR (JSON_SEARCH(c.flags, "one", "exclude_from_retrieval") IS NULL))';
+        }
+        return $sql;
     }
 
     /**
@@ -1778,11 +1800,10 @@ class Retrieval {
         }
         if ($terms === []) return [];
 
-        $sql = 'SELECT c.id, c.document_id, c.chunk_index, c.text, c.header_path, c.search_text,
-                       d.title, d.filename, d.tags, d.source_url, d.ingest_mode, d.deepseek_file_id
+        $sql = 'SELECT ' . $this->chunkSelectList() . ', c.search_text
                 FROM chunks c
                 INNER JOIN documents d ON d.id = c.document_id
-                WHERE d.status = "ready"';
+                WHERE d.status = "ready"' . $this->chunkFilterSql();
         $args = [];
         if ($documentId) {
             $sql .= ' AND c.document_id = ?';
@@ -1883,11 +1904,10 @@ class Retrieval {
             $n = (int)($countRow['n'] ?? 0);
             if ($n === 0 || $n > 400) return [];
 
-            $sql = 'SELECT c.id, c.document_id, c.chunk_index, c.text, c.header_path,
-                           d.title, d.filename, d.tags, d.source_url, d.ingest_mode, d.deepseek_file_id, 0.2 AS score
+            $sql = 'SELECT ' . $this->chunkSelectList() . ', 0.2 AS score
                     FROM chunks c
                     INNER JOIN documents d ON d.id = c.document_id
-                    WHERE d.status = "ready"';
+                    WHERE d.status = "ready"' . $this->chunkFilterSql();
             $args = [];
             if ($documentId) {
                 $sql .= ' AND c.document_id = ?';
@@ -1901,6 +1921,7 @@ class Retrieval {
     }
 
     private function normalizeRow(array $r): array {
+        $domain = $r['chunk_domain_set'] ?? $r['domain_set'] ?? null;
         return [
             'id'               => (int)$r['id'],
             'document_id'      => (int)$r['document_id'],
@@ -1913,6 +1934,10 @@ class Retrieval {
             'source_url'       => !empty($r['source_url']) ? (string)$r['source_url'] : null,
             'ingest_mode'      => (string)($r['ingest_mode'] ?? 'local'),
             'deepseek_file_id' => !empty($r['deepseek_file_id']) ? (string)$r['deepseek_file_id'] : null,
+            'domain_set'       => $domain !== null && $domain !== '' ? (string)$domain : null,
+            'doc_version'      => $r['chunk_doc_version'] ?? $r['doc_version'] ?? null,
+            'as_at_or_review_date' => $r['chunk_as_at'] ?? $r['as_at_or_review_date'] ?? null,
+            'status_text'      => $r['status_text'] ?? null,
             'doc_kind'         => self::documentKind(
                 isset($r['title']) ? (string)$r['title'] : null,
                 isset($r['filename']) ? (string)$r['filename'] : null,
@@ -2013,7 +2038,9 @@ class Retrieval {
             $label = trim((string)($h['title'] ?: $h['filename'] ?: 'Document'));
             $path = trim((string)($h['header_path'] ?? ''));
             $tags = trim((string)($h['tags'] ?? ''));
+            $version = trim((string)($h['doc_version'] ?? $h['as_at_or_review_date'] ?? ''));
             $cite = $path !== '' ? "{$label} — {$path}" : $label;
+            if ($version !== '') $cite .= " (as at/version {$version})";
             if ($tags !== '') $cite .= " [tags: {$tags}]";
             $docId = (int)$h['document_id'];
             $sourceUrl = !empty($h['source_url']) ? (string)$h['source_url'] : null;
@@ -2027,6 +2054,8 @@ class Retrieval {
                 'tags'         => $tags !== '' ? $tags : null,
                 'source_url'   => $sourceUrl,
                 'header_path'  => $path !== '' ? $path : null,
+                'doc_version'  => $h['doc_version'] ?? null,
+                'as_at'        => $h['as_at_or_review_date'] ?? null,
                 'score'        => (float)$h['score'],
                 'chunk_count'  => $docChunkCount,
             ];
@@ -2054,32 +2083,55 @@ class Retrieval {
             }
             $n++;
         }
-        if ($allowWeb) {
-            $rules = "DOCUMENT EXCERPTS (part of combined Docs + live web grounding):\n"
-                . "Grounding rules (mandatory):\n"
-                . "- Combine these excerpts with any LIVE ALLOWLISTED WEB / URL blocks in this system prompt into one answer. "
-                . "Do not discard relevant web content.\n"
-                . "- For WA workers compensation law, prefer Act/Regulations excerpts when present; "
-                . "use web pages to enrich with current guidance, process steps, and anything the excerpts omit.\n"
-                . "- Do not invent beyond excerpts, attached DeepSeek files, and allowlisted web/URL text.\n"
-                . "- If neither excerpts nor allowlisted web/URL text cover the question, say so clearly.\n"
-                . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
-                . "Name section/regulation numbers when the excerpts support them.\n\n";
-        } else {
-            $rules = "DOCUMENT EXCERPTS (authoritative for this answer):\n"
-                . "Grounding rules (mandatory):\n"
-                . "- Answer ONLY from these excerpts and any attached DeepSeek-parsed files. "
-                . "Do not use outside legal knowledge, guesses, or general Australian/WA law that is not in the excerpts.\n"
-                . "- If the excerpts only partly cover the question, answer the covered part and clearly say what is missing.\n"
-                . "- If nothing relevant is in the excerpts or attached files, say you cannot find it in the uploaded documents. "
-                . "Do not invent sections, time limits, dollar amounts, or duties.\n"
-                . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
-                . "Hierarchy: the Act and Regulations are the legal source; fact sheets and guides are practical guidance only — "
-                . "if both appear, state the legal rule from Act/Regs first and you may note the guide as how WorkCover explains it.\n"
-                . "If both Act and Regulations excerpts are present and both apply, cover both. "
-                . "Name section, regulation, part, or division numbers in plain words when the excerpts support them. "
-                . "Prefer quoting or closely paraphrasing the relevant rule/text. "
-                . "Review all excerpts for related sections, definitions, exceptions, procedures, or Act↔Regulations cross-references.\n\n";
+        $legislationHits = 0;
+        foreach ($hits as $h) {
+            if (($h['domain_set'] ?? '') === 'legislation') {
+                $legislationHits++;
+            }
+        }
+        $useL7 = $legislationHits > 0 && $legislationHits >= (int)ceil(count($hits) / 2);
+
+        if ($useL7) {
+            $l7 = class_exists('PromptLibrary') ? PromptLibrary::answerPrompt('legislation') : '';
+            if ($l7 !== '') {
+                $rules = "DOCUMENT EXCERPTS (legislation / compliance grounding):\n" . $l7 . "\n\n";
+                if ($allowWeb) {
+                    $rules .= "Additional: You may also use LIVE ALLOWLISTED WEB / URL blocks elsewhere in this system prompt for process detail, "
+                        . "but never invent law from general knowledge. Prefer Act/Regs excerpts for legal duties.\n\n";
+                }
+            } else {
+                $useL7 = false;
+            }
+        }
+
+        if (!$useL7) {
+            if ($allowWeb) {
+                $rules = "DOCUMENT EXCERPTS (part of combined Docs + live web grounding):\n"
+                    . "Grounding rules (mandatory):\n"
+                    . "- Combine these excerpts with any LIVE ALLOWLISTED WEB / URL blocks in this system prompt into one answer. "
+                    . "Do not discard relevant web content.\n"
+                    . "- For WA workers compensation law, prefer Act/Regulations excerpts when present; "
+                    . "use web pages to enrich with current guidance, process steps, and anything the excerpts omit.\n"
+                    . "- Do not invent beyond excerpts, attached DeepSeek files, and allowlisted web/URL text.\n"
+                    . "- If neither excerpts nor allowlisted web/URL text cover the question, say so clearly.\n"
+                    . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
+                    . "Name section/regulation numbers when the excerpts support them.\n\n";
+            } else {
+                $rules = "DOCUMENT EXCERPTS (authoritative for this answer):\n"
+                    . "Grounding rules (mandatory):\n"
+                    . "- Answer ONLY from these excerpts and any attached DeepSeek-parsed files. "
+                    . "Do not use outside legal knowledge, guesses, or general Australian/WA law that is not in the excerpts.\n"
+                    . "- If the excerpts only partly cover the question, answer the covered part and clearly say what is missing.\n"
+                    . "- If nothing relevant is in the excerpts or attached files, say you cannot find it in the uploaded documents. "
+                    . "Do not invent sections, time limits, dollar amounts, or duties.\n"
+                    . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
+                    . "Hierarchy: the Act and Regulations are the legal source; fact sheets and guides are practical guidance only — "
+                    . "if both appear, state the legal rule from Act/Regs first and you may note the guide as how WorkCover explains it.\n"
+                    . "If both Act and Regulations excerpts are present and both apply, cover both. "
+                    . "Name section, regulation, part, or division numbers in plain words when the excerpts support them. "
+                    . "Prefer quoting or closely paraphrasing the relevant rule/text. "
+                    . "Review all excerpts for related sections, definitions, exceptions, procedures, or Act↔Regulations cross-references.\n\n";
+            }
         }
         $context = $rules . implode("\n\n---\n\n", $blocks);
         return ['context' => $context, 'citations' => $citations, 'sources' => $sources];

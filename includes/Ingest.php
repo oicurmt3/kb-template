@@ -6,24 +6,49 @@ class Ingest {
     private Chunker $chunker;
     private string $uploadDir;
     private string $markdownDir;
+    private string $pipelineDir;
 
     public function __construct(array $config) {
         $this->config = $config;
         $rag = $config['rag'] ?? [];
-        $this->chunker = new Chunker(
-            (int)($rag['chunk_max_chars'] ?? 3200),
-            (int)($rag['chunk_overlap'] ?? 200)
-        );
+        $this->chunker = $this->makeChunker('general');
         $root = dirname(__DIR__) . '/storage';
         $this->uploadDir = $root . '/uploads';
         $this->markdownDir = $root . '/markdown';
-        foreach ([$this->uploadDir, $this->markdownDir] as $d) {
+        $this->pipelineDir = $root . '/pipeline';
+        foreach ([$this->uploadDir, $this->markdownDir, $this->pipelineDir] as $d) {
             if (!is_dir($d)) {
                 if (!@mkdir($d, 0750, true) && !is_dir($d)) {
                     throw new RuntimeException('Cannot create storage directory');
                 }
             }
         }
+    }
+
+    private function makeChunker(string $domain): Chunker {
+        $rag = $this->config['rag'] ?? [];
+        return new Chunker(
+            (int)($rag['chunk_max_chars'] ?? 3200),
+            (int)($rag['chunk_overlap'] ?? 200),
+            8000,
+            (int)($rag['chunk_target_tokens'] ?? 800),
+            (int)($rag['chunk_max_tokens'] ?? 2000),
+            $domain
+        );
+    }
+
+    /** @param array<string,mixed> $doc */
+    private function docMetaFromRow(array $doc): array {
+        return [
+            'title' => (string)($doc['title'] ?? ''),
+            'issuer' => $doc['issuer'] ?? null,
+            'jurisdiction' => $doc['jurisdiction'] ?? null,
+            'doc_version' => $doc['doc_version'] ?? null,
+            'as_at_or_review_date' => $doc['as_at_or_review_date'] ?? null,
+            'status_text' => $doc['status_text'] ?? null,
+            'domain_set' => (string)($doc['domain_set'] ?? 'general'),
+            'instrument' => (string)($doc['title'] ?? ''),
+        ];
     }
 
     /**
@@ -271,19 +296,31 @@ class Ingest {
             throw new RuntimeException('Could not write markdown');
         }
 
-        $chunks = $this->chunker->chunkMarkdown($markdown, $docTitle);
-        if ($chunks === []) {
-            throw new RuntimeException('No content to chunk');
+        $relMd = 'storage/markdown/' . $mdName;
+        $this->setPipeline($docId, 'ocr_done', null, null);
+        DB::run(
+            'UPDATE documents SET markdown_path = ?, status = "processing", error_message = NULL, ingest_mode = "local",
+             deepseek_file_id = NULL, parse_purpose = NULL, updated_at = NOW() WHERE id = ?',
+            [$relMd, $docId]
+        );
+
+        $structureOn = !empty($this->config['rag']['structure_parse']);
+        $force = !empty($this->config['rag']['structure_parse_force']);
+        if ($structureOn && ($force || !StructureParse::hasRealHeadings($markdown))) {
+            $pages = [['index' => 1, 'text' => $markdown]];
+            $this->savePipelinePages($docId, $pages);
+            $this->runIntakeAndStartParse($docId, pathinfo($mdName, PATHINFO_FILENAME) ?: 'document');
+            $cont = $this->continuePipeline($docId);
+            if (!empty($cont['need_continue'])) {
+                return;
+            }
+            if (($cont['pipeline_stage'] ?? '') === 'parsed') {
+                $this->rechunkFromMarkdown($docId);
+                return;
+            }
         }
 
-        DB::run('DELETE FROM chunks WHERE document_id = ?', [$docId]);
-        $this->insertChunks($docId, $chunks);
-
-        DB::run(
-            'UPDATE documents SET markdown_path = ?, status = "ready", error_message = NULL, ingest_mode = "local",
-             deepseek_file_id = NULL, parse_purpose = NULL, updated_at = NOW() WHERE id = ?',
-            ['storage/markdown/' . $mdName, $docId]
-        );
+        $this->chunkAndReady($docId, $markdown);
     }
 
     private function finishOcrIngest(
@@ -312,19 +349,42 @@ class Ingest {
             throw new RuntimeException('Could not write OCR markdown');
         }
 
-        $chunks = $this->chunker->chunkMarkdown($markdown, $docTitle);
-        if ($chunks === []) {
-            throw new RuntimeException('OCR produced no chunkable content');
+        $relMd = 'storage/markdown/' . $mdName;
+        DB::run(
+            'UPDATE documents SET markdown_path = ?, status = "processing", error_message = NULL, ingest_mode = "ocr",
+             deepseek_file_id = NULL, parse_purpose = ?, updated_at = NOW() WHERE id = ?',
+            [$relMd, $purpose, $docId]
+        );
+        $this->setPipeline($docId, 'ocr_done', null, null);
+
+        $pages = [];
+        foreach ($ocr['pages'] as $p) {
+            $pages[] = [
+                'index' => (int)($p['index'] ?? count($pages) + 1),
+                'text' => (string)($p['text'] ?? ''),
+            ];
+        }
+        if ($pages === []) {
+            $pages[] = ['index' => 1, 'text' => $ocr['markdown']];
+        }
+        $this->savePipelinePages($docId, $pages);
+
+        $structureOn = !array_key_exists('structure_parse', $this->config['rag'] ?? [])
+            || !empty($this->config['rag']['structure_parse']);
+        if ($structureOn) {
+            $this->runIntakeAndStartParse($docId, $origName);
+            $cont = $this->continuePipeline($docId);
+            if (!empty($cont['need_continue'])) {
+                return;
+            }
+            if (($cont['pipeline_stage'] ?? '') === 'parsed') {
+                // New uploads: auto-chunk after parse completes in this request
+                $this->rechunkFromMarkdown($docId);
+                return;
+            }
         }
 
-        DB::run('DELETE FROM chunks WHERE document_id = ?', [$docId]);
-        $this->insertChunks($docId, $chunks);
-
-        DB::run(
-            'UPDATE documents SET markdown_path = ?, status = "ready", error_message = NULL, ingest_mode = "ocr",
-             deepseek_file_id = NULL, parse_purpose = ?, updated_at = NOW() WHERE id = ?',
-            ['storage/markdown/' . $mdName, $purpose, $docId]
-        );
+        $this->chunkAndReady($docId, $markdown);
     }
 
     private function finishDeepseekIngest(
@@ -475,86 +535,24 @@ class Ingest {
             : 'text_recognition';
     }
 
-    public function rechunkDocument(int $docId): array {
+    /**
+     * Re-chunk from existing markdown only (no OCR). Use after reparse completes.
+     */
+    public function rechunkFromMarkdown(int $docId): array {
         $doc = DB::one('SELECT * FROM documents WHERE id = ?', [$docId]);
         if (!$doc) throw new RuntimeException('Document not found');
-
         $root = dirname(__DIR__);
-        $origAbs = $root . '/' . ltrim((string)($doc['original_path'] ?? ''), '/');
-        $mode = (string)($doc['ingest_mode'] ?? 'local');
-        if ($mode === '' && !empty($doc['deepseek_file_id'])) {
-            $mode = 'deepseek';
+        $mdAbs = $root . '/' . ltrim((string)($doc['markdown_path'] ?? ''), '/');
+        if (empty($doc['markdown_path']) || !is_file($mdAbs)) {
+            throw new RuntimeException('No markdown to chunk — run Re-parse first');
         }
-
-        DB::run('UPDATE documents SET status = "processing", error_message = NULL WHERE id = ?', [$docId]);
+        $markdown = file_get_contents($mdAbs);
+        if ($markdown === false || trim($markdown) === '') {
+            throw new RuntimeException('Markdown empty');
+        }
+        DB::run('UPDATE documents SET status = "processing", error_message = NULL, updated_at = NOW() WHERE id = ?', [$docId]);
         try {
-            if ($mode === 'deepseek') {
-                if (!is_file($origAbs)) {
-                    throw new RuntimeException('Source file missing for re-parse');
-                }
-                $oldFileId = (string)($doc['deepseek_file_id'] ?? '');
-                $ext = strtolower(pathinfo((string)$doc['filename'], PATHINFO_EXTENSION));
-                $purpose = $this->resolveParsePurpose($ext, (string)($doc['parse_purpose'] ?? ''), 'deepseek');
-                $mime = (string)($doc['mime'] ?? 'application/octet-stream');
-
-                $client = new DeepSeekClient($this->config['deepseek'] ?? []);
-                if ($oldFileId !== '') {
-                    $client->deleteFile($oldFileId);
-                }
-                $this->finishDeepseekIngest(
-                    $docId,
-                    $origAbs,
-                    (string)$doc['filename'],
-                    $mime,
-                    $purpose,
-                    (string)($doc['title'] ?? ''),
-                    isset($doc['department']) ? (string)$doc['department'] : null,
-                    isset($doc['tags']) ? (string)$doc['tags'] : null
-                );
-            } elseif ($mode === 'ocr') {
-                if (!is_file($origAbs)) {
-                    throw new RuntimeException('Source file missing for re-OCR');
-                }
-                $ext = strtolower(pathinfo((string)$doc['filename'], PATHINFO_EXTENSION));
-                $purpose = $this->resolveParsePurpose($ext, (string)($doc['parse_purpose'] ?? ''), 'ocr');
-                $mime = (string)($doc['mime'] ?? 'application/octet-stream');
-                $safeBase = preg_replace('/[^a-zA-Z0-9._-]+/', '_', pathinfo((string)$doc['filename'], PATHINFO_FILENAME)) ?: 'doc';
-                $safeBase = substr((string)$safeBase, 0, 80);
-                $uid = bin2hex(random_bytes(6));
-                // Remove previous OCR markdown if present
-                $oldMd = $root . '/' . ltrim((string)($doc['markdown_path'] ?? ''), '/');
-                if (!empty($doc['markdown_path']) && is_file($oldMd)) {
-                    @unlink($oldMd);
-                }
-                $this->finishOcrIngest(
-                    $docId,
-                    $origAbs,
-                    (string)$doc['filename'],
-                    $mime,
-                    $purpose,
-                    (string)($doc['title'] ?? ''),
-                    $safeBase,
-                    $uid
-                );
-            } else {
-                $mdAbs = $root . '/' . ltrim((string)($doc['markdown_path'] ?? ''), '/');
-                $markdown = null;
-                if (!empty($doc['original_path']) && is_file($origAbs)) {
-                    $raw = file_get_contents($origAbs);
-                    if ($raw === false) throw new RuntimeException('Could not read source');
-                    $ext = strtolower(pathinfo((string)$doc['filename'], PATHINFO_EXTENSION));
-                    $markdown = $this->toMarkdown($raw, $ext, (string)($doc['title'] ?? ''));
-                } elseif (!empty($doc['markdown_path']) && is_file($mdAbs)) {
-                    $markdown = file_get_contents($mdAbs);
-                    if ($markdown === false) throw new RuntimeException('Could not read markdown');
-                } else {
-                    throw new RuntimeException('Source file missing');
-                }
-                $chunks = $this->chunker->chunkMarkdown($markdown, (string)($doc['title'] ?? ''));
-                DB::run('DELETE FROM chunks WHERE document_id = ?', [$docId]);
-                $this->insertChunks($docId, $chunks);
-                DB::run('UPDATE documents SET status = "ready", updated_at = NOW() WHERE id = ?', [$docId]);
-            }
+            $this->chunkAndReady($docId, $markdown);
         } catch (Throwable $e) {
             DB::run(
                 'UPDATE documents SET status = "failed", error_message = ?, updated_at = NOW() WHERE id = ?',
@@ -562,9 +560,496 @@ class Ingest {
             );
             throw $e;
         }
-
         $count = DB::one('SELECT COUNT(*) AS n FROM chunks WHERE document_id = ?', [$docId]);
-        return ['id' => $docId, 'chunk_count' => (int)($count['n'] ?? 0), 'ingest_mode' => $mode];
+        return [
+            'id' => $docId,
+            'chunk_count' => (int)($count['n'] ?? 0),
+            'ingest_mode' => (string)($doc['ingest_mode'] ?? 'local'),
+            'pipeline_stage' => 'ready',
+        ];
+    }
+
+    /**
+     * Full re-OCR/reload + structure parse. Does NOT chunk — call continue until parsed, then rechunkFromMarkdown.
+     * @return array{id:int,need_continue:bool,pipeline_stage:?string,message:string}
+     */
+    public function reparseDocument(int $docId): array {
+        $doc = DB::one('SELECT * FROM documents WHERE id = ?', [$docId]);
+        if (!$doc) throw new RuntimeException('Document not found');
+        $root = dirname(__DIR__);
+        $origAbs = $root . '/' . ltrim((string)($doc['original_path'] ?? ''), '/');
+        $mode = (string)($doc['ingest_mode'] ?? 'local');
+        if ($mode === '' && !empty($doc['deepseek_file_id'])) {
+            $mode = 'deepseek';
+        }
+
+        DB::run('UPDATE documents SET status = "processing", error_message = NULL, updated_at = NOW() WHERE id = ?', [$docId]);
+        try {
+            if ($mode === 'deepseek' || $mode === 'ocr') {
+                // Prefer OCR path for searchable corpus (stubs are weak for FULLTEXT)
+                if (!is_file($origAbs)) {
+                    throw new RuntimeException('Source file missing for re-parse');
+                }
+                $ext = strtolower(pathinfo((string)$doc['filename'], PATHINFO_EXTENSION));
+                $ocrExt = $this->ocrExt();
+                if (!in_array($ext, $ocrExt, true) && $mode === 'deepseek') {
+                    // Keep files-parse stub refresh
+                    $purpose = $this->resolveParsePurpose($ext, (string)($doc['parse_purpose'] ?? ''), 'deepseek');
+                    $mime = (string)($doc['mime'] ?? 'application/octet-stream');
+                    $client = new DeepSeekClient($this->config['deepseek'] ?? []);
+                    $oldFileId = (string)($doc['deepseek_file_id'] ?? '');
+                    if ($oldFileId !== '') $client->deleteFile($oldFileId);
+                    $this->finishDeepseekIngest(
+                        $docId,
+                        $origAbs,
+                        (string)$doc['filename'],
+                        $mime,
+                        $purpose,
+                        (string)($doc['title'] ?? ''),
+                        isset($doc['department']) ? (string)$doc['department'] : null,
+                        isset($doc['tags']) ? (string)$doc['tags'] : null
+                    );
+                    return [
+                        'id' => $docId,
+                        'need_continue' => false,
+                        'pipeline_stage' => 'ready',
+                        'message' => 'DeepSeek Files stub refreshed (not OCR-searchable)',
+                    ];
+                }
+                $purpose = $this->resolveParsePurpose($ext, (string)($doc['parse_purpose'] ?? ''), 'ocr');
+                $mime = (string)($doc['mime'] ?? 'application/octet-stream');
+                $client = new DeepSeekClient($this->config['deepseek'] ?? []);
+                $ocr = $client->ocrFile($origAbs, (string)$doc['filename'], $purpose, $mime);
+                if (!$ocr['ok'] || $ocr['markdown'] === '') {
+                    throw new RuntimeException('DeepSeek OCR failed: ' . ($ocr['error'] ?? 'unknown'));
+                }
+                $safeBase = preg_replace('/[^a-zA-Z0-9._-]+/', '_', pathinfo((string)$doc['filename'], PATHINFO_FILENAME)) ?: 'doc';
+                $safeBase = substr((string)$safeBase, 0, 80);
+                $uid = bin2hex(random_bytes(6));
+                $oldMd = $root . '/' . ltrim((string)($doc['markdown_path'] ?? ''), '/');
+                if (!empty($doc['markdown_path']) && is_file($oldMd)) {
+                    @unlink($oldMd);
+                }
+                $docTitle = (string)($doc['title'] ?? '');
+                $markdown = ($docTitle !== '' ? "# {$docTitle}\n\n" : '') . $ocr['markdown'];
+                $mdName = $safeBase . '_' . $uid . '.md';
+                if (file_put_contents($this->markdownDir . '/' . $mdName, $markdown) === false) {
+                    throw new RuntimeException('Could not write OCR markdown');
+                }
+                DB::run(
+                    'UPDATE documents SET markdown_path = ?, ingest_mode = "ocr", deepseek_file_id = NULL,
+                     parse_purpose = ?, updated_at = NOW() WHERE id = ?',
+                    ['storage/markdown/' . $mdName, $purpose, $docId]
+                );
+                $pages = [];
+                foreach ($ocr['pages'] as $p) {
+                    $pages[] = [
+                        'index' => (int)($p['index'] ?? count($pages) + 1),
+                        'text' => (string)($p['text'] ?? ''),
+                    ];
+                }
+                if ($pages === []) {
+                    $pages[] = ['index' => 1, 'text' => $ocr['markdown']];
+                }
+                $this->savePipelinePages($docId, $pages);
+                $this->setPipeline($docId, 'ocr_done', null, null);
+                $this->runIntakeAndStartParse($docId, (string)$doc['filename']);
+            } else {
+                // Local: rebuild pages from markdown/original
+                $mdAbs = $root . '/' . ltrim((string)($doc['markdown_path'] ?? ''), '/');
+                $markdown = '';
+                if (!empty($doc['original_path']) && is_file($origAbs)) {
+                    $raw = file_get_contents($origAbs);
+                    if ($raw === false) throw new RuntimeException('Could not read source');
+                    $ext = strtolower(pathinfo((string)$doc['filename'], PATHINFO_EXTENSION));
+                    $markdown = $this->toMarkdown($raw, $ext, (string)($doc['title'] ?? ''));
+                    if (!empty($doc['markdown_path']) && is_file($mdAbs)) {
+                        file_put_contents($mdAbs, $markdown);
+                    }
+                } elseif (is_file($mdAbs)) {
+                    $markdown = (string)file_get_contents($mdAbs);
+                } else {
+                    throw new RuntimeException('Source file missing');
+                }
+                $this->savePipelinePages($docId, [['index' => 1, 'text' => $markdown]]);
+                $this->setPipeline($docId, 'ocr_done', null, null);
+                $this->runIntakeAndStartParse($docId, (string)$doc['filename']);
+            }
+        } catch (Throwable $e) {
+            $this->setPipeline($docId, 'failed', null, $e->getMessage());
+            DB::run(
+                'UPDATE documents SET status = "failed", error_message = ?, updated_at = NOW() WHERE id = ?',
+                [$e->getMessage(), $docId]
+            );
+            throw $e;
+        }
+
+        // One continue step; leave at parsed without chunking
+        $cont = $this->continuePipeline($docId, false);
+        return [
+            'id' => $docId,
+            'need_continue' => !empty($cont['need_continue']),
+            'pipeline_stage' => $cont['pipeline_stage'] ?? null,
+            'message' => !empty($cont['need_continue'])
+                ? 'Re-parse in progress — click Continue'
+                : 'Parse complete — click Re-chunk',
+        ];
+    }
+
+    /**
+     * Advance one G2 batch. When parse finishes, leave stage=parsed (no chunk unless $autoChunk).
+     * @return array{id:int,need_continue:bool,pipeline_stage:?string,batch?:int,batches_total?:int}
+     */
+    public function continuePipeline(int $docId, bool $autoChunk = true): array {
+        $doc = DB::one('SELECT * FROM documents WHERE id = ?', [$docId]);
+        if (!$doc) throw new RuntimeException('Document not found');
+
+        $stage = (string)($doc['pipeline_stage'] ?? '');
+        if ($stage === 'parsed') {
+            if ($autoChunk) {
+                $this->rechunkFromMarkdown($docId);
+                return ['id' => $docId, 'need_continue' => false, 'pipeline_stage' => 'ready'];
+            }
+            return ['id' => $docId, 'need_continue' => false, 'pipeline_stage' => 'parsed'];
+        }
+        if ($stage === 'ready') {
+            return ['id' => $docId, 'need_continue' => false, 'pipeline_stage' => 'ready'];
+        }
+
+        $state = [];
+        if (!empty($doc['pipeline_state'])) {
+            $decoded = json_decode((string)$doc['pipeline_state'], true);
+            if (is_array($decoded)) $state = $decoded;
+        }
+        $pages = $this->loadPipelinePages($docId);
+        if ($pages === []) {
+            throw new RuntimeException('No pipeline pages — run Re-parse');
+        }
+
+        $batchSize = max(1, min(8, (int)($state['pages_per_batch'] ?? ($this->config['rag']['pages_per_batch'] ?? 4))));
+        $batchIndex = (int)($state['batch_index'] ?? 0);
+        $offset = $batchIndex * $batchSize;
+        if ($offset >= count($pages)) {
+            $this->finalizeParsedMarkdown($docId, $state);
+            if ($autoChunk) {
+                $this->rechunkFromMarkdown($docId);
+                return ['id' => $docId, 'need_continue' => false, 'pipeline_stage' => 'ready'];
+            }
+            return ['id' => $docId, 'need_continue' => false, 'pipeline_stage' => 'parsed'];
+        }
+
+        $batch = array_slice($pages, $offset, $batchSize);
+        $domain = (string)($doc['domain_set'] ?? 'general');
+        $docInfo = null;
+        if (!empty($doc['intake_json'])) {
+            $docInfo = json_decode((string)$doc['intake_json'], true);
+        }
+        $g2State = $state['g2_state'] ?? null;
+        $parser = new StructureParse($this->config);
+        $res = $parser->runParseBatch($batch, is_array($docInfo) ? $docInfo : null, is_array($g2State) ? $g2State : null, $domain);
+        if (!$res['ok']) {
+            $this->setPipeline($docId, 'failed', $state, $res['error'] ?? 'G2 failed');
+            DB::run(
+                'UPDATE documents SET status = "failed", error_message = ?, updated_at = NOW() WHERE id = ?',
+                [$res['error'] ?? 'G2 failed', $docId]
+            );
+            throw new RuntimeException($res['error'] ?? 'G2 failed');
+        }
+
+        $mdParts = $state['md_parts'] ?? [];
+        if (!is_array($mdParts)) $mdParts = [];
+        $mdParts[] = (string)$res['markdown'];
+        $sidecars = $state['sidecars'] ?? [];
+        if (!is_array($sidecars)) $sidecars = [];
+        if (is_array($res['sidecar'])) $sidecars[] = $res['sidecar'];
+
+        $state['md_parts'] = $mdParts;
+        $state['sidecars'] = $sidecars;
+        $state['g2_state'] = $res['state'];
+        $state['batch_index'] = $batchIndex + 1;
+        $totalBatches = (int)ceil(count($pages) / $batchSize);
+
+        if ($state['batch_index'] * $batchSize >= count($pages)) {
+            $this->finalizeParsedMarkdown($docId, $state);
+            if ($autoChunk) {
+                $this->rechunkFromMarkdown($docId);
+                return [
+                    'id' => $docId,
+                    'need_continue' => false,
+                    'pipeline_stage' => 'ready',
+                    'batch' => $state['batch_index'],
+                    'batches_total' => $totalBatches,
+                ];
+            }
+            return [
+                'id' => $docId,
+                'need_continue' => false,
+                'pipeline_stage' => 'parsed',
+                'batch' => $state['batch_index'],
+                'batches_total' => $totalBatches,
+            ];
+        }
+
+        $this->setPipeline($docId, 'parsing', $state, null);
+        DB::run('UPDATE documents SET status = "processing", updated_at = NOW() WHERE id = ?', [$docId]);
+        return [
+            'id' => $docId,
+            'need_continue' => true,
+            'pipeline_stage' => 'parsing',
+            'batch' => $state['batch_index'],
+            'batches_total' => $totalBatches,
+        ];
+    }
+
+    /** Legacy admin button: OCR modes reparse+continue; local rechunks markdown. */
+    public function rechunkDocument(int $docId): array {
+        $doc = DB::one('SELECT * FROM documents WHERE id = ?', [$docId]);
+        if (!$doc) throw new RuntimeException('Document not found');
+        $stage = (string)($doc['pipeline_stage'] ?? '');
+        if ($stage === 'parsed' || $stage === 'parsing' || $stage === 'intake_done') {
+            return $this->rechunkFromMarkdown($docId);
+        }
+        // Prefer markdown-only rechunk when MD exists
+        $root = dirname(__DIR__);
+        $mdAbs = $root . '/' . ltrim((string)($doc['markdown_path'] ?? ''), '/');
+        if (!empty($doc['markdown_path']) && is_file($mdAbs)) {
+            return $this->rechunkFromMarkdown($docId);
+        }
+        // Fall back to full OCR re-ingest (will auto-chunk)
+        $mode = (string)($doc['ingest_mode'] ?? 'local');
+        $origAbs = $root . '/' . ltrim((string)($doc['original_path'] ?? ''), '/');
+        if ($mode === 'ocr' || $mode === 'deepseek') {
+            if (!is_file($origAbs)) {
+                throw new RuntimeException('Source file missing');
+            }
+            $ext = strtolower(pathinfo((string)$doc['filename'], PATHINFO_EXTENSION));
+            $purpose = $this->resolveParsePurpose($ext, (string)($doc['parse_purpose'] ?? ''), 'ocr');
+            $mime = (string)($doc['mime'] ?? 'application/octet-stream');
+            $safeBase = preg_replace('/[^a-zA-Z0-9._-]+/', '_', pathinfo((string)$doc['filename'], PATHINFO_FILENAME)) ?: 'doc';
+            $safeBase = substr((string)$safeBase, 0, 80);
+            $uid = bin2hex(random_bytes(6));
+            $this->finishOcrIngest(
+                $docId,
+                $origAbs,
+                (string)$doc['filename'],
+                $mime,
+                $purpose,
+                (string)($doc['title'] ?? ''),
+                $safeBase,
+                $uid
+            );
+            $count = DB::one('SELECT COUNT(*) AS n FROM chunks WHERE document_id = ?', [$docId]);
+            $doc2 = DB::one('SELECT pipeline_stage, status FROM documents WHERE id = ?', [$docId]);
+            return [
+                'id' => $docId,
+                'chunk_count' => (int)($count['n'] ?? 0),
+                'ingest_mode' => 'ocr',
+                'pipeline_stage' => $doc2['pipeline_stage'] ?? null,
+                'need_continue' => ($doc2['status'] ?? '') === 'processing',
+            ];
+        }
+        return $this->rechunkFromMarkdown($docId);
+    }
+
+    /** @param array<string,mixed> $state */
+    private function finalizeParsedMarkdown(int $docId, array $state): void {
+        $parts = $state['md_parts'] ?? [];
+        if (!is_array($parts)) $parts = [];
+        $markdown = trim(implode("\n\n", $parts));
+        $sidecar = StructureParse::mergeSidecars(is_array($state['sidecars'] ?? null) ? $state['sidecars'] : []);
+        $doc = DB::one('SELECT markdown_path, title FROM documents WHERE id = ?', [$docId]);
+        $root = dirname(__DIR__);
+        $mdAbs = $root . '/' . ltrim((string)($doc['markdown_path'] ?? ''), '/');
+        if ($doc && !empty($doc['markdown_path']) && is_dir(dirname($mdAbs))) {
+            file_put_contents($mdAbs, $markdown);
+        } else {
+            $uid = bin2hex(random_bytes(4));
+            $mdName = 'parsed_' . $docId . '_' . $uid . '.md';
+            file_put_contents($this->markdownDir . '/' . $mdName, $markdown);
+            DB::run('UPDATE documents SET markdown_path = ? WHERE id = ?', ['storage/markdown/' . $mdName, $docId]);
+        }
+        $state['md_parts'] = [];
+        $state['sidecars'] = [];
+        $this->setPipeline($docId, 'parsed', $state, null);
+        if (SchemaCompat::hasDocumentColumn('sidecar_json')) {
+            DB::run(
+                'UPDATE documents SET sidecar_json = ?, status = "processing", updated_at = NOW() WHERE id = ?',
+                [json_encode($sidecar, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $docId]
+            );
+        } else {
+            DB::run('UPDATE documents SET status = "processing", updated_at = NOW() WHERE id = ?', [$docId]);
+        }
+    }
+
+    private function runIntakeAndStartParse(int $docId, string $fileName): void {
+        $pages = $this->loadPipelinePages($docId);
+        $parser = new StructureParse($this->config);
+        $intakeRes = $parser->runIntake($fileName, $pages);
+        $cols = [];
+        if ($intakeRes['ok'] && is_array($intakeRes['intake'])) {
+            $cols = StructureParse::intakeToColumns($intakeRes['intake']);
+            if (!empty($cols['doc_title']) && SchemaCompat::hasDocumentColumn('domain_set')) {
+                $existing = DB::one('SELECT title FROM documents WHERE id = ?', [$docId]);
+                if ($existing && (trim((string)$existing['title']) === '' || strcasecmp((string)$existing['title'], 'Untitled') === 0)) {
+                    DB::run('UPDATE documents SET title = ? WHERE id = ?', [$cols['doc_title'], $docId]);
+                }
+            }
+        } else {
+            $cols = [
+                'domain_set' => 'general',
+                'suggested_pages_per_batch' => (int)($this->config['rag']['pages_per_batch'] ?? 4),
+            ];
+            // Heuristic: Act/Regulations in title/filename
+            $doc = DB::one('SELECT title, filename, tags FROM documents WHERE id = ?', [$docId]);
+            $hay = mb_strtolower((string)($doc['title'] ?? '') . ' ' . (string)($doc['filename'] ?? '') . ' ' . (string)($doc['tags'] ?? ''));
+            if (preg_match('/\b(act|regulation|regs|workers\s*compensation|code of practice|legislation)\b/i', $hay)) {
+                $cols['domain_set'] = 'legislation';
+            }
+        }
+
+        if (SchemaCompat::hasDocumentColumn('domain_set')) {
+            DB::run(
+                'UPDATE documents SET domain_set = ?, issuer = ?, jurisdiction = ?, doc_version = ?,
+                 publication_date = ?, as_at_or_review_date = ?, status_text = ?, layout_json = ?, intake_json = ?,
+                 updated_at = NOW() WHERE id = ?',
+                [
+                    $cols['domain_set'] ?? 'general',
+                    $cols['issuer'] ?? null,
+                    $cols['jurisdiction'] ?? null,
+                    $cols['doc_version'] ?? null,
+                    $cols['publication_date'] ?? null,
+                    $cols['as_at_or_review_date'] ?? null,
+                    $cols['status_text'] ?? null,
+                    $cols['layout_json'] ?? null,
+                    $cols['intake_json'] ?? null,
+                    $docId,
+                ]
+            );
+        }
+
+        $state = [
+            'batch_index' => 0,
+            'pages_per_batch' => (int)($cols['suggested_pages_per_batch'] ?? 4),
+            'md_parts' => [],
+            'sidecars' => [],
+            'g2_state' => null,
+        ];
+        $this->setPipeline($docId, 'intake_done', $state, $intakeRes['ok'] ? null : ($intakeRes['error'] ?? null));
+        // Move to parsing so continuePipeline runs G2
+        $this->setPipeline($docId, 'parsing', $state, null);
+    }
+
+    private function chunkAndReady(int $docId, string $markdown): void {
+        $doc = DB::one('SELECT * FROM documents WHERE id = ?', [$docId]);
+        if (!$doc) throw new RuntimeException('Document missing');
+        $meta = $this->docMetaFromRow($doc);
+        $domain = (string)($meta['domain_set'] ?? 'general');
+        $chunker = $this->makeChunker($domain);
+
+        $useModel = !empty($this->config['rag']['model_chunker']);
+        $chunks = [];
+        if ($useModel && !preg_match('/<!--\s*RAG:CHUNK\b/i', $markdown)) {
+            $chunks = $this->tryModelChunk($markdown, $doc, $meta, $chunker);
+        }
+        if ($chunks === []) {
+            $chunks = $chunker->chunkMarkdown($markdown, (string)($doc['title'] ?? ''), $meta);
+        }
+        if ($chunks === []) {
+            throw new RuntimeException('No content to chunk');
+        }
+
+        // Drop exclude_from_retrieval from default search set but still store
+        DB::run('DELETE FROM chunks WHERE document_id = ?', [$docId]);
+        $this->insertChunks($docId, $chunks, $doc);
+        $this->setPipeline($docId, 'ready', null, null);
+        if (SchemaCompat::hasDocumentColumn('pipeline_error')) {
+            DB::run(
+                'UPDATE documents SET status = "ready", error_message = NULL, pipeline_error = NULL, updated_at = NOW() WHERE id = ?',
+                [$docId]
+            );
+        } else {
+            DB::run(
+                'UPDATE documents SET status = "ready", error_message = NULL, updated_at = NOW() WHERE id = ?',
+                [$docId]
+            );
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $doc
+     * @param array<string,mixed> $meta
+     * @return list<array>
+     */
+    private function tryModelChunk(string $markdown, array $doc, array $meta, Chunker $chunker): array {
+        $prompt = PromptLibrary::withDomain('G4_chunk', (string)($meta['domain_set'] ?? 'general'));
+        if ($prompt === '') return [];
+        $numbered = Chunker::numberLines($markdown);
+        $sidecar = null;
+        if (!empty($doc['sidecar_json'])) {
+            $sidecar = json_decode((string)$doc['sidecar_json'], true);
+        }
+        $limits = [
+            'target_tokens' => (int)($this->config['rag']['chunk_target_tokens'] ?? 1000),
+            'max_tokens' => (int)($this->config['rag']['chunk_max_tokens'] ?? 2000),
+        ];
+        $user = "DOC_INFO:\n" . json_encode($meta, JSON_UNESCAPED_UNICODE)
+            . "\n\nSIDECAR:\n" . json_encode($sidecar ?? new stdClass(), JSON_UNESCAPED_UNICODE)
+            . "\n\nLIMITS:\n" . json_encode($limits)
+            . "\n\nNUMBERED_MARKDOWN:\n" . $numbered;
+        $client = new DeepSeekClient($this->config['deepseek'] ?? []);
+        $res = $client->chatComplete(
+            [
+                ['role' => 'system', 'content' => $prompt],
+                ['role' => 'user', 'content' => mb_substr($user, 0, 100000)],
+            ],
+            ['max_tokens' => 4096, 'temperature' => 0]
+        );
+        if (empty($res['ok'])) return [];
+        $ranges = [];
+        foreach (preg_split("/\r\n|\n|\r/", (string)$res['content']) as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '{"excluded"')) continue;
+            $obj = json_decode($line, true);
+            if (is_array($obj) && isset($obj['start_line'], $obj['end_line'])) {
+                $ranges[] = $obj;
+            }
+        }
+        if ($ranges === []) return [];
+        return $chunker->applyLineRanges($numbered, $ranges, (string)($doc['title'] ?? ''), $meta);
+    }
+
+    /** @param array<string,mixed>|null $state */
+    private function setPipeline(int $docId, string $stage, ?array $state, ?string $error): void {
+        if (!SchemaCompat::hasDocumentColumn('pipeline_stage')) {
+            return;
+        }
+        DB::run(
+            'UPDATE documents SET pipeline_stage = ?, pipeline_state = ?, pipeline_error = ?, updated_at = NOW() WHERE id = ?',
+            [
+                $stage,
+                $state !== null ? json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
+                $error,
+                $docId,
+            ]
+        );
+    }
+
+    /** @param list<array{index:int,text:string}> $pages */
+    private function savePipelinePages(int $docId, array $pages): void {
+        $path = $this->pipelineDir . '/doc_' . $docId . '_pages.json';
+        file_put_contents($path, json_encode(['pages' => $pages], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    /** @return list<array{index:int,text:string}> */
+    private function loadPipelinePages(int $docId): array {
+        $path = $this->pipelineDir . '/doc_' . $docId . '_pages.json';
+        if (!is_file($path)) return [];
+        $raw = file_get_contents($path);
+        $data = json_decode((string)$raw, true);
+        if (!is_array($data) || empty($data['pages']) || !is_array($data['pages'])) {
+            return [];
+        }
+        return $data['pages'];
     }
 
     public function deleteDocument(int $docId): void {
@@ -587,22 +1072,70 @@ class Ingest {
                 if (is_file($abs)) @unlink($abs);
             }
         }
+        $pipe = $this->pipelineDir . '/doc_' . $docId . '_pages.json';
+        if (is_file($pipe)) @unlink($pipe);
         DB::run('DELETE FROM documents WHERE id = ?', [$docId]);
     }
 
-    /** @param list<array> $chunks */
-    private function insertChunks(int $docId, array $chunks): void {
+    /**
+     * @param list<array> $chunks
+     * @param array<string,mixed>|null $doc
+     */
+    private function insertChunks(int $docId, array $chunks, ?array $doc = null): void {
+        if ($doc === null) {
+            $doc = DB::one('SELECT * FROM documents WHERE id = ?', [$docId]) ?: [];
+        }
+        $rich = SchemaCompat::hasChunkColumn('domain_set');
         foreach ($chunks as $c) {
+            $flags = $c['flags'] ?? [];
+            if (!is_array($flags)) $flags = [];
+            if (in_array('exclude_from_retrieval', $flags, true)) {
+                // still insert; retrieval filters
+            }
             $meta = $c['metadata'] ?? null;
+            if (!$rich) {
+                DB::run(
+                    'INSERT INTO chunks (document_id, chunk_index, chunk_key, text, header_path, token_count, metadata, search_text)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        $docId,
+                        $c['chunk_index'],
+                        $c['chunk_key'],
+                        $c['text'],
+                        $c['header_path'],
+                        $c['token_count'],
+                        $meta ? json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
+                        $c['search_text'],
+                    ]
+                );
+                continue;
+            }
             DB::run(
-                'INSERT INTO chunks (document_id, chunk_index, chunk_key, text, header_path, token_count, metadata, search_text)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO chunks (
+                    document_id, chunk_index, chunk_key, text, header_path, content_type, start_line, end_line,
+                    flags, extra, plain_summary, sample_questions, keywords, self_contained,
+                    doc_version, as_at_or_review_date, doc_status_text, domain_set,
+                    token_count, metadata, search_text
+                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 [
                     $docId,
                     $c['chunk_index'],
                     $c['chunk_key'],
                     $c['text'],
                     $c['header_path'],
+                    $c['content_type'] ?? null,
+                    $c['start_line'] ?? null,
+                    $c['end_line'] ?? null,
+                    json_encode($flags, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    json_encode($c['extra'] ?? new stdClass(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    $c['plain_summary'] ?? null,
+                    isset($c['sample_questions']) ? json_encode($c['sample_questions'], JSON_UNESCAPED_UNICODE) : null,
+                    isset($c['keywords']) ? json_encode($c['keywords'], JSON_UNESCAPED_UNICODE) : null,
+                    isset($c['self_contained']) ? ((int)(bool)$c['self_contained']) : null,
+                    $doc['doc_version'] ?? null,
+                    $doc['as_at_or_review_date'] ?? null,
+                    $doc['status_text'] ?? null,
+                    $doc['domain_set'] ?? 'general',
                     $c['token_count'],
                     $meta ? json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
                     $c['search_text'],

@@ -39,6 +39,7 @@ Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → ground
 - Collapsible cards (closed by default): chats, export/import, settings, upload, documents, chunks, retrieval test
 - **Export / import settings** JSON; **export all chunks** (no chunk import yet)
 - Upload: stage files → **Upload** button; paste → **Add & chunk**
+- Documents: **Re-parse** → **Continue** → **Re-chunk** (structure Markdown then chunk; run `sql/alter_rag_structure.sql` on existing DBs)
 - Document **Source URL**: citation link; optional live fetch (Web settings Include/Exclude)
 - Faithfulness slider, RAG↔Web mix, Adaptive RAG, Deep policy, UI features, hosts — see Accuracy / handover docs
 
@@ -70,8 +71,11 @@ Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → ground
 | `api/chat.php` | Streaming chat + RAG |
 | `api/export.php` | Admin export settings/chunks; import settings |
 | `includes/Retrieval.php` | Search, rewrite, quality, grounding, HQ verify |
+| `includes/Ingest.php` / `Chunker.php` / `StructureParse.php` | OCR → structure parse → chunks + `search_text` |
+| `includes/prompts/` | G*/L* parse/chunk/answer prompt templates |
 | `includes/Settings.php` | Admin-editable feature flags, mix, limits, import |
 | `includes/config.php` | Secrets (gitignored) |
+| `sql/alter_rag_structure.sql` | Existing-DB columns for structure pipeline |
 
 ## Security (summary)
 

@@ -15,7 +15,8 @@
 ## CSRF & rate limits
 
 - CSRF tokens on admin and sensitive POSTs (including settings import)
-- Per-IP rate limits: login, chat, web_search, web_fetch, **context_parse** (chat File OCR/Files), admin export/import (files under `storage/ratelimit/`)
+- Per-IP rate limits: login, chat, web_search, web_fetch, **context_parse** (chat File OCR/Files), admin export/import, admin **reparse** / **continue_pipeline** (files under `storage/ratelimit/`)
+- `storage/pipeline/` holds temporary OCR page JSON for resumable structure parse — blocked with the rest of `storage/`
 
 ## Output & input
 

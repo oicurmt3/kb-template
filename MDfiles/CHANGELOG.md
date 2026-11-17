@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-17 — Structure parse, chunker, lexical search_text
+
+- Documents/chunks schema for domain, version/as-at, pipeline stage, chunk flags/extra
+- Structure-first Markdown chunker + contextual `search_text` (no vector embeddings)
+- Resumable G1/G2 structure parse after OCR; admin Re-parse → Continue → Re-chunk
+- Legislation L7 answer grounding when hits are mostly `domain_set=legislation`
+- Retrieval filters: superseded `status_text`, `exclude_from_retrieval` chunk flags
+- Prompts under `includes/prompts/`; `PromptLibrary`, `StructureParse`, `SchemaCompat`
+
 ## 2026-11-16 — UI labels, feature hints, File OCR, docs sync
 
 - Composer/admin names: **Docs & Web**, **HQ**, **Deep think**, **Web only**

@@ -14,6 +14,8 @@
 8. Admin → Export settings → Import same file → forms reload with same values.
 9. Admin → Export chunks → JSON has `documents` + `chunks` counts.
 10. Upload: select files → pending list → **Upload** (not auto); paste still **Add & chunk**.
+10a. After `alter_rag_structure.sql`: one Act PDF → **Re-parse** → **Continue** until `parsed` → **Re-chunk** → status `ready`; Retrieval test finds section text with `header_path`.
+10b. `api/health.php` shows no missing `domain_set` / `pipeline_stage` hints.
 11. Admin → Deep thinking: save Auto + max 3; ask a long multi-part Docs & Web question → `Deep: on (auto_on…)`; Reset Deep stats clears counters.
 12. Admin → Faithfulness: set 0 → `Faithfulness: off` (stream unchanged). Set 40 → `Faithfulness: ok` but bubble unchanged. Set 80 → surgical `corrected` only if rewrite keeps ≥85% length; hedge/shrink → `kept draft`.
 13. Admin → Web settings: Exclude document Source URLs → notes `Doc source URL fetch excluded`; Include + allowlisted Source URL on a hit doc → `Doc source URL: …`.
@@ -39,6 +41,9 @@ Sample prompts:
 php -l api/chat.php
 php -l includes/Retrieval.php
 php -l includes/Settings.php
+php -l includes/Chunker.php
+php -l includes/Ingest.php
+php -l includes/StructureParse.php
 ```
 
 ## UI
@@ -60,3 +65,5 @@ php -l includes/Settings.php
 - Deep cap: after max Deep turns in one chat, notes show `Deep: off (capped…)` until a new chat
 - Doc Source URL Exclude → no live fetch; Include + allowlisted URL on hit → fetch note
 - File attach PDF/Office uses DeepSeek OCR (or Files parse); URL and File are separate inline controls
+- Documents stuck in `parsing` need **Continue**; do not Re-chunk until `parsed` if migrating with structure parse
+- Legislation answers should keep must/may distinct when L7 grounding applies

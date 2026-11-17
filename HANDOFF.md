@@ -4,6 +4,29 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-17 — Structure parse / chunk / search_text pipeline
+
+**Done**
+
+- Schema: `sql/alter_rag_structure.sql` (documents domain/version/pipeline + chunk metadata)
+- PHP structure-first `Chunker` (atomic tables/lists/code; legislation overlap 0; contextual `search_text` templates)
+- G1/G2 prompts + `StructureParse` / `PromptLibrary`; resumable OCR→parse batches
+- Admin: **Re-parse** → **Continue** → **Re-chunk** (migration: parse all before chunk)
+- Retrieval: L7 grounding when most hits are `legislation`; filter superseded + `exclude_from_retrieval`
+- Config: `structure_parse`, `pages_per_batch`, `chunk_target_tokens` / `chunk_max_tokens`; `model_chunker`/`enrich_chunks`/`audit_chunks` default off
+
+**Ops**
+
+1. Run `sql/alter_rag_structure.sql` on live MariaDB
+2. Deploy `includes/*`, `api/documents.php`, `api/health.php`, `assets/admin.js`, `includes/prompts/`
+3. Per doc: Re-parse → Continue until `parsed` → Re-chunk (docs stay out of search while `processing`)
+4. Check `api/health.php` for schema hints
+
+**Not yet**
+
+- G5 enrich / G6 audit / G8 eval harness wired on by default
+- Medical domain prompts dormant
+
 ## 2026-11-16 — Docs & Web labels, UI hints, File OCR, sync
 
 **Done**

@@ -54,6 +54,15 @@ return [
         'max_history_messages'  => 24,
         'chunk_max_chars'       => 3200,
         'chunk_overlap'         => 200,
+        'chunk_target_tokens'   => 800,
+        'chunk_max_tokens'      => 2000,
+        // Structure parse (G1/G2) after OCR; admin Re-parse then Re-chunk for migration
+        'structure_parse'       => true,
+        'structure_parse_force' => false,
+        'pages_per_batch'       => 4,
+        'model_chunker'         => false,
+        'enrich_chunks'         => false,
+        'audit_chunks'          => false,
         'max_upload_bytes'      => 5000000,
         // Local chunking (RAG markers preserved)
         'allowed_ext'           => ['md', 'txt', 'csv', 'json', 'html', 'htm'],

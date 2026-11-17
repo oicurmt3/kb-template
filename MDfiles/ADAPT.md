@@ -87,7 +87,7 @@ Admin → allowed hosts: **only** their official site(s) (and maybe a parent com
 Upload or paste:
 
 - Policies, SOPs, handbooks, contracts summaries, product sheets, FAQs  
-- Prefer **OCR → chunks** for PDFs you need to search  
+- Prefer **OCR → structure parse → chunks** for PDFs you need to search; migrate with Re-parse then Re-chunk  
 - Set **title**, **tags**, **source URL** on every doc  
 
 **Tag ideas (examples):**

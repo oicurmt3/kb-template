@@ -42,7 +42,8 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 | `api/export.php` | GET export settings/chunks; POST import settings |
 | `includes/Retrieval.php` | Search, rewrite, synonyms, tags, quality, `verifyGroundedAnswer` |
 | `includes/Settings.php` | UI features, adaptive RAG, answer length, hosts, mix, Deep policy/stats, import |
-| `includes/Ingest.php` / `Chunker.php` | Upload / paste → chunks |
+| `includes/Ingest.php` / `Chunker.php` | Upload / paste → structure parse → chunks + `search_text` |
+| `includes/StructureParse.php` / `PromptLibrary.php` | G1/G2 parse batches; prompts in `includes/prompts/` |
 | `includes/DeepSeek.php` | Completions + stream + OCR/Files |
 | `includes/WebFetch.php` | Allowed-host fetch/search |
 | `assets/chat.js` | Composer toggles, SSE, sources, faithfulness replace on done |
@@ -65,7 +66,10 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 - Lock installer with `storage/install.lock` or remove `install.php`
 - Paste ingest uses the same Document details fields as file upload; empty title → AI title
 - File upload is **staged** (drop/browse) then **Upload** button — not auto-upload on select
-- DeepSeek has **no embeddings API** in this stack — retrieval is lexical/FULLTEXT, not vector hybrid
+- DeepSeek has **no embeddings API** in this stack — retrieval is lexical/FULLTEXT; contextual address goes in `search_text` templates, verbatim law stays in `text`
+- Structure-first chunking (headers + atomic tables/lists); legislation uses **zero overlap**
+- Corpus migration: Admin **Re-parse** → **Continue** until `parsed` → **Re-chunk** (do not rechunk old OCR alone if you want structure parse)
+- Run `sql/alter_rag_structure.sql` once on existing DBs; `api/health.php` hints if columns missing
 - Chunks are identifiable (`id`, `document_id`, `chunk_index`, `chunk_key`, `header_path`)
 - Settings export JSON round-trips via Import; chunks export is download-only
 
@@ -84,6 +88,7 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 
 ## Next risks / debt
 
+- G5 enrich / G6 audit / G8 eval still optional (`model_chunker` / `enrich_chunks` / `audit_chunks` default off)
 - No automated eval suite yet — use Admin → Retrieval test + manual chat scripts (see TESTING.md)
 - Query rewrite costs an extra flash call on follow-ups
 - Faithfulness (when degree ≥55) may cost a second flash call; lower degrees do not rewrite the stream

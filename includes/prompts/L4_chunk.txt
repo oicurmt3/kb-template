@@ -1,0 +1,7 @@
+LEGISLATION CHUNK RULES
+1. Unit: one section with all subsections, paragraphs, penalties and notes. Split only above max_tokens at subsection boundaries; flag split_section with part n/m in extra.
+2. Never separate: chapeau from paragraphs; offence from penalty; modifying subsection from its target; Note/Example from provision.
+3. Definitions: one chunk per term if definitions section over max; else whole. Set extra.defined_term.
+4. Repealed/omitted/not-yet-in-force stub: own chunk with extra.provision_status.
+5. Extra fields: instrument, provision_number, subsection_span, defined_term, penalty_attached, modal_terms, cross_references, provision_status.
+6. Endnotes: flag exclude_from_retrieval. Document control: own chunk.

@@ -11,9 +11,7 @@ try {
     if ($method === 'GET' && isset($_GET['id'])) {
         $id = (int)$_GET['id'];
         $doc = DB::one(
-            'SELECT id, filename, mime, size_bytes, title, department, tags, source_url, status, error_message,
-                    ingest_mode, deepseek_file_id, parse_purpose, created_at, updated_at
-             FROM documents WHERE id = ?',
+            'SELECT * FROM documents WHERE id = ?',
             [$id]
         );
         if (!$doc) json_error('Not found', 404);
@@ -24,9 +22,12 @@ try {
     }
 
     if ($method === 'GET') {
+        $extra = SchemaCompat::hasDocumentColumn('pipeline_stage')
+            ? ', d.domain_set, d.doc_version, d.as_at_or_review_date, d.status_text, d.pipeline_stage, d.pipeline_error'
+            : '';
         $rows = DB::all(
             'SELECT d.id, d.filename, d.title, d.department, d.tags, d.source_url, d.status, d.size_bytes, d.error_message,
-                    d.ingest_mode, d.deepseek_file_id, d.parse_purpose, d.created_at,
+                    d.ingest_mode, d.deepseek_file_id, d.parse_purpose, d.created_at' . $extra . ',
                     (SELECT COUNT(*) FROM chunks c WHERE c.document_id = d.id) AS chunk_count
              FROM documents d
              ORDER BY d.created_at DESC
@@ -72,7 +73,26 @@ try {
         }
         if ($action === 'rechunk' && isset($body['id'])) {
             $ingest = new Ingest($config);
-            $result = $ingest->rechunkDocument((int)$body['id']);
+            // Markdown-only rechunk (after reparse). Legacy alias still works.
+            $result = $ingest->rechunkFromMarkdown((int)$body['id']);
+            json_out(['ok' => true, 'result' => $result]);
+        }
+        if ($action === 'reparse' && isset($body['id'])) {
+            if (!rate_limit_check('admin_reparse', 10, 60)) {
+                json_error('Too many requests', 429);
+            }
+            $ingest = new Ingest($config);
+            $result = $ingest->reparseDocument((int)$body['id']);
+            json_out(['ok' => true, 'result' => $result]);
+        }
+        if ($action === 'continue_pipeline' && isset($body['id'])) {
+            if (!rate_limit_check('admin_pipeline', 30, 60)) {
+                json_error('Too many requests', 429);
+            }
+            $ingest = new Ingest($config);
+            // Migration: do not auto-chunk when parse finishes
+            $autoChunk = !empty($body['auto_chunk']);
+            $result = $ingest->continuePipeline((int)$body['id'], $autoChunk);
             json_out(['ok' => true, 'result' => $result]);
         }
         if ($action === 'update_meta' && isset($body['id'])) {
@@ -150,6 +170,9 @@ try {
     $msg = $e->getMessage();
     if (stripos($msg, 'source_url') !== false && stripos($msg, 'Unknown column') !== false) {
         json_error('Column source_url missing — run sql/alter_documents_source_url.sql', 500);
+    }
+    if (stripos($msg, 'Unknown column') !== false && preg_match('/domain_set|pipeline_stage|doc_version|sidecar/i', $msg)) {
+        json_error('RAG structure columns missing — run sql/alter_rag_structure.sql', 500);
     }
     json_error($msg, 500);
 }

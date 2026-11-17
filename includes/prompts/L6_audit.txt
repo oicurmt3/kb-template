@@ -1,0 +1,3 @@
+LEGISLATION AUDIT RULES
+1. High: chapeau away from paragraphs; offence away from penalty; exception away from target; truncated definition; wrong provision_number; missing provision_status; duplicate provision_number.
+2. Check subsection label sequence.

@@ -23,18 +23,24 @@
   const $webHosts = document.getElementById('web-hosts');
   const $saveWebHosts = document.getElementById('save-web-hosts');
   const $webHostsStatus = document.getElementById('web-hosts-status');
+  const $webHostsSummaryHint = document.getElementById('web-hosts-summary-hint');
   const $simpleAge = document.getElementById('simple-explain-age');
   const $saveSimpleAge = document.getElementById('save-simple-age');
   const $simpleAgeStatus = document.getElementById('simple-age-status');
+  const $simpleAgeSummaryHint = document.getElementById('simple-age-summary-hint');
   const $saveAnswerLength = document.getElementById('save-answer-length');
   const $answerLengthStatus = document.getElementById('answer-length-status');
+  const $answerLengthSummaryHint = document.getElementById('answer-length-summary-hint');
   const $saveAdaptive = document.getElementById('save-adaptive-retrieval');
   const $adaptiveStatus = document.getElementById('adaptive-retrieval-status');
+  const $adaptiveSummaryHint = document.getElementById('adaptive-summary-hint');
   const $ragWebDegree = document.getElementById('rag-web-degree');
   const $ragWebDegreeVal = document.getElementById('rag-web-degree-val');
   const $saveRagWebMix = document.getElementById('save-rag-web-mix');
   const $ragWebMixStatus = document.getElementById('rag-web-mix-status');
   const $ragWebMixHint = document.getElementById('rag-web-mix-hint');
+  const $ragWebMixSummaryHint = document.getElementById('rag-web-mix-summary-hint');
+  const $uiFeaturesSummaryHint = document.getElementById('ui-features-summary-hint');
   const $faithfulnessDegree = document.getElementById('faithfulness-degree');
   const $faithfulnessDegreeVal = document.getElementById('faithfulness-degree-val');
   const $saveFaithfulness = document.getElementById('save-faithfulness');
@@ -229,6 +235,7 @@
       const hint = row.querySelector('.ui-feat-hint');
       if (hint && st) hint.textContent = uiFeatureHintText(st, all);
     });
+    updateUiFeaturesSummaryHint();
   }
   const $chatSummaryHint = document.getElementById('chat-summary-hint');
   const $chatList = document.getElementById('chat-list');
@@ -403,13 +410,40 @@
       btnChunks.textContent = d.ingest_mode === 'deepseek' ? 'Stub' : 'Chunks';
       btnChunks.onclick = () => openChunks(d.id, d.title || d.filename);
 
+      const stage = d.pipeline_stage || '';
+      if (stage && stage !== 'ready') {
+        const st = document.createElement('span');
+        st.className = 'hint';
+        st.textContent = ' · ' + stage + (d.domain_set ? ' · ' + d.domain_set : '');
+        head.appendChild(st);
+      }
+
+      const btnReparse = document.createElement('button');
+      btnReparse.className = 'btn btn-ghost';
+      btnReparse.type = 'button';
+      btnReparse.textContent = 'Re-parse';
+      btnReparse.title = 'OCR/structure parse first; then Re-chunk';
+      btnReparse.onclick = () => reparseDoc(d.id);
+
+      const btnCont = document.createElement('button');
+      btnCont.className = 'btn btn-secondary';
+      btnCont.type = 'button';
+      btnCont.textContent = 'Continue';
+      btnCont.onclick = () => continuePipeline(d.id);
+      if (stage !== 'parsing' && stage !== 'intake_done') {
+        btnCont.hidden = true;
+      }
+
       const btnRe = document.createElement('button');
       btnRe.className = 'btn btn-ghost';
       btnRe.type = 'button';
-      btnRe.textContent =
-        d.ingest_mode === 'deepseek' ? 'Re-parse' :
-        d.ingest_mode === 'ocr' ? 'Re-OCR' : 'Re-chunk';
+      btnRe.textContent = 'Re-chunk';
+      btnRe.title = 'Chunk from current markdown (run Re-parse first for best quality)';
       btnRe.onclick = () => rechunk(d.id);
+      if (stage === 'parsing') {
+        btnRe.disabled = true;
+        btnRe.title = 'Finish Continue until parsed, then Re-chunk';
+      }
 
       const btnDel = document.createElement('button');
       btnDel.className = 'btn btn-destructive';
@@ -417,7 +451,7 @@
       btnDel.textContent = 'Delete';
       btnDel.onclick = () => deleteDoc(d.id);
 
-      actions.append(btnChunks, btnRe, btnDel);
+      actions.append(btnChunks, btnReparse, btnCont, btnRe, btnDel);
       row.append(main, actions);
       $docList.appendChild(row);
     });
@@ -579,7 +613,7 @@
 
   async function rechunk(id) {
     await refreshCsrf();
-    setStatus('Re-chunking…');
+    setStatus('Re-chunking from markdown…');
     const r = await fetch(api('documents.php'), {
       method: 'POST',
       headers: {
@@ -593,6 +627,72 @@
       return;
     }
     setStatus('Re-chunked (' + (r.result?.chunk_count || 0) + ' chunks)');
+    loadDocuments();
+  }
+
+  async function reparseDoc(id) {
+    await refreshCsrf();
+    setStatus('Re-parsing (OCR + structure)…');
+    const r = await fetch(api('documents.php'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrf(),
+      },
+      body: JSON.stringify({ action: 'reparse', id }),
+    }).then((x) => x.json());
+    if (r.error) {
+      setStatus(r.error, true);
+      return;
+    }
+    const res = r.result || {};
+    if (res.need_continue) {
+      setStatus('Parse batch done — click Continue');
+    } else if ((res.pipeline_stage || '') === 'parsed') {
+      setStatus('Parse complete — click Re-chunk');
+    } else {
+      setStatus(res.message || 'Re-parse done');
+    }
+    loadDocuments();
+  }
+
+  async function continuePipeline(id) {
+    await refreshCsrf();
+    setStatus('Continuing parse batch…');
+    let guard = 0;
+    while (guard < 40) {
+      guard += 1;
+      const r = await fetch(api('documents.php'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf(),
+        },
+        body: JSON.stringify({ action: 'continue_pipeline', id, auto_chunk: false }),
+      }).then((x) => x.json());
+      if (r.error) {
+        setStatus(r.error, true);
+        loadDocuments();
+        return;
+      }
+      const res = r.result || {};
+      const batch = res.batch && res.batches_total
+        ? ' (' + res.batch + '/' + res.batches_total + ')'
+        : '';
+      if (res.need_continue) {
+        setStatus('Parsing…' + batch);
+        await refreshCsrf();
+        continue;
+      }
+      if ((res.pipeline_stage || '') === 'parsed') {
+        setStatus('Parse complete' + batch + ' — click Re-chunk');
+      } else {
+        setStatus('Pipeline: ' + (res.pipeline_stage || 'done') + batch);
+      }
+      loadDocuments();
+      return;
+    }
+    setStatus('Stopped after many batches — click Continue again', true);
     loadDocuments();
   }
 
@@ -759,11 +859,27 @@
   function applyDocSourceUrlWeb(on) {
     const el = document.getElementById(on ? 'doc-source-url-web-on' : 'doc-source-url-web-off');
     if (el) el.checked = true;
+    updateWebHostsSummaryHint();
   }
 
   function selectedDocSourceUrlWeb() {
     const el = document.querySelector('input[name="doc-source-url-web"]:checked');
     return el ? el.value === '1' : true;
+  }
+
+  function countWebHostsText(text) {
+    return String(text || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l !== '' && !l.startsWith('#')).length;
+  }
+
+  function updateWebHostsSummaryHint() {
+    if (!$webHostsSummaryHint) return;
+    const n = countWebHostsText($webHosts ? $webHosts.value : '');
+    const src = selectedDocSourceUrlWeb() ? 'Source URLs on' : 'Source URLs off';
+    $webHostsSummaryHint.textContent =
+      (n === 0 ? 'no domains' : n + ' domain' + (n === 1 ? '' : 's')) + ' · ' + src;
   }
 
   function setSimpleAgeStatus(msg, isErr) {
@@ -773,6 +889,13 @@
     $simpleAgeStatus.classList.toggle('ok', !!msg && !isErr);
   }
 
+  function updateSimpleAgeSummaryHint() {
+    if (!$simpleAgeSummaryHint) return;
+    let age = $simpleAge ? parseInt($simpleAge.value, 10) : 10;
+    if (!Number.isFinite(age)) age = 10;
+    $simpleAgeSummaryHint.textContent = 'age ' + age;
+  }
+
   function setAnswerLengthStatus(msg, isErr) {
     if (!$answerLengthStatus) return;
     $answerLengthStatus.textContent = msg || '';
@@ -780,10 +903,16 @@
     $answerLengthStatus.classList.toggle('ok', !!msg && !isErr);
   }
 
+  function updateAnswerLengthSummaryHint() {
+    if (!$answerLengthSummaryHint) return;
+    $answerLengthSummaryHint.textContent = selectedAnswerLength();
+  }
+
   function applyAnswerLength(len) {
     const v = ['short', 'medium', 'long'].includes(len) ? len : 'medium';
     const el = document.getElementById('answer-length-' + v);
     if (el) el.checked = true;
+    updateAnswerLengthSummaryHint();
   }
 
   function selectedAnswerLength() {
@@ -798,14 +927,45 @@
     $adaptiveStatus.classList.toggle('ok', !!msg && !isErr);
   }
 
+  function updateAdaptiveSummaryHint() {
+    if (!$adaptiveSummaryHint) return;
+    $adaptiveSummaryHint.textContent = selectedAdaptiveRetrieval() ? 'On' : 'Off';
+  }
+
   function applyAdaptiveRetrieval(on) {
     const el = document.getElementById(on ? 'adaptive-retrieval-on' : 'adaptive-retrieval-off');
     if (el) el.checked = true;
+    updateAdaptiveSummaryHint();
   }
 
   function selectedAdaptiveRetrieval() {
     const el = document.querySelector('input[name="adaptive-retrieval"]:checked');
     return el ? el.value === '1' : false;
+  }
+
+  function updateRagWebMixSummaryHint() {
+    if (!$ragWebMixSummaryHint) return;
+    const mix = selectedRagWebMix();
+    $ragWebMixSummaryHint.textContent = (mix.mode || 'complement') + ' · ' + (mix.degree ?? 50);
+  }
+
+  function updateUiFeaturesSummaryHint() {
+    if (!$uiFeaturesSummaryHint) return;
+    const histOn = document.getElementById('ui-chat-history-on');
+    const history = histOn && histOn.checked ? 'History on' : 'History off';
+    let shown = 0;
+    let total = 0;
+    if ($uiFeaturesList) {
+      $uiFeaturesList.querySelectorAll('.ui-feature-row').forEach((row) => {
+        total += 1;
+        const vis = row.querySelector('.ui-feat-visibility');
+        if (vis && vis.value === 'show') shown += 1;
+      });
+    }
+    const feat = total
+      ? shown + '/' + total + ' shown'
+      : 'features';
+    $uiFeaturesSummaryHint.textContent = history + ' · ' + feat;
   }
 
   function setRagWebMixStatus(msg, isErr) {
@@ -1012,9 +1172,11 @@
   }
 
   function updateRagWebMixHint() {
-    if (!$ragWebMixHint) return;
-    const mix = selectedRagWebMix();
-    $ragWebMixHint.textContent = ragWebMixLaymanHint(mix.mode, mix.degree);
+    if ($ragWebMixHint) {
+      const mix = selectedRagWebMix();
+      $ragWebMixHint.textContent = ragWebMixLaymanHint(mix.mode, mix.degree);
+    }
+    updateRagWebMixSummaryHint();
   }
 
   function applyRagWebMix(mix) {
@@ -1118,6 +1280,7 @@
       $uiFeaturesList.appendChild(row);
     });
     updateUiFeatureHints();
+    updateUiFeaturesSummaryHint();
   }
 
   function collectUiConfig() {
@@ -1149,6 +1312,7 @@
     const on = document.getElementById(ui.chat_history === false ? 'ui-chat-history-off' : 'ui-chat-history-on');
     if (on) on.checked = true;
     renderUiFeatures(ui);
+    updateUiFeaturesSummaryHint();
   }
 
   async function loadWebHosts() {
@@ -1180,6 +1344,7 @@
         const docWeb =
           typeof r.doc_source_url_web === 'boolean' ? r.doc_source_url_web : true;
         applyDocSourceUrlWeb(docWeb);
+        updateWebHostsSummaryHint();
         setHostsStatus(
           (r.source === 'admin' ? 'Loaded (admin override)' : 'Loaded (config default)') +
           ' · Source URLs ' +
@@ -1189,6 +1354,7 @@
       }
       if ($simpleAge && r.simple_explain_age != null) {
         $simpleAge.value = r.simple_explain_age;
+        updateSimpleAgeSummaryHint();
         setSimpleAgeStatus(
           r.simple_explain_age_source === 'admin'
             ? 'Loaded (admin)'
@@ -1286,6 +1452,7 @@
             ? r.doc_source_url_web
             : selectedDocSourceUrlWeb();
         applyDocSourceUrlWeb(docWeb);
+        updateWebHostsSummaryHint();
         setHostsStatus(
           'Saved ' +
             (r.allowed_hosts || []).length +
@@ -1297,6 +1464,13 @@
       }
     });
   }
+
+  if ($webHosts) {
+    $webHosts.addEventListener('input', updateWebHostsSummaryHint);
+  }
+  document.querySelectorAll('input[name="doc-source-url-web"]').forEach((radio) => {
+    radio.addEventListener('change', updateWebHostsSummaryHint);
+  });
 
   if ($saveSimpleAge) {
     $saveSimpleAge.addEventListener('click', async () => {
@@ -1314,11 +1488,16 @@
         }).then((x) => x.json());
         if (r.error) throw new Error(r.error);
         $simpleAge.value = r.simple_explain_age;
+        updateSimpleAgeSummaryHint();
         setSimpleAgeStatus('Saved: explain like a ' + r.simple_explain_age + ' year old');
       } catch (e) {
         setSimpleAgeStatus(e.message || 'Save failed', true);
       }
     });
+  }
+
+  if ($simpleAge) {
+    $simpleAge.addEventListener('input', updateSimpleAgeSummaryHint);
   }
 
   if ($saveAnswerLength) {
@@ -1343,6 +1522,10 @@
     });
   }
 
+  document.querySelectorAll('input[name="answer-length"]').forEach((radio) => {
+    radio.addEventListener('change', updateAnswerLengthSummaryHint);
+  });
+
   if ($saveAdaptive) {
     $saveAdaptive.addEventListener('click', async () => {
       await refreshCsrf();
@@ -1364,6 +1547,14 @@
       }
     });
   }
+
+  document.querySelectorAll('input[name="adaptive-retrieval"]').forEach((radio) => {
+    radio.addEventListener('change', updateAdaptiveSummaryHint);
+  });
+
+  document.querySelectorAll('input[name="ui-chat-history"]').forEach((radio) => {
+    radio.addEventListener('change', updateUiFeaturesSummaryHint);
+  });
 
   if ($saveRagWebMix) {
     $saveRagWebMix.addEventListener('click', async () => {
