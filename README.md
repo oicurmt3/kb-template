@@ -1,6 +1,8 @@
-# WANDA — WA Workers Compensation Chatbot
+# kb-template — document-grounded chatbot
 
-WANDA is a plain PHP + vanilla JS chatbot that answers Western Australian workers compensation questions. With **Docs & Web** on, answers are grounded in uploaded Act, Regulations, and WorkCover guidance via RAG (retrieval-augmented generation) through DeepSeek, plus allowlisted live web.
+A plain PHP + vanilla JS **template** for a business knowledge-base chatbot: upload trusted documents, answer in chat, optional allowlisted live web. **Docs & Web** turns on RAG (retrieval-augmented generation) through DeepSeek with streaming SSE. Retarget the same engine to any SMB or internal handbook — see **[MDfiles/ADAPT.md](MDfiles/ADAPT.md)**.
+
+**Reference product:** [**WANDA**](MDfiles/ADAPT.md) (WA workers compensation) ships as the `wa-workers-comp` **business preset** and sample prompts (Act, Regulations, WorkCover guides). The live WANDA deployment lives in a separate repo: [oicurmt3/chatbot](https://github.com/oicurmt3/chatbot).
 
 ## Stack
 
