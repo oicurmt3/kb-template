@@ -1,8 +1,8 @@
-# kb-template — document-grounded chatbot
+# kb-template — document-grounded chatbot template
 
-A plain PHP + vanilla JS **template** for a business knowledge-base chatbot: upload trusted documents, answer in chat, optional allowlisted live web. **Docs & Web** turns on RAG (retrieval-augmented generation) through DeepSeek with streaming SSE. Retarget the same engine to any SMB or internal handbook — see **[MDfiles/ADAPT.md](MDfiles/ADAPT.md)**.
+Plain PHP + vanilla JS for **any** business or team that needs answers from **your** documents: policies, handbooks, FAQs, guides. With **Docs & Web** on, the assistant uses RAG (retrieval-augmented generation) over your uploaded corpus, optional allowlisted live web, and DeepSeek streaming chat. No Node, no build step — suited to **cPanel over HTTPS**.
 
-**Reference product:** [**WANDA**](MDfiles/ADAPT.md) (WA workers compensation) ships as the `wa-workers-comp` **business preset** and sample prompts (Act, Regulations, WorkCover guides). The live WANDA deployment lives in a separate repo: [oicurmt3/chatbot](https://github.com/oicurmt3/chatbot).
+After install, set branding and prompts in **Admin → Your assistant & prompts**, ingest your files, and optionally **Apply preset** (`customer-kiosk`, `staff-handbook`, or add your own under `data/presets/`). Full retargeting guide: **[MDfiles/ADAPT.md](MDfiles/ADAPT.md)**.
 
 ## Stack
 
