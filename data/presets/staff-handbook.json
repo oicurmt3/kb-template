@@ -1,0 +1,30 @@
+{
+  "preset_id": "staff-handbook",
+  "label": "Staff / internal handbook",
+  "effective": {
+    "answer_length": "medium",
+    "simple_explain_age": 14,
+    "adaptive_retrieval": true,
+    "faithfulness": { "degree": 25 },
+    "rag_web_mix": { "mode": "docs_first", "degree": 65 },
+    "deep_thinking_policy": { "mode": "manual", "max_per_chat": 8 },
+    "assistant_branding": {
+      "docs_mode_label": "Handbook",
+      "source_hierarchy": "Hierarchy: official policy and the employee handbook override team notes and FAQ articles. Use FAQs only for practical steps, not to override policy.",
+      "chat_placeholder": "Ask about leave, conduct, safety, or procedures…"
+    },
+    "ui": {
+      "intro": "Internal handbook assistant — answers are grounded in uploaded policies unless you turn Docs mode off.",
+      "chat_history": true,
+      "features": {
+        "workcover": { "default": true, "visibility": "show" },
+        "hq": { "default": true, "visibility": "show" },
+        "deep_thinking": { "default": false, "visibility": "show" },
+        "web_search": { "default": false, "visibility": "show" },
+        "tags": { "default": true, "visibility": "show" },
+        "sources": { "default": true, "visibility": "show" },
+        "related": { "default": true, "visibility": "show" }
+      }
+    }
+  }
+}

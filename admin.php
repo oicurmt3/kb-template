@@ -3,7 +3,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/bootstrap.php';
 admin_require();
 $csrf = csrf_token();
-$appTitle = (string)($config['app']['title'] ?? 'WANDA');
+$appCfg = $config['app'] ?? [];
+$appTitle = AppSettings::appDisplayTitle($appCfg);
 ?>
 <!doctype html>
 <html lang="en">
@@ -22,6 +23,69 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
     </nav>
   </header>
   <main>
+    <section id="onboarding-banner" class="card admin-onboarding" hidden>
+      <h2 class="admin-onboarding-title">Setup checklist</h2>
+      <ol class="admin-onboarding-list">
+        <li>Set your <strong>assistant name</strong> and chat intro below.</li>
+        <li>Add <strong>allowed web domains</strong> (if you want live web with documents).</li>
+        <li><strong>Upload documents</strong>, then Re-parse / Re-chunk if you use structure parsing.</li>
+        <li>Open chat and ask a test question with <strong>Docs &amp; Web</strong> on.</li>
+      </ol>
+      <div class="inline" style="margin-top:10px">
+        <button type="button" id="dismiss-onboarding" class="btn btn-secondary">Dismiss checklist</button>
+      </div>
+    </section>
+
+    <section class="card admin-collapse-card">
+      <details class="admin-card-details" open>
+        <summary class="admin-card-summary">
+          <span class="admin-card-summary-title">Your assistant &amp; prompts</span>
+          <span id="branding-summary-hint" class="admin-card-summary-hint"></span>
+        </summary>
+        <div class="admin-card-body">
+          <p class="hint">Customise how the chat looks and how the AI answers. Empty prompt fields use <code>config.php</code> defaults (handy for first install). Export/import settings includes these fields.</p>
+          <label class="hint" for="brand-app-title">Display name</label>
+          <input type="text" id="brand-app-title" class="settings-input" maxlength="120" placeholder="e.g. Acme Help Desk">
+          <label class="hint" for="brand-docs-label" style="margin-top:10px">Docs mode button label</label>
+          <input type="text" id="brand-docs-label" class="settings-input" maxlength="60" placeholder="Docs &amp; Web">
+          <label class="hint" for="brand-chat-placeholder" style="margin-top:10px">Question box placeholder</label>
+          <input type="text" id="brand-chat-placeholder" class="settings-input" maxlength="160" placeholder="Ask a question…">
+          <label class="hint" for="brand-about" style="margin-top:10px">Help panel — what is this?</label>
+          <textarea id="brand-about" class="settings-textarea" rows="3" placeholder="Short plain-English description for users (Help modal)."></textarea>
+          <label class="hint" for="brand-system-prompt" style="margin-top:10px">Plain chat system prompt</label>
+          <textarea id="brand-system-prompt" class="settings-textarea" rows="4" placeholder="Used when Docs &amp; Web is off. Leave empty to use config.php."></textarea>
+          <label class="hint" for="brand-rag-prompt" style="margin-top:10px">Docs &amp; Web system prompt</label>
+          <textarea id="brand-rag-prompt" class="settings-textarea" rows="6" placeholder="Used when document grounding is on. Leave empty to use config.php."></textarea>
+          <label class="hint" for="brand-source-hierarchy" style="margin-top:10px">Source hierarchy (grounding)</label>
+          <textarea id="brand-source-hierarchy" class="settings-textarea" rows="3" placeholder="e.g. Policy manuals are authoritative; how-to guides are practical only. Leave empty for a neutral default."></textarea>
+          <details class="admin-nested-details" style="margin-top:14px">
+            <summary class="hint" style="cursor:pointer">Optional prompt overrides (mix, excerpts, related questions)</summary>
+            <div style="margin-top:10px">
+              <label class="hint" for="brand-grounding-rules">Excerpt rules — docs only (full block)</label>
+              <textarea id="brand-grounding-rules" class="settings-textarea" rows="4" placeholder="Leave empty for the built-in default. Replaces the mandatory rules block before excerpt text when live web is off."></textarea>
+              <label class="hint" for="brand-grounding-rules-web" style="margin-top:10px">Excerpt rules — docs + allowlisted web (full block)</label>
+              <textarea id="brand-grounding-rules-web" class="settings-textarea" rows="4" placeholder="Leave empty for default. Used when Docs mode also fetches allowlisted web."></textarea>
+              <label class="hint" for="brand-followups" style="margin-top:10px">Related questions instruction</label>
+              <textarea id="brand-followups" class="settings-textarea" rows="4" placeholder="Leave empty for neutral examples. Sent when Related is on."></textarea>
+              <p class="hint" style="margin-top:10px">RAG ↔ Web mix lines — use <code>{degree}</code> and <code>{strength}</code>. Leave empty for neutral defaults.</p>
+              <label class="hint" for="brand-mix-complement">Mix: complement</label>
+              <textarea id="brand-mix-complement" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+              <label class="hint" for="brand-mix-docs-first" style="margin-top:8px">Mix: docs first</label>
+              <textarea id="brand-mix-docs-first" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+              <label class="hint" for="brand-mix-web-first" style="margin-top:8px">Mix: web first</label>
+              <textarea id="brand-mix-web-first" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+              <label class="hint" for="brand-mix-compete" style="margin-top:8px">Mix: compete</label>
+              <textarea id="brand-mix-compete" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+            </div>
+          </details>
+          <div class="inline" style="margin-top:10px">
+            <button type="button" id="save-assistant-branding" class="btn btn-primary">Save assistant</button>
+            <span id="branding-status" class="hint" aria-live="polite"></span>
+          </div>
+        </div>
+      </details>
+    </section>
+
     <section class="card admin-collapse-card">
       <details class="admin-card-details">
         <summary class="admin-card-summary">
@@ -58,7 +122,14 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
           <span class="admin-card-summary-title">Export / import</span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">Download JSON backups. <strong>Settings</strong> includes effective values plus raw <code>settings</code> table rows. <strong>Import settings</strong> restores from a previous settings export (overwrites current admin settings). <strong>Chunks</strong> export only (no import yet).</p>
+          <p class="hint">Download JSON backups. <strong>Settings</strong> includes effective values plus raw <code>settings</code> table rows. <strong>Import settings</strong> restores from a previous settings export (overwrites current admin settings). <strong>Business preset</strong> applies bundled toggles and prompt overrides (does not change uploaded documents). <strong>Chunks</strong> export only (no import yet).</p>
+          <label class="hint" for="apply-preset-select" style="margin-top:10px;display:block">Business preset</label>
+          <div class="inline" style="flex-wrap:wrap;align-items:center">
+            <select id="apply-preset-select" class="settings-input" style="max-width:320px">
+              <option value="">— Choose a preset —</option>
+            </select>
+            <button type="button" id="apply-preset" class="btn btn-primary">Apply preset</button>
+          </div>
           <div class="inline" style="margin-top:10px;flex-wrap:wrap">
             <button type="button" id="export-settings" class="btn btn-secondary">Export all settings</button>
             <button type="button" id="import-settings" class="btn btn-primary">Import settings…</button>
@@ -74,6 +145,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
       <details class="admin-card-details">
         <summary class="admin-card-summary">
           <span class="admin-card-summary-title">Web search &amp; fetch domains</span>
+          <span id="web-hosts-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
           <p class="hint">One hostname per line (subdomains allowed). Web search and URL fetch are limited to these domains. Example: <code>workcover.wa.gov.au</code></p>
@@ -95,6 +167,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
       <details class="admin-card-details">
         <summary class="admin-card-summary">
           <span class="admin-card-summary-title">Basic language age</span>
+          <span id="simple-age-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
           <p class="hint">Used when <strong>HQ</strong> is off (Basic mode). Prompt becomes “Explain it to me like a <em>N</em> year old.” Range 5–18.</p>
@@ -112,6 +185,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
       <details class="admin-card-details">
         <summary class="admin-card-summary">
           <span class="admin-card-summary-title">Answer length</span>
+          <span id="answer-length-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
           <p class="hint">Global default for all chat replies (users no longer choose this in the composer). <strong>Short</strong> hard-caps the visible answer (≈2–4 sentences). HQ and Deep must still obey this.</p>
@@ -130,6 +204,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
       <details class="admin-card-details">
         <summary class="admin-card-summary">
           <span class="admin-card-summary-title">Adaptive RAG</span>
+          <span id="adaptive-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
           <p class="hint">When <strong>on</strong>, WorkCover retrieval can shrink context for focused questions (prompt + tags). When <strong>off</strong>, uses the original fixed-size RAG. Chat accuracy also uses query rewrite, synonym expansion, auto focus tags, weak-hit grounding, and an HQ faithfulness check — leave Adaptive <strong>on</strong> for best results.</p>
@@ -193,9 +268,10 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
       <details class="admin-card-details">
         <summary class="admin-card-summary">
           <span class="admin-card-summary-title">RAG ↔ Web mix</span>
+          <span id="rag-web-mix-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">When <strong>WorkCover</strong> is on, Docs mode always runs uploaded RAG plus allowlisted live web. This setting controls whether they <strong>complement</strong>, prefer <strong>docs first</strong>, prefer <strong>web first</strong>, or <strong>compete</strong> (pick a winner), and how strongly (0–100). The <strong>first pass</strong> writes with these rules; the automatic <strong>faithfulness</strong> QA after streaming uses the <strong>same mode + degree</strong> when deciding what to keep or cut (it does not re-run mix — it audits the draft).</p>
+          <p class="hint">When <strong>Docs &amp; Web</strong> is on, document mode always runs uploaded search plus allowlisted live web. This setting controls whether they <strong>complement</strong>, prefer <strong>docs first</strong>, prefer <strong>web first</strong>, or <strong>compete</strong> (pick a winner), and how strongly (0–100). The <strong>first pass</strong> writes with these rules; the automatic <strong>faithfulness</strong> QA after streaming uses the <strong>same mode + degree</strong> when deciding what to keep or cut (it does not re-run mix — it audits the draft).</p>
           <div class="inline" style="margin-top:10px;flex-wrap:wrap" role="group" aria-label="RAG Web mix mode">
             <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-complement" value="complement" checked> <span>Complement</span></label>
             <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-docs-first" value="docs_first"> <span>Docs first</span></label>
@@ -217,6 +293,7 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
       <details class="admin-card-details">
         <summary class="admin-card-summary">
           <span class="admin-card-summary-title">Chat UI &amp; features</span>
+          <span id="ui-features-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
           <p class="hint">Intro message for new chats, chat history (turn off for multi-user kiosks), and feature controls. <strong>Docs &amp; Web / HQ / Deep think / Web only</strong>: Default + Show/Hide. <strong>Tags / URL / File / Sources / Related</strong>: Show or Hide only. Each row’s hint updates live from the current Default and Show/Hide. <strong>Faithfulness</strong> (source check) is not listed here — it runs from the Faithfulness slider whenever grounding exists.</p>
@@ -304,7 +381,8 @@ $appTitle = (string)($config['app']['title'] ?? 'WANDA');
           <span id="doc-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">Add tags (comma-separated) and an optional <strong>source URL</strong> per document. The URL makes that citation clickable for users (opens in a new tab).</p>
+          <p class="hint">Add tags (comma-separated) and an optional <strong>source URL</strong> per document. The URL makes that citation clickable for users (opens in a new tab). After a code upgrade: <strong>Re-parse</strong> → <strong>Continue</strong> (if shown) → <strong>Re-chunk</strong>.</p>
+          <p id="docs-status" class="hint" aria-live="polite"></p>
           <div id="doc-list" class="doc-list"></div>
         </div>
       </details>

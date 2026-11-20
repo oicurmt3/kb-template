@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-20 — Business presets + admin prompt overrides
+
+- **Assistant & prompts:** optional admin overrides for excerpt grounding (docs / docs+web), related-questions instruction, and per-mode RAG↔Web mix lines (`{degree}`, `{strength}` placeholders). Stored in `assistant_branding`; export/import round-trip.
+- **Prompt precedence:** Admin branding → `config.php` `system_prompt` / `rag_system_prompt` → PHP fallback (`AppSettings::resolveSystemPrompt` / `resolveRagSystemPrompt`).
+- **Neutral code defaults:** RAG↔Web mix, HQ style hints, and default follow-ups no longer assume WA workers comp; WA-specific copy lives in the **wa-workers-comp** preset.
+- **Retrieval:** `buildContext()` uses `AppSettings::groundingRulesForContext()` for non-L7 paths.
+- **Presets:** `data/presets/*.json` (customer-kiosk, staff-handbook, wa-workers-comp); `GET api/presets.php`; Admin → Export/import → **Apply preset** (settings import only; corpus unchanged).
+
 ## 2026-11-17 — Structure parse, chunker, lexical search_text
 
 - Documents/chunks schema for domain, version/as-at, pipeline stage, chunk flags/extra

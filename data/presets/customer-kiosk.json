@@ -1,0 +1,31 @@
+{
+  "preset_id": "customer-kiosk",
+  "label": "Customer kiosk (retail / hospitality)",
+  "effective": {
+    "answer_length": "short",
+    "simple_explain_age": 12,
+    "adaptive_retrieval": true,
+    "faithfulness": { "degree": 0 },
+    "rag_web_mix": { "mode": "complement", "degree": 35 },
+    "deep_thinking_policy": { "mode": "manual", "max_per_chat": 2 },
+    "assistant_branding": {
+      "docs_mode_label": "Knowledge base",
+      "chat_placeholder": "Ask about hours, returns, or policies…",
+      "source_hierarchy": "Hierarchy: store policy and operations manual override tip sheets and FAQs. State the policy first, then optional how-to guidance.",
+      "followups_instruction": ""
+    },
+    "ui": {
+      "intro": "Ask in everyday language. Knowledge base uses your uploaded handbooks and policies.",
+      "chat_history": false,
+      "features": {
+        "workcover": { "default": true, "visibility": "show" },
+        "hq": { "default": false, "visibility": "show" },
+        "deep_thinking": { "default": false, "visibility": "hide" },
+        "web_search": { "default": false, "visibility": "hide" },
+        "tags": { "default": false, "visibility": "hide" },
+        "sources": { "default": true, "visibility": "show" },
+        "related": { "default": true, "visibility": "show" }
+      }
+    }
+  }
+}

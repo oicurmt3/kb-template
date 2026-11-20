@@ -76,15 +76,29 @@ While `status=processing`, chunks are out of retrieval.
 | `SchemaCompat` | Optional column detection after alters |
 | `DeepSeekClient` | API wrappers |
 | `WebFetch` | Host-restricted search/fetch + length instructions |
-| `AppSettings` | Feature flags, mix, chat limits, settings import |
+| `AppSettings` | Feature flags, mix, chat limits, assistant branding, settings import |
 
-## Admin export / import
+## Prompt resolution (chat)
 
-| Endpoint | Role |
-|----------|------|
+```
+Admin assistant_branding (non-empty fields)
+    → config.php app.system_prompt / rag_system_prompt
+    → Settings.php fallback strings
++ runtime append: buildContext(), mix/HQ/length/web blocks, optional Admin grounding_rules / mix_* / followups
+```
+
+Ingest/faithfulness/parse system prompts remain under `includes/prompts/` and `Retrieval.php` (not Admin UI).
+
+## Admin export / import / presets
+
+| Endpoint / path | Role |
+|-----------------|------|
 | `GET api/export.php?type=settings` | JSON download: `effective` + `raw` settings rows |
 | `GET api/export.php?type=chunks` | JSON download: all documents + all chunks |
-| `POST api/export.php` | Import settings only (`type=settings`, body `data`) |
+| `POST api/export.php` | Import settings only (`type=settings`, body `data` or preset `effective`) |
+| `GET api/presets.php` | List bundled presets |
+| `GET api/presets.php?id=` | Load one preset JSON |
+| `data/presets/` | Preset files (web-denied via `.htaccess`) |
 
 ## Modes
 

@@ -37,6 +37,8 @@ Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → ground
 ### Admin (summary)
 
 - Collapsible cards (closed by default): chats, export/import, settings, upload, documents, chunks, retrieval test
+- **Your assistant & prompts:** display copy plus plain / Docs & Web system prompts (Admin overrides `config.php` when non-empty); optional excerpt rules, follow-ups, mix-line overrides
+- **Business presets** (`data/presets/`) apply bundled settings via Export/import; does not change uploaded documents
 - **Export / import settings** JSON; **export all chunks** (no chunk import yet)
 - Upload: stage files → **Upload** button; paste → **Add & chunk**
 - Documents: **Re-parse** → **Continue** → **Re-chunk** (structure Markdown then chunk; run `sql/alter_rag_structure.sql` on existing DBs)
@@ -70,6 +72,8 @@ Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → ground
 | `admin.php` | Collapsible admin: ingest, docs, retrieval test, settings, export |
 | `api/chat.php` | Streaming chat + RAG |
 | `api/export.php` | Admin export settings/chunks; import settings |
+| `api/presets.php` | List / load business preset JSON (admin) |
+| `data/presets/` | Bundled preset files for Apply preset |
 | `includes/Retrieval.php` | Search, rewrite, quality, grounding, HQ verify |
 | `includes/Ingest.php` / `Chunker.php` / `StructureParse.php` | OCR → structure parse → chunks + `search_text` |
 | `includes/prompts/` | G*/L* parse/chunk/answer prompt templates |

@@ -12,6 +12,8 @@
 6. Docs & Web (or Web only) answer with grounding → if Faithfulness slider is 0, notes `Faithfulness: off` and the streamed answer stays. At ≥55, notes may show `ok` / `corrected` / `kept draft (shrink|hedge|…)`. HQ = language only. Deep policy default **manual**.
 7. Web only **on** (Docs & Web off) with allowed host only; disallowed URL rejected.
 8. Admin → Export settings → Import same file → forms reload with same values.
+8a. Admin → Export/import → choose **customer-kiosk** (or other) preset → Apply → confirm toggles/branding update; documents unchanged.
+8b. Assistant & prompts → save custom **Docs & Web** prompt → chat obeys Admin text even if `config.php` differs (clear field to fall back).
 9. Admin → Export chunks → JSON has `documents` + `chunks` counts.
 10. Upload: select files → pending list → **Upload** (not auto); paste still **Add & chunk**.
 10a. After `alter_rag_structure.sql`: one Act PDF → **Re-parse** → **Continue** until `parsed` → **Re-chunk** → status `ready`; Retrieval test finds section text with `header_path`.

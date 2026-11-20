@@ -19,6 +19,8 @@ WANDA answers WA workers compensation questions. **Docs & Web** (composer / feat
 - **Session isolation** — conversations are keyed by `session_id` cookie; do not leak across sessions.
 - **Secrets** stay in `includes/config.php` (gitignored). Never commit API keys or DB dumps.
 - **Settings import** only restores whitelisted keys via `AppSettings::importSettingsExport`.
+- **Chat system prompts:** Admin `assistant_branding.system_prompt` / `rag_system_prompt` wins over `config.php` when non-empty; optional `source_hierarchy`, `grounding_rules`, `grounding_rules_web`, `followups_instruction`, `mix_*` override neutral PHP defaults.
+- **Business presets** import `effective` settings only (merge `assistant_branding` keys present in JSON; corpus unchanged).
 
 ## Accuracy stack (see MDfiles/ACCURACY.md)
 
@@ -41,7 +43,9 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 | `api/chat.php` | SSE chat; wires modes, RAG, web, mix, HQ style, Deep thinking, faithfulness |
 | `api/export.php` | GET export settings/chunks; POST import settings |
 | `includes/Retrieval.php` | Search, rewrite, synonyms, tags, quality, `verifyGroundedAnswer` |
-| `includes/Settings.php` | UI features, adaptive RAG, answer length, hosts, mix, Deep policy/stats, import |
+| `includes/Settings.php` | UI features, adaptive RAG, answer length, hosts, mix, Deep policy/stats, assistant branding, import |
+| `api/presets.php` | Admin list/load `data/presets/*.json` |
+| `data/presets/` | Business preset bundles (import via Admin) |
 | `includes/Ingest.php` / `Chunker.php` | Upload / paste → structure parse → chunks + `search_text` |
 | `includes/StructureParse.php` / `PromptLibrary.php` | G1/G2 parse batches; prompts in `includes/prompts/` |
 | `includes/DeepSeek.php` | Completions + stream + OCR/Files |

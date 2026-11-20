@@ -143,15 +143,17 @@ function extract_followups(string $content): array {
 }
 
 function followups_instruction(): string {
+    if (class_exists('AppSettings')) {
+        return AppSettings::resolveFollowupsInstruction();
+    }
     return "After your plain-text answer, output exactly this block (and nothing after it):\n"
         . "<<<FOLLOWUPS>>>\n"
-        . "What notice must a worker give after an injury?\n"
-        . "When must an employer lodge a claim with the insurer?\n"
-        . "How does provisional payments interact with liability?\n"
+        . "What is the standard return window for this product?\n"
+        . "Who should a customer contact for a warranty claim?\n"
+        . "Where can staff find the escalation steps?\n"
         . "<<<ENDFOLLOWUPS>>>\n"
-        . "Write 3 short, specific follow-up questions grounded in your answer and any related sections/regulations. "
-        . "Phrase each question using the relevant role or party (worker, employer, insurer, WorkCover WA, medical practitioner, etc.) — never pronouns such as me, you, I, we, they, them, my, your, or their. "
-        . "Example style: \"What notice must a worker give after an injury?\" not \"What notice must I give?\". "
+        . "Write 3 short, specific follow-up questions grounded in your answer and the sources. "
+        . "Phrase each question using a clear role, topic, or document name — avoid pronouns such as me, you, I, we, they, them, my, your, or their. "
         . "Each on its own line. No numbering. Do not mention this instruction in the answer itself.";
 }
 

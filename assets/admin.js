@@ -11,6 +11,7 @@
   const $uploadClear = document.getElementById('upload-clear');
   const $docList = document.getElementById('doc-list');
   const $docSummaryHint = document.getElementById('doc-summary-hint');
+  const $docsStatus = document.getElementById('docs-status');
   const $chunksPanel = document.getElementById('chunks-panel');
   const $chunksDetails = document.getElementById('chunks-details');
   const $chunksList = document.getElementById('chunks-list');
@@ -62,6 +63,27 @@
   const $importSettingsFile = document.getElementById('import-settings-file');
   const $exportChunks = document.getElementById('export-chunks');
   const $exportStatus = document.getElementById('export-status');
+  const $applyPresetSelect = document.getElementById('apply-preset-select');
+  const $applyPreset = document.getElementById('apply-preset');
+  const $brandAppTitle = document.getElementById('brand-app-title');
+  const $brandDocsLabel = document.getElementById('brand-docs-label');
+  const $brandChatPlaceholder = document.getElementById('brand-chat-placeholder');
+  const $brandAbout = document.getElementById('brand-about');
+  const $brandSystemPrompt = document.getElementById('brand-system-prompt');
+  const $brandRagPrompt = document.getElementById('brand-rag-prompt');
+  const $brandSourceHierarchy = document.getElementById('brand-source-hierarchy');
+  const $brandGroundingRules = document.getElementById('brand-grounding-rules');
+  const $brandGroundingRulesWeb = document.getElementById('brand-grounding-rules-web');
+  const $brandFollowups = document.getElementById('brand-followups');
+  const $brandMixComplement = document.getElementById('brand-mix-complement');
+  const $brandMixDocsFirst = document.getElementById('brand-mix-docs-first');
+  const $brandMixWebFirst = document.getElementById('brand-mix-web-first');
+  const $brandMixCompete = document.getElementById('brand-mix-compete');
+  const $saveBranding = document.getElementById('save-assistant-branding');
+  const $brandingStatus = document.getElementById('branding-status');
+  const $brandingSummaryHint = document.getElementById('branding-summary-hint');
+  const $onboardingBanner = document.getElementById('onboarding-banner');
+  const $dismissOnboarding = document.getElementById('dismiss-onboarding');
 
   const UI_FEATURE_LABELS = {
     workcover: 'Docs & Web',
@@ -263,6 +285,63 @@
     $status.classList.toggle('ok', !!msg && !isErr);
   }
 
+  /** Status line on the Documents card (and mirror to upload status). */
+  function setDocsStatus(msg, isErr) {
+    if ($docsStatus) {
+      $docsStatus.textContent = msg || '';
+      $docsStatus.classList.toggle('err', !!isErr);
+      $docsStatus.classList.toggle('ok', !!msg && !isErr);
+      if (msg) {
+        $docsStatus.classList.remove('docs-status-flash');
+        // reflow so animation can replay
+        void $docsStatus.offsetWidth;
+        $docsStatus.classList.add('docs-status-flash');
+        try {
+          $docsStatus.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch { /* ignore */ }
+      }
+    }
+    setStatus(msg, isErr);
+  }
+
+  function batchLabel(res) {
+    if (res && res.batch && res.batches_total) {
+      return ' (batch ' + res.batch + '/' + res.batches_total + ')';
+    }
+    return '';
+  }
+
+  /** Map API parse result → user-facing notice. */
+  function noticeFromParseResult(id, res) {
+    const stage = (res && res.pipeline_stage) || '';
+    const batch = batchLabel(res);
+    if (res && res.need_continue) {
+      return {
+        msg: 'Doc #' + id + ': still parsing' + batch + ' — click Continue',
+        err: false,
+      };
+    }
+    if (stage === 'parsed') {
+      return {
+        msg: 'Doc #' + id + ': PARSE COMPLETE' + batch + ' — click Re-chunk',
+        err: false,
+      };
+    }
+    if (stage === 'ready') {
+      return {
+        msg: 'Doc #' + id + ': ' + ((res && res.message) || 'ready') + batch,
+        err: false,
+      };
+    }
+    if (res && res.message) {
+      return { msg: 'Doc #' + id + ': ' + res.message + batch, err: false };
+    }
+    return {
+      msg: 'Doc #' + id + ': stage ' + (stage || 'unknown') + batch,
+      err: false,
+    };
+  }
+
   function renderPendingUploads() {
     if (!$uploadPending) return;
     if (!pendingUploadFiles.length) {
@@ -298,168 +377,285 @@
   }
 
   async function loadDocuments() {
+    if (!$docList) return;
     const r = await fetch(api('documents.php')).then((x) => x.json());
     $docList.innerHTML = '';
     if (r.error) {
       $docList.textContent = r.error;
       if ($docSummaryHint) $docSummaryHint.textContent = '';
+      setDocsStatus(r.error, true);
       return;
     }
-    const docs = r.documents || [];
+    const docs = Array.isArray(r.documents) ? r.documents : [];
+    let readyN = 0;
+    let parsingN = 0;
+    let awaitChunkN = 0;
+    let failN = 0;
+    let otherN = 0;
+    docs.forEach((d) => {
+      const stage = d.pipeline_stage || '';
+      if (d.status === 'ready') readyN += 1;
+      else if (d.status === 'failed' || stage === 'failed') failN += 1;
+      else if (stage === 'parsed') awaitChunkN += 1;
+      else if (stage === 'parsing' || stage === 'intake_done' || stage === 'ocr_done') parsingN += 1;
+      else if (d.status === 'processing') parsingN += 1;
+      else otherN += 1;
+    });
     if ($docSummaryHint) {
-      $docSummaryHint.textContent = docs.length
-        ? docs.length + ' doc' + (docs.length === 1 ? '' : 's')
-        : '';
+      if (!docs.length) {
+        $docSummaryHint.textContent = '';
+      } else {
+        let hint = docs.length + ' doc' + (docs.length === 1 ? '' : 's');
+        if (parsingN || awaitChunkN || failN || otherN) {
+          hint += ' · ' + readyN + ' ready';
+          if (parsingN) hint += ' · ' + parsingN + ' parsing';
+          if (awaitChunkN) hint += ' · ' + awaitChunkN + ' awaiting Re-chunk';
+          if (failN) hint += ' · ' + failN + ' failed';
+          if (otherN) hint += ' · ' + otherN + ' other';
+        }
+        $docSummaryHint.textContent = hint;
+      }
     }
     if (!docs.length) {
       $docList.innerHTML = '<p class="hint">No documents yet.</p>';
       return;
     }
+    let renderErrors = 0;
     docs.forEach((d) => {
-      const row = document.createElement('div');
-      row.className = 'doc-row doc-row-tags';
-      row.setAttribute('data-doc-id', String(d.id));
-      row.setAttribute('data-doc-title', d.title || d.filename || 'Document');
-
-      const main = document.createElement('div');
-      main.className = 'doc-main';
-      const head = document.createElement('div');
-      const strong = document.createElement('strong');
-      strong.textContent = d.title || d.filename;
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      const modeLabel =
-        d.ingest_mode === 'deepseek' ? 'Files parse' :
-        d.ingest_mode === 'ocr' ? 'OCR' : 'local';
-      badge.textContent = d.status + ' · ' + modeLabel + ' · ' + (d.chunk_count || 0) + ' chunks';
-      badge.classList.add(d.status === 'ready' ? 'ok' : d.status === 'failed' ? 'err' : '');
-      head.append(strong, document.createTextNode(' '), badge);
-
-      const mono = document.createElement('div');
-      mono.className = 'hint mono';
-      let monoText = d.filename;
-      if (d.department) monoText += ' · ' + d.department;
-      if (d.deepseek_file_id) monoText += ' · ' + d.deepseek_file_id;
-      if (d.error_message) monoText += ' — ' + d.error_message;
-      mono.textContent = monoText;
-
-      const tagsWrap = document.createElement('div');
-      tagsWrap.className = 'doc-tags-wrap';
-      const chips = document.createElement('div');
-      chips.className = 'tag-chips';
-      const tagList = Array.isArray(d.tag_list)
-        ? d.tag_list
-        : String(d.tags || '').split(/[,;]+/).map((t) => t.trim()).filter(Boolean);
-      tagList.forEach((t) => {
-        const chip = document.createElement('span');
-        chip.className = 'tag-chip';
-        chip.textContent = t;
-        chips.appendChild(chip);
-      });
-      if (!tagList.length) {
-        const empty = document.createElement('span');
-        empty.className = 'hint';
-        empty.textContent = 'No tags';
-        chips.appendChild(empty);
+      try {
+        $docList.appendChild(buildDocRow(d));
+      } catch (err) {
+        renderErrors += 1;
+        const fallback = document.createElement('div');
+        fallback.className = 'doc-row';
+        fallback.innerHTML =
+          '<div class="doc-main"><strong>' +
+          escapeHtml(d.title || d.filename || 'Document #' + d.id) +
+          '</strong> <span class="badge err">render error</span>' +
+          '<div class="hint mono">' +
+          escapeHtml(err && err.message ? err.message : 'Could not render row') +
+          '</div></div>';
+        $docList.appendChild(fallback);
       }
+    });
+    if (renderErrors) {
+      setDocsStatus('List loaded with ' + renderErrors + ' row render error(s) — see badges', true);
+    }
+  }
 
-      const tagEdit = document.createElement('div');
-      tagEdit.className = 'inline tag-edit';
-      const tagInput = document.createElement('input');
-      tagInput.type = 'text';
-      tagInput.className = 'tag-input';
-      tagInput.placeholder = 'Tags (comma-separated)';
-      tagInput.value = tagList.join(', ');
-      tagInput.setAttribute('aria-label', 'Tags for ' + (d.title || d.filename));
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
-      const urlInput = document.createElement('input');
-      urlInput.type = 'url';
-      urlInput.className = 'tag-input source-url-input';
-      urlInput.placeholder = 'Source URL (https://…) — also live web when retrieved';
-      urlInput.value = d.source_url || '';
-      urlInput.title = 'Citation link and live allowlisted fetch when this document is retrieved in chat';
-      urlInput.setAttribute('aria-label', 'Source URL for ' + (d.title || d.filename));
+  function buildDocRow(d) {
+    const row = document.createElement('div');
+    row.className = 'doc-row doc-row-tags';
+    row.setAttribute('data-doc-id', String(d.id));
+    row.setAttribute('data-doc-title', d.title || d.filename || 'Document');
 
-      const btnSaveMeta = document.createElement('button');
-      btnSaveMeta.type = 'button';
-      btnSaveMeta.className = 'btn btn-primary';
-      btnSaveMeta.textContent = 'Save';
-      btnSaveMeta.onclick = () => saveDocMeta(d.id, tagInput.value, urlInput.value);
-      tagEdit.append(tagInput, urlInput, btnSaveMeta);
+    const main = document.createElement('div');
+    main.className = 'doc-main';
+    const head = document.createElement('div');
+    const strong = document.createElement('strong');
+    strong.textContent = d.title || d.filename || ('Document #' + d.id);
+    const stage = d.pipeline_stage || '';
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    const modeLabel =
+      d.ingest_mode === 'deepseek' ? 'Files parse' :
+      d.ingest_mode === 'ocr' ? 'OCR' : 'local';
+    let statusLabel = d.status || 'unknown';
+    if (stage === 'parsed' && d.status !== 'ready') {
+      statusLabel = 'parsed — awaiting Re-chunk';
+    } else if ((stage === 'parsing' || stage === 'intake_done') && d.status !== 'ready') {
+      statusLabel = 'parsing';
+    } else if (stage === 'failed' || d.status === 'failed') {
+      statusLabel = 'failed';
+    }
+    badge.textContent = statusLabel + ' · ' + modeLabel + ' · ' + (d.chunk_count || 0) + ' chunks';
+    if (d.status === 'ready') badge.classList.add('ok');
+    else if (d.status === 'failed' || stage === 'failed') badge.classList.add('err');
+    else if (stage === 'parsed') badge.classList.add('warn');
+    head.append(strong, document.createTextNode(' '), badge);
 
-      if (d.source_url) {
-        const urlHint = document.createElement('div');
-        urlHint.className = 'hint mono';
-        const a = document.createElement('a');
+    if (stage && stage !== 'ready' && stage !== 'parsed') {
+      const st = document.createElement('span');
+      st.className = 'hint';
+      st.textContent = ' · ' + stage + (d.domain_set ? ' · ' + d.domain_set : '');
+      head.appendChild(st);
+    } else if (d.domain_set && stage === 'parsed') {
+      const st = document.createElement('span');
+      st.className = 'hint';
+      st.textContent = ' · ' + d.domain_set;
+      head.appendChild(st);
+    }
+
+    const mono = document.createElement('div');
+    mono.className = 'hint mono';
+    let monoText = d.filename || '';
+    if (d.department) monoText += ' · ' + d.department;
+    if (d.deepseek_file_id) monoText += ' · ' + d.deepseek_file_id;
+    if (d.pipeline_error) monoText += ' — ' + d.pipeline_error;
+    else if (d.error_message) monoText += ' — ' + d.error_message;
+    mono.textContent = monoText;
+
+    const nextStep = document.createElement('div');
+    nextStep.className = 'doc-next-step';
+    nextStep.hidden = true;
+    if (stage === 'parsed' && d.status !== 'ready') {
+      nextStep.hidden = false;
+      nextStep.classList.add('doc-next-step-parsed');
+      nextStep.textContent = 'Parse complete — click Re-chunk to make this searchable in chat';
+    } else if (stage === 'parsing' || stage === 'intake_done') {
+      nextStep.hidden = false;
+      nextStep.classList.add('doc-next-step-parsing');
+      nextStep.textContent = 'Still parsing — click Continue until parse completes';
+    } else if (d.status === 'failed' || stage === 'failed') {
+      nextStep.hidden = false;
+      nextStep.classList.add('doc-next-step-failed');
+      nextStep.textContent = 'Failed — fix the error below, then Re-parse';
+    }
+
+    const busy = document.createElement('div');
+    busy.className = 'hint doc-busy';
+    busy.hidden = true;
+    busy.setAttribute('data-doc-busy', '1');
+
+    const tagsWrap = document.createElement('div');
+    tagsWrap.className = 'doc-tags-wrap';
+    const chips = document.createElement('div');
+    chips.className = 'tag-chips';
+    const tagList = Array.isArray(d.tag_list)
+      ? d.tag_list
+      : String(d.tags || '').split(/[,;]+/).map((t) => t.trim()).filter(Boolean);
+    tagList.forEach((t) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.textContent = t;
+      chips.appendChild(chip);
+    });
+    if (!tagList.length) {
+      const empty = document.createElement('span');
+      empty.className = 'hint';
+      empty.textContent = 'No tags';
+      chips.appendChild(empty);
+    }
+
+    const tagEdit = document.createElement('div');
+    tagEdit.className = 'inline tag-edit';
+    const tagInput = document.createElement('input');
+    tagInput.type = 'text';
+    tagInput.className = 'tag-input';
+    tagInput.placeholder = 'Tags (comma-separated)';
+    tagInput.value = tagList.join(', ');
+    tagInput.setAttribute('aria-label', 'Tags for ' + (d.title || d.filename || d.id));
+
+    const urlInput = document.createElement('input');
+    urlInput.type = 'url';
+    urlInput.className = 'tag-input source-url-input';
+    urlInput.placeholder = 'Source URL (https://…) — also live web when retrieved';
+    urlInput.value = d.source_url || '';
+    urlInput.title = 'Citation link and live allowlisted fetch when this document is retrieved in chat';
+    urlInput.setAttribute('aria-label', 'Source URL for ' + (d.title || d.filename || d.id));
+
+    const btnSaveMeta = document.createElement('button');
+    btnSaveMeta.type = 'button';
+    btnSaveMeta.className = 'btn btn-primary';
+    btnSaveMeta.textContent = 'Save';
+    btnSaveMeta.onclick = () => saveDocMeta(d.id, tagInput.value, urlInput.value);
+    tagEdit.append(tagInput, urlInput, btnSaveMeta);
+
+    if (d.source_url) {
+      const urlHint = document.createElement('div');
+      urlHint.className = 'hint mono';
+      const a = document.createElement('a');
+      try {
         a.href = d.source_url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.textContent = d.source_url;
-        urlHint.append(document.createTextNode('Link: '), a);
-        tagsWrap.append(chips, urlHint, tagEdit);
-      } else {
-        tagsWrap.append(chips, tagEdit);
+      } catch {
+        a.removeAttribute('href');
       }
-      main.append(head, mono, tagsWrap);
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = d.source_url;
+      urlHint.append(document.createTextNode('Link: '), a);
+      tagsWrap.append(chips, urlHint, tagEdit);
+    } else {
+      tagsWrap.append(chips, tagEdit);
+    }
+    main.append(head, mono, nextStep, busy, tagsWrap);
 
-      const actions = document.createElement('div');
-      actions.className = 'doc-actions';
-      const btnChunks = document.createElement('button');
-      btnChunks.className = 'btn btn-secondary';
-      btnChunks.type = 'button';
-      btnChunks.textContent = d.ingest_mode === 'deepseek' ? 'Stub' : 'Chunks';
-      btnChunks.onclick = () => openChunks(d.id, d.title || d.filename);
+    const actions = document.createElement('div');
+    actions.className = 'doc-actions';
+    const btnChunks = document.createElement('button');
+    btnChunks.className = 'btn btn-secondary';
+    btnChunks.type = 'button';
+    btnChunks.textContent = d.ingest_mode === 'deepseek' ? 'Stub' : 'Chunks';
+    btnChunks.onclick = () => openChunks(d.id, d.title || d.filename);
 
-      const stage = d.pipeline_stage || '';
-      if (stage && stage !== 'ready') {
-        const st = document.createElement('span');
-        st.className = 'hint';
-        st.textContent = ' · ' + stage + (d.domain_set ? ' · ' + d.domain_set : '');
-        head.appendChild(st);
-      }
+    const btnReparse = document.createElement('button');
+    btnReparse.className = 'btn btn-ghost';
+    btnReparse.type = 'button';
+    btnReparse.textContent = 'Re-parse';
+    btnReparse.title = 'OCR/structure parse first; then Re-chunk';
+    btnReparse.onclick = () => reparseDoc(d.id);
 
-      const btnReparse = document.createElement('button');
-      btnReparse.className = 'btn btn-ghost';
-      btnReparse.type = 'button';
-      btnReparse.textContent = 'Re-parse';
-      btnReparse.title = 'OCR/structure parse first; then Re-chunk';
-      btnReparse.onclick = () => reparseDoc(d.id);
+    const btnCont = document.createElement('button');
+    btnCont.className = 'btn btn-secondary';
+    btnCont.type = 'button';
+    btnCont.textContent = 'Continue';
+    btnCont.onclick = () => continuePipeline(d.id);
+    if (stage !== 'parsing' && stage !== 'intake_done' && stage !== 'ocr_done') {
+      btnCont.hidden = true;
+    }
 
-      const btnCont = document.createElement('button');
-      btnCont.className = 'btn btn-secondary';
-      btnCont.type = 'button';
-      btnCont.textContent = 'Continue';
-      btnCont.onclick = () => continuePipeline(d.id);
-      if (stage !== 'parsing' && stage !== 'intake_done') {
-        btnCont.hidden = true;
-      }
+    const btnRe = document.createElement('button');
+    btnRe.className = 'btn btn-ghost';
+    btnRe.type = 'button';
+    btnRe.textContent = 'Re-chunk';
+    btnRe.title = 'Chunk from current markdown (run Re-parse first for best quality)';
+    btnRe.onclick = () => rechunk(d.id);
+    if (stage === 'parsing' || stage === 'intake_done' || stage === 'ocr_done') {
+      btnRe.disabled = true;
+      btnRe.title = 'Finish Continue until parsed, then Re-chunk';
+    }
+    if (stage === 'parsed') {
+      btnRe.classList.add('btn-primary');
+      btnRe.classList.remove('btn-ghost');
+      btnRe.title = 'Parse is done — Re-chunk to index for chat';
+    }
 
-      const btnRe = document.createElement('button');
-      btnRe.className = 'btn btn-ghost';
-      btnRe.type = 'button';
-      btnRe.textContent = 'Re-chunk';
-      btnRe.title = 'Chunk from current markdown (run Re-parse first for best quality)';
-      btnRe.onclick = () => rechunk(d.id);
-      if (stage === 'parsing') {
-        btnRe.disabled = true;
-        btnRe.title = 'Finish Continue until parsed, then Re-chunk';
-      }
+    const btnDel = document.createElement('button');
+    btnDel.className = 'btn btn-destructive';
+    btnDel.type = 'button';
+    btnDel.textContent = 'Delete';
+    btnDel.onclick = () => deleteDoc(d.id);
 
-      const btnDel = document.createElement('button');
-      btnDel.className = 'btn btn-destructive';
-      btnDel.type = 'button';
-      btnDel.textContent = 'Delete';
-      btnDel.onclick = () => deleteDoc(d.id);
+    actions.append(btnChunks, btnReparse, btnCont, btnRe, btnDel);
+    row.append(main, actions);
+    return row;
+  }
 
-      actions.append(btnChunks, btnReparse, btnCont, btnRe, btnDel);
-      row.append(main, actions);
-      $docList.appendChild(row);
+  function setDocRowBusy(id, msg) {
+    const row = $docList && $docList.querySelector('[data-doc-id="' + id + '"]');
+    if (!row) return;
+    const busy = row.querySelector('[data-doc-busy]');
+    if (busy) {
+      busy.hidden = !msg;
+      busy.textContent = msg || '';
+    }
+    row.querySelectorAll('button').forEach((btn) => {
+      btn.disabled = !!msg;
     });
   }
 
   async function saveDocMeta(id, tagsText, sourceUrl) {
     await refreshCsrf();
-    setStatus('Saving…');
+    setDocsStatus('Saving tags/URL for doc #' + id + '…');
+    setDocRowBusy(id, 'Saving…');
     try {
       const r = await fetch(api('documents.php'), {
         method: 'POST',
@@ -477,10 +673,13 @@
       if (r.error) throw new Error(r.error);
       const n = (r.document?.tag_list || []).length;
       const hasUrl = !!(r.document && r.document.source_url);
-      setStatus('Saved (' + n + ' tag' + (n === 1 ? '' : 's') + (hasUrl ? ', URL set' : '') + ')');
-      loadDocuments();
+      setDocsStatus(
+        'Saved doc #' + id + ' (' + n + ' tag' + (n === 1 ? '' : 's') + (hasUrl ? ', URL set' : '') + ')'
+      );
+      await loadDocuments();
     } catch (e) {
-      setStatus(e.message || 'Save failed', true);
+      setDocRowBusy(id, '');
+      setDocsStatus(e.message || 'Save failed', true);
     }
   }
 
@@ -613,87 +812,91 @@
 
   async function rechunk(id) {
     await refreshCsrf();
-    setStatus('Re-chunking from markdown…');
-    const r = await fetch(api('documents.php'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': csrf(),
-      },
-      body: JSON.stringify({ action: 'rechunk', id }),
-    }).then((x) => x.json());
-    if (r.error) {
-      setStatus(r.error, true);
-      return;
-    }
-    setStatus('Re-chunked (' + (r.result?.chunk_count || 0) + ' chunks)');
-    loadDocuments();
-  }
-
-  async function reparseDoc(id) {
-    await refreshCsrf();
-    setStatus('Re-parsing (OCR + structure)…');
-    const r = await fetch(api('documents.php'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': csrf(),
-      },
-      body: JSON.stringify({ action: 'reparse', id }),
-    }).then((x) => x.json());
-    if (r.error) {
-      setStatus(r.error, true);
-      return;
-    }
-    const res = r.result || {};
-    if (res.need_continue) {
-      setStatus('Parse batch done — click Continue');
-    } else if ((res.pipeline_stage || '') === 'parsed') {
-      setStatus('Parse complete — click Re-chunk');
-    } else {
-      setStatus(res.message || 'Re-parse done');
-    }
-    loadDocuments();
-  }
-
-  async function continuePipeline(id) {
-    await refreshCsrf();
-    setStatus('Continuing parse batch…');
-    let guard = 0;
-    while (guard < 40) {
-      guard += 1;
+    setDocsStatus('Re-chunking doc #' + id + ' from markdown…');
+    setDocRowBusy(id, 'Re-chunking…');
+    try {
       const r = await fetch(api('documents.php'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': csrf(),
         },
-        body: JSON.stringify({ action: 'continue_pipeline', id, auto_chunk: false }),
+        body: JSON.stringify({ action: 'rechunk', id }),
       }).then((x) => x.json());
-      if (r.error) {
-        setStatus(r.error, true);
-        loadDocuments();
+      if (r.error) throw new Error(r.error);
+      const n = r.result?.chunk_count || 0;
+      const stage = r.result?.pipeline_stage || 'ready';
+      setDocsStatus('Doc #' + id + ' re-chunked → ' + n + ' chunks · stage ' + stage);
+      await loadDocuments();
+    } catch (e) {
+      setDocRowBusy(id, '');
+      setDocsStatus(e.message || 'Re-chunk failed', true);
+      await loadDocuments();
+    }
+  }
+
+  async function reparseDoc(id) {
+    await refreshCsrf();
+    setDocsStatus('Re-parsing doc #' + id + ' (OCR + structure)… this can take a minute');
+    setDocRowBusy(id, 'Re-parsing (OCR + structure)…');
+    try {
+      const r = await fetch(api('documents.php'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf(),
+        },
+        body: JSON.stringify({ action: 'reparse', id }),
+      }).then((x) => x.json());
+      if (r.error) throw new Error(r.error);
+      const res = r.result || {};
+      const notice = noticeFromParseResult(id, res);
+      setDocsStatus(notice.msg, notice.err);
+      await loadDocuments();
+    } catch (e) {
+      setDocRowBusy(id, '');
+      setDocsStatus(e.message || 'Re-parse failed', true);
+      await loadDocuments();
+    }
+  }
+
+  async function continuePipeline(id) {
+    await refreshCsrf();
+    setDocsStatus('Continuing parse for doc #' + id + '…');
+    setDocRowBusy(id, 'Parsing batches…');
+    let guard = 0;
+    try {
+      while (guard < 40) {
+        guard += 1;
+        const r = await fetch(api('documents.php'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf(),
+          },
+          body: JSON.stringify({ action: 'continue_pipeline', id, auto_chunk: false }),
+        }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        const res = r.result || {};
+        if (res.need_continue) {
+          const notice = noticeFromParseResult(id, res);
+          setDocsStatus(notice.msg, notice.err);
+          setDocRowBusy(id, 'Parsing…' + batchLabel(res));
+          await refreshCsrf();
+          continue;
+        }
+        const notice = noticeFromParseResult(id, res);
+        setDocsStatus(notice.msg, notice.err);
+        await loadDocuments();
         return;
       }
-      const res = r.result || {};
-      const batch = res.batch && res.batches_total
-        ? ' (' + res.batch + '/' + res.batches_total + ')'
-        : '';
-      if (res.need_continue) {
-        setStatus('Parsing…' + batch);
-        await refreshCsrf();
-        continue;
-      }
-      if ((res.pipeline_stage || '') === 'parsed') {
-        setStatus('Parse complete' + batch + ' — click Re-chunk');
-      } else {
-        setStatus('Pipeline: ' + (res.pipeline_stage || 'done') + batch);
-      }
-      loadDocuments();
-      return;
+      setDocsStatus('Doc #' + id + ': stopped after many batches — click Continue again', true);
+      await loadDocuments();
+    } catch (e) {
+      setDocRowBusy(id, '');
+      setDocsStatus(e.message || 'Continue failed', true);
+      await loadDocuments();
     }
-    setStatus('Stopped after many batches — click Continue again', true);
-    loadDocuments();
   }
 
   async function openChunks(docId, title) {
@@ -1306,6 +1509,68 @@
     };
   }
 
+  function setBrandingStatus(msg, isErr) {
+    if (!$brandingStatus) return;
+    $brandingStatus.textContent = msg || '';
+    $brandingStatus.classList.toggle('err', !!isErr);
+    $brandingStatus.classList.toggle('ok', !!msg && !isErr);
+  }
+
+  function applyDocsModeLabel(label) {
+    const t = (label || '').trim() || 'Docs & Web';
+    UI_FEATURE_LABELS.workcover = t;
+    updateUiFeaturesSummaryHint();
+  }
+
+  function updateBrandingSummaryHint(b) {
+    if (!$brandingSummaryHint || !b) return;
+    const title = (b.app_title || '').trim() || '(config title)';
+    $brandingSummaryHint.textContent = title + ' · ' + ((b.docs_mode_label || 'Docs & Web').trim() || 'Docs & Web');
+  }
+
+  function applyAssistantBranding(b) {
+    if (!b) return;
+    if ($brandAppTitle) $brandAppTitle.value = b.app_title || '';
+    if ($brandDocsLabel) $brandDocsLabel.value = b.docs_mode_label || '';
+    if ($brandChatPlaceholder) $brandChatPlaceholder.value = b.chat_placeholder || '';
+    if ($brandAbout) $brandAbout.value = b.about_blurb || '';
+    if ($brandSystemPrompt) $brandSystemPrompt.value = b.system_prompt || '';
+    if ($brandRagPrompt) $brandRagPrompt.value = b.rag_system_prompt || '';
+    if ($brandSourceHierarchy) $brandSourceHierarchy.value = b.source_hierarchy || '';
+    if ($brandGroundingRules) $brandGroundingRules.value = b.grounding_rules || '';
+    if ($brandGroundingRulesWeb) $brandGroundingRulesWeb.value = b.grounding_rules_web || '';
+    if ($brandFollowups) $brandFollowups.value = b.followups_instruction || '';
+    if ($brandMixComplement) $brandMixComplement.value = b.mix_complement || '';
+    if ($brandMixDocsFirst) $brandMixDocsFirst.value = b.mix_docs_first || '';
+    if ($brandMixWebFirst) $brandMixWebFirst.value = b.mix_web_first || '';
+    if ($brandMixCompete) $brandMixCompete.value = b.mix_compete || '';
+    applyDocsModeLabel(b.docs_mode_label);
+    updateBrandingSummaryHint(b);
+    if ($onboardingBanner) {
+      $onboardingBanner.hidden = !!b.onboarding_dismissed;
+    }
+  }
+
+  function collectAssistantBranding(extra) {
+    const base = {
+      app_title: ($brandAppTitle && $brandAppTitle.value) || '',
+      docs_mode_label: ($brandDocsLabel && $brandDocsLabel.value) || '',
+      chat_placeholder: ($brandChatPlaceholder && $brandChatPlaceholder.value) || '',
+      about_blurb: ($brandAbout && $brandAbout.value) || '',
+      system_prompt: ($brandSystemPrompt && $brandSystemPrompt.value) || '',
+      rag_system_prompt: ($brandRagPrompt && $brandRagPrompt.value) || '',
+      source_hierarchy: ($brandSourceHierarchy && $brandSourceHierarchy.value) || '',
+      grounding_rules: ($brandGroundingRules && $brandGroundingRules.value) || '',
+      grounding_rules_web: ($brandGroundingRulesWeb && $brandGroundingRulesWeb.value) || '',
+      followups_instruction: ($brandFollowups && $brandFollowups.value) || '',
+      mix_complement: ($brandMixComplement && $brandMixComplement.value) || '',
+      mix_docs_first: ($brandMixDocsFirst && $brandMixDocsFirst.value) || '',
+      mix_web_first: ($brandMixWebFirst && $brandMixWebFirst.value) || '',
+      mix_compete: ($brandMixCompete && $brandMixCompete.value) || '',
+    };
+    return Object.assign(base, extra || {});
+  }
+
   function applyUiConfig(ui) {
     if (!ui) return;
     if ($uiIntro && typeof ui.intro === 'string') $uiIntro.value = ui.intro;
@@ -1408,6 +1673,12 @@
           ' (' +
           (r.faithfulness.source || 'default') +
           ')'
+        );
+      }
+      if (r.assistant_branding) {
+        applyAssistantBranding(r.assistant_branding);
+        setBrandingStatus(
+          r.assistant_branding.source === 'admin' ? 'Loaded (admin)' : 'Loaded (defaults)'
         );
       }
       if (r.ui) {
@@ -1657,6 +1928,50 @@
     });
   }
 
+  if ($saveBranding) {
+    $saveBranding.addEventListener('click', async () => {
+      await refreshCsrf();
+      setBrandingStatus('Saving…');
+      try {
+        const r = await fetch(api('settings.php'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf(),
+          },
+          body: JSON.stringify({ assistant_branding: collectAssistantBranding() }),
+        }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        if (r.assistant_branding) applyAssistantBranding(r.assistant_branding);
+        setBrandingStatus('Saved assistant settings');
+      } catch (e) {
+        setBrandingStatus(e.message || 'Save failed', true);
+      }
+    });
+  }
+
+  if ($dismissOnboarding) {
+    $dismissOnboarding.addEventListener('click', async () => {
+      await refreshCsrf();
+      try {
+        const r = await fetch(api('settings.php'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrf(),
+          },
+          body: JSON.stringify({
+            assistant_branding: collectAssistantBranding({ onboarding_dismissed: true }),
+          }),
+        }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        if ($onboardingBanner) $onboardingBanner.hidden = true;
+      } catch {
+        if ($onboardingBanner) $onboardingBanner.hidden = true;
+      }
+    });
+  }
+
   if ($saveUiFeatures) {
     $saveUiFeatures.addEventListener('click', async () => {
       await refreshCsrf();
@@ -1900,6 +2215,38 @@
     });
   }
 
+  async function postSettingsImport(data, confirmLabel) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Settings payload must be a JSON object');
+    }
+    if (data.export === 'chunks') {
+      throw new Error('That file is a chunks export — pick a settings export');
+    }
+    if (!confirm(confirmLabel)) {
+      setExportStatus('');
+      return false;
+    }
+    await refreshCsrf();
+    setExportStatus('Importing…');
+    const r = await fetch(api('export.php'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrf(),
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ type: 'settings', data }),
+    }).then((x) => x.json());
+    if (r.error) throw new Error(r.error);
+    const bits = (r.updated || []).join(', ') || 'none';
+    let msg = 'Imported: ' + bits;
+    if ((r.skipped || []).length) msg += ' · skipped ' + r.skipped.join(', ');
+    setExportStatus(msg);
+    await loadWebHosts();
+    await loadChats();
+    return true;
+  }
+
   async function importSettingsFromFile(file) {
     if (!file) return;
     setExportStatus('Reading ' + file.name + '…');
@@ -1911,38 +2258,57 @@
       } catch (_) {
         throw new Error('File is not valid JSON');
       }
-      if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        throw new Error('Settings file must be a JSON object');
-      }
-      if (data.export === 'chunks') {
-        throw new Error('That file is a chunks export — pick a settings export');
-      }
-      if (!confirm('Import settings from “' + file.name + '”? This overwrites current admin settings.')) {
-        setExportStatus('');
-        return;
-      }
-      await refreshCsrf();
-      setExportStatus('Importing…');
-      const r = await fetch(api('export.php'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrf(),
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify({ type: 'settings', data }),
-      }).then((x) => x.json());
-      if (r.error) throw new Error(r.error);
-      const bits = (r.updated || []).join(', ') || 'none';
-      let msg = 'Imported: ' + bits;
-      if ((r.skipped || []).length) msg += ' · skipped ' + r.skipped.join(', ');
-      setExportStatus(msg);
-      await loadWebHosts();
-      await loadChats();
+      await postSettingsImport(data, 'Import settings from “' + file.name + '”? This overwrites current admin settings.');
     } catch (e) {
       setExportStatus(e.message || 'Import failed', true);
     } finally {
       if ($importSettingsFile) $importSettingsFile.value = '';
+    }
+  }
+
+  async function loadPresetsList() {
+    if (!$applyPresetSelect) return;
+    try {
+      const r = await fetch(api('presets.php'), { credentials: 'same-origin' }).then((x) => x.json());
+      if (r.error) throw new Error(r.error);
+      const keep = $applyPresetSelect.value;
+      $applyPresetSelect.innerHTML = '<option value="">— Choose a preset —</option>';
+      (r.presets || []).forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.label || p.id;
+        $applyPresetSelect.appendChild(opt);
+      });
+      if (keep) $applyPresetSelect.value = keep;
+    } catch (_) {
+      /* non-fatal */
+    }
+  }
+
+  async function applyBusinessPreset() {
+    if (!$applyPresetSelect || !$applyPreset) return;
+    const id = ($applyPresetSelect.value || '').trim();
+    if (!id) {
+      setExportStatus('Choose a preset first', true);
+      return;
+    }
+    const label = $applyPresetSelect.selectedOptions[0]
+      ? $applyPresetSelect.selectedOptions[0].textContent
+      : id;
+    try {
+      setExportStatus('Loading preset…');
+      const r = await fetch(api('presets.php?id=' + encodeURIComponent(id)), {
+        credentials: 'same-origin',
+      }).then((x) => x.json());
+      if (r.error) throw new Error(r.error);
+      const preset = r.preset;
+      const data = preset && preset.effective ? preset : { effective: preset };
+      await postSettingsImport(
+        data,
+        'Apply preset “' + label + '”? This overwrites matching admin settings (not your document library).'
+      );
+    } catch (e) {
+      setExportStatus(e.message || 'Preset failed', true);
     }
   }
 
@@ -1954,7 +2320,12 @@
     });
   }
 
+  if ($applyPreset) {
+    $applyPreset.addEventListener('click', () => applyBusinessPreset());
+  }
+
   loadChats();
   loadWebHosts();
   loadDocuments();
+  loadPresetsList();
 })();

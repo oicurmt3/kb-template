@@ -27,6 +27,26 @@ class AppSettings {
     /** When true, fetch document Source URLs as live web on RAG hits (allowlisted hosts). */
     public const KEY_DOC_SOURCE_URL_WEB = 'doc_source_url_web';
     public const DEFAULT_DOC_SOURCE_URL_WEB = true;
+    /** Display name, prompts, and grounding copy (admin overrides config.php). */
+    public const KEY_ASSISTANT_BRANDING = 'assistant_branding';
+
+    /** @var list<string> Stored in assistant_branding JSON (export/import). */
+    private const BRANDING_STRING_KEYS = [
+        'app_title',
+        'docs_mode_label',
+        'chat_placeholder',
+        'about_blurb',
+        'system_prompt',
+        'rag_system_prompt',
+        'source_hierarchy',
+        'grounding_rules',
+        'grounding_rules_web',
+        'followups_instruction',
+        'mix_complement',
+        'mix_docs_first',
+        'mix_web_first',
+        'mix_compete',
+    ];
 
     /** @return list<string> */
     public static function ragWebMixModes(): array {
@@ -540,7 +560,7 @@ class AppSettings {
             $features[$key] = ['default' => $defaultOn, 'visibility' => 'show'];
         }
         return [
-            'intro' => "Hi — I'm WANDA, your Western Australian workers compensation assistant. Ask a question in everyday language; turn on WorkCover for answers grounded in the Act, Regulations, and guides.",
+            'intro' => "Hi — ask a question in everyday language. Turn on Docs & Web for answers grounded in your uploaded documents and allowlisted websites.",
             'chat_history' => true,
             'features' => $features,
         ];
@@ -585,6 +605,7 @@ class AppSettings {
             self::KEY_FAITHFULNESS,
             self::KEY_DOC_SOURCE_URL_WEB,
             self::KEY_UI,
+            self::KEY_ASSISTANT_BRANDING,
         ];
     }
 
@@ -615,6 +636,7 @@ class AppSettings {
             || isset($payload['faithfulness'])
             || isset($payload['deep_thinking_policy'])
             || array_key_exists('doc_source_url_web', $payload)
+            || isset($payload['assistant_branding'])
         ) {
             $effective = $payload;
         } elseif (isset($payload['raw']) && is_array($payload['raw'])) {
@@ -715,6 +737,11 @@ class AppSettings {
             $updated[] = 'ui';
         }
 
+        if (isset($effective['assistant_branding']) && is_array($effective['assistant_branding'])) {
+            self::saveAssistantBranding($effective['assistant_branding']);
+            $updated[] = 'assistant_branding';
+        }
+
         if (isset($effective['chat_limits']) && is_array($effective['chat_limits'])) {
             self::saveChatLimits($effective['chat_limits']);
             $updated[] = 'chat_limits';
@@ -738,6 +765,7 @@ class AppSettings {
                 'faithfulness' => self::faithfulness(),
                 'doc_source_url_web' => self::docSourceUrlWebEnabled(),
                 'ui' => self::uiConfig(),
+                'assistant_branding' => self::assistantBranding(),
                 'chat_limits' => self::chatLimits($appCfg),
             ],
         ];
@@ -817,6 +845,12 @@ class AppSettings {
                 $out['ui'] = $decoded;
             }
         }
+        if (isset($map[self::KEY_ASSISTANT_BRANDING])) {
+            $decoded = json_decode($map[self::KEY_ASSISTANT_BRANDING], true);
+            if (is_array($decoded)) {
+                $out['assistant_branding'] = $decoded;
+            }
+        }
         if (isset($map[self::KEY_CHAT])) {
             $decoded = json_decode($map[self::KEY_CHAT], true);
             if (is_array($decoded)) {
@@ -861,20 +895,20 @@ class AppSettings {
             ? strtolower(trim($answerLength))
             : self::answerLength();
         if ($len === 'short') {
-            return 'Answer in high-quality mode within the SHORT length limit: precise legal '
-                . 'wording when the excerpts support it; name section/regulation numbers when '
+            return 'Answer in high-quality mode within the SHORT length limit: precise wording '
+                . 'when the excerpts support it; name section or policy references when '
                 . 'relevant. Prefer accuracy over coverage — do not expand into exceptions, '
                 . 'related topics, or definitions unless needed for the direct answer. '
                 . 'Plain text only (no Markdown). Do not invent rules.';
         }
         if ($len === 'long') {
-            return 'Answer in high-quality mode: be precise and thorough. Use correct legal '
-                . 'and technical terms when the excerpts support them, name section/regulation '
-                . 'numbers clearly, and cover important related points, exceptions, and '
-                . 'definitions. Still write plain text only (no Markdown). Do not invent rules.';
+            return 'Answer in high-quality mode: be precise and thorough. Use correct technical '
+                . 'terms when the excerpts support them, name sections or clauses clearly, and '
+                . 'cover important related points, exceptions, and definitions. '
+                . 'Still write plain text only (no Markdown). Do not invent rules.';
         }
-        return 'Answer in high-quality mode: be precise. Use correct legal and technical terms '
-            . 'when the excerpts support them; name section/regulation numbers clearly. '
+        return 'Answer in high-quality mode: be precise. Use correct technical terms '
+            . 'when the excerpts support them; name sections or clauses clearly. '
             . 'Include a key exception only if it directly affects the answer. Stay within '
             . 'MEDIUM length. Plain text only (no Markdown). Do not invent rules.';
     }
@@ -936,6 +970,265 @@ class AppSettings {
             return 'admin';
         }
         return 'default';
+    }
+
+    /**
+     * @return array{
+     *   app_title:string,
+     *   docs_mode_label:string,
+     *   chat_placeholder:string,
+     *   about_blurb:string,
+     *   system_prompt:string,
+     *   rag_system_prompt:string,
+     *   source_hierarchy:string,
+     *   onboarding_dismissed:bool
+     * }
+     */
+    public static function defaultAssistantBranding(): array {
+        return [
+            'app_title' => '',
+            'docs_mode_label' => 'Docs & Web',
+            'chat_placeholder' => 'Ask a question…',
+            'about_blurb' => '',
+            'system_prompt' => '',
+            'rag_system_prompt' => '',
+            'source_hierarchy' => '',
+            'grounding_rules' => '',
+            'grounding_rules_web' => '',
+            'followups_instruction' => '',
+            'mix_complement' => '',
+            'mix_docs_first' => '',
+            'mix_web_first' => '',
+            'mix_compete' => '',
+            'onboarding_dismissed' => false,
+        ];
+    }
+
+    /** Neutral hierarchy when admin leaves source_hierarchy blank. */
+    public static function defaultSourceHierarchyText(): string {
+        return 'Hierarchy: treat primary authoritative documents (e.g. legislation, official policy, standards) '
+            . 'ahead of guides or summaries. When both appear, state the authoritative rule first, '
+            . 'then optional practical guidance.';
+    }
+
+    /**
+     * @return array{
+     *   app_title:string,
+     *   docs_mode_label:string,
+     *   chat_placeholder:string,
+     *   about_blurb:string,
+     *   system_prompt:string,
+     *   rag_system_prompt:string,
+     *   source_hierarchy:string,
+     *   onboarding_dismissed:bool,
+     *   source:string
+     * }
+     */
+    public static function assistantBranding(): array {
+        $defaults = self::defaultAssistantBranding();
+        $raw = self::get(self::KEY_ASSISTANT_BRANDING);
+        if ($raw === null || $raw === '') {
+            $defaults['source'] = 'default';
+            return $defaults;
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            $defaults['source'] = 'default';
+            return $defaults;
+        }
+        $out = $defaults;
+        foreach (self::BRANDING_STRING_KEYS as $k) {
+            if (isset($decoded[$k]) && is_string($decoded[$k])) {
+                $out[$k] = mb_substr(trim($decoded[$k]), 0, $k === 'about_blurb' ? 4000 : 12000);
+            }
+        }
+        if (array_key_exists('onboarding_dismissed', $decoded)) {
+            $out['onboarding_dismissed'] = self::truthy($decoded['onboarding_dismissed']);
+        }
+        $out['source'] = 'admin';
+        return $out;
+    }
+
+    /**
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
+    public static function saveAssistantBranding(array $input): array {
+        $current = self::assistantBranding();
+        unset($current['source']);
+        foreach (self::BRANDING_STRING_KEYS as $k) {
+            if (array_key_exists($k, $input) && is_string($input[$k])) {
+                $current[$k] = mb_substr(trim($input[$k]), 0, $k === 'about_blurb' ? 4000 : 12000);
+            }
+        }
+        if (array_key_exists('onboarding_dismissed', $input)) {
+            $current['onboarding_dismissed'] = self::truthy($input['onboarding_dismissed']);
+        }
+        self::set(
+            self::KEY_ASSISTANT_BRANDING,
+            json_encode($current, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
+        $saved = self::assistantBranding();
+        return $saved;
+    }
+
+    /** Default excerpt grounding block (docs only, no live web). */
+    public static function defaultGroundingRulesDocs(): string {
+        $hierarchy = self::sourceHierarchyForGrounding();
+        return "DOCUMENT EXCERPTS (authoritative for this answer):\n"
+            . "Grounding rules (mandatory):\n"
+            . "- Answer ONLY from these excerpts and any attached DeepSeek-parsed files. "
+            . "Do not use outside knowledge, guesses, or general lore that is not in the excerpts.\n"
+            . "- If the excerpts only partly cover the question, answer the covered part and clearly say what is missing.\n"
+            . "- If nothing relevant is in the excerpts or attached files, say you cannot find it in the uploaded documents. "
+            . "Do not invent section numbers, time limits, dollar amounts, or obligations.\n"
+            . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
+            . $hierarchy . "\n"
+            . "Name section, clause, part, or page references in plain words when the excerpts support them. "
+            . "Prefer quoting or closely paraphrasing the relevant rule or text. "
+            . "Review all excerpts for related definitions, exceptions, procedures, or cross-references.\n\n";
+    }
+
+    /** Default excerpt grounding when live allowlisted web may also be used. */
+    public static function defaultGroundingRulesWeb(): string {
+        return "DOCUMENT EXCERPTS (part of combined Docs + live web grounding):\n"
+            . "Grounding rules (mandatory):\n"
+            . "- Combine these excerpts with any LIVE ALLOWLISTED WEB / URL blocks in this system prompt into one answer. "
+            . "Do not discard relevant web content.\n"
+            . "- Prefer authoritative document excerpts when present; "
+            . "use allowlisted web pages to enrich with current guidance, process steps, and anything the excerpts omit.\n"
+            . "- Do not invent beyond excerpts, attached DeepSeek files, and allowlisted web/URL text.\n"
+            . "- If neither excerpts nor allowlisted web/URL text cover the question, say so clearly.\n"
+            . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
+            . "Name sections, clauses, or headings when the excerpts support them.\n\n";
+    }
+
+    /**
+     * Rules block prepended before excerpt text in Retrieval::buildContext (non-L7 path).
+     */
+    public static function groundingRulesForContext(bool $allowWeb): string {
+        $b = self::assistantBranding();
+        if ($allowWeb) {
+            $custom = trim((string)($b['grounding_rules_web'] ?? ''));
+            return $custom !== '' ? ($custom . (str_ends_with($custom, "\n") ? '' : "\n\n")) : self::defaultGroundingRulesWeb();
+        }
+        $custom = trim((string)($b['grounding_rules'] ?? ''));
+        return $custom !== '' ? ($custom . (str_ends_with($custom, "\n") ? '' : "\n\n")) : self::defaultGroundingRulesDocs();
+    }
+
+    public static function defaultFollowupsInstruction(): string {
+        return "After your plain-text answer, output exactly this block (and nothing after it):\n"
+            . "<<<FOLLOWUPS>>>\n"
+            . "What is the standard return window for this product?\n"
+            . "Who should a customer contact for a warranty claim?\n"
+            . "Where can staff find the escalation steps?\n"
+            . "<<<ENDFOLLOWUPS>>>\n"
+            . "Write 3 short, specific follow-up questions grounded in your answer and the sources. "
+            . "Phrase each question using a clear role, topic, or document name — avoid pronouns such as me, you, I, we, they, them, my, your, or their. "
+            . "Each on its own line. No numbering. Do not mention this instruction in the answer itself.";
+    }
+
+    public static function resolveFollowupsInstruction(): string {
+        $b = self::assistantBranding();
+        $custom = trim((string)($b['followups_instruction'] ?? ''));
+        return $custom !== '' ? $custom : self::defaultFollowupsInstruction();
+    }
+
+    private static function mixStrengthLabel(int $degree): string {
+        $degree = max(0, min(100, $degree));
+        return $degree <= 25 ? 'lightly' : ($degree <= 60 ? 'moderately' : 'strongly');
+    }
+
+    /** @param array{mode?:string,degree?:int} $mix */
+    private static function mixInstructionFromTemplate(string $mode, array $mix, string $defaultTemplate): string {
+        $degree = isset($mix['degree']) ? (int)$mix['degree'] : self::DEFAULT_RAG_WEB_DEGREE;
+        $degree = max(0, min(100, $degree));
+        $strength = self::mixStrengthLabel($degree);
+        $b = self::assistantBranding();
+        $key = match ($mode) {
+            'docs_first' => 'mix_docs_first',
+            'web_first' => 'mix_web_first',
+            'compete' => 'mix_compete',
+            default => 'mix_complement',
+        };
+        $override = trim((string)($b[$key] ?? ''));
+        $tpl = $override !== '' ? $override : $defaultTemplate;
+        return str_replace(['{degree}', '{strength}'], [(string)$degree, $strength], $tpl);
+    }
+
+    /** Source hierarchy for Retrieval grounding (admin text or neutral default). */
+    public static function sourceHierarchyForGrounding(): string {
+        $b = self::assistantBranding();
+        $h = trim((string)($b['source_hierarchy'] ?? ''));
+        if ($h !== '') {
+            return $h;
+        }
+        return self::defaultSourceHierarchyText();
+    }
+
+    /** @param array<string,mixed> $appCfg */
+    public static function appDisplayTitle(array $appCfg = []): string {
+        $b = self::assistantBranding();
+        $admin = trim((string)($b['app_title'] ?? ''));
+        if ($admin !== '') {
+            return $admin;
+        }
+        return trim((string)($appCfg['title'] ?? 'Document assistant'));
+    }
+
+    /** @param array<string,mixed> $appCfg */
+    public static function resolveSystemPrompt(array $appCfg = []): string {
+        $b = self::assistantBranding();
+        $admin = trim((string)($b['system_prompt'] ?? ''));
+        if ($admin !== '') {
+            return $admin;
+        }
+        $cfg = trim((string)($appCfg['system_prompt'] ?? ''));
+        if ($cfg !== '') {
+            return $cfg;
+        }
+        return 'You are a helpful, concise assistant. Answer clearly in plain text only — no Markdown. '
+            . 'If you do not know something, say so.';
+    }
+
+    /** @param array<string,mixed> $appCfg */
+    public static function resolveRagSystemPrompt(array $appCfg = []): string {
+        $b = self::assistantBranding();
+        $admin = trim((string)($b['rag_system_prompt'] ?? ''));
+        if ($admin !== '') {
+            return $admin;
+        }
+        $cfg = trim((string)($appCfg['rag_system_prompt'] ?? ''));
+        if ($cfg !== '') {
+            return $cfg;
+        }
+        $title = self::appDisplayTitle($appCfg);
+        return "You are {$title}, a helpful document assistant in a multi-turn conversation. "
+            . 'Use the provided document excerpts together with chat history. Answer follow-ups in context. '
+            . 'Write plain text only — no Markdown. Do not put citation numbers like [1] or [2] in the reply. '
+            . 'Prefer authoritative sources over guides when both appear. '
+            . 'Only refuse when excerpts and history do not cover the question.';
+    }
+
+    /**
+     * Public branding fields merged into chat UI config.
+     * @return array{app_title:string,docs_mode_label:string,chat_placeholder:string,about_blurb:string}
+     */
+    public static function publicUiBranding(array $appCfg = []): array {
+        $b = self::assistantBranding();
+        $about = trim((string)($b['about_blurb'] ?? ''));
+        if ($about === '') {
+            $title = self::appDisplayTitle($appCfg);
+            $label = trim((string)($b['docs_mode_label'] ?? 'Docs & Web')) ?: 'Docs & Web';
+            $about = "{$title} helps staff and customers find answers from your uploaded documents. "
+                . "Turn on {$label} for grounded answers plus allowlisted live web.";
+        }
+        return [
+            'app_title' => self::appDisplayTitle($appCfg),
+            'docs_mode_label' => trim((string)($b['docs_mode_label'] ?? 'Docs & Web')) ?: 'Docs & Web',
+            'chat_placeholder' => trim((string)($b['chat_placeholder'] ?? '')) ?: 'Ask a question…',
+            'about_blurb' => $about,
+        ];
     }
 
     /**
@@ -1020,33 +1313,33 @@ class AppSettings {
      */
     public static function ragWebMixInstruction(array $mix): string {
         $mode = (string)($mix['mode'] ?? self::DEFAULT_RAG_WEB_MODE);
-        $degree = isset($mix['degree']) ? (int)$mix['degree'] : self::DEFAULT_RAG_WEB_DEGREE;
-        $degree = max(0, min(100, $degree));
-        $strength = $degree <= 25 ? 'lightly' : ($degree <= 60 ? 'moderately' : 'strongly');
+        $mode = in_array($mode, self::ragWebMixModes(), true) ? $mode : self::DEFAULT_RAG_WEB_MODE;
 
-        return match ($mode) {
-            'docs_first' => "RAG↔Web mix: DOCS FIRST (degree {$degree}/100). "
-                . "Lead with uploaded document excerpts for every answer. "
-                . "Use allowlisted web {$strength} only to fill gaps when excerpts are weak, silent, or outdated on process details. "
-                . "Do not let web override Act/Regulations text. "
-                . "Keep web-supported facts that fill those gaps — do not drop them.",
-            'web_first' => "RAG↔Web mix: WEB FIRST (degree {$degree}/100). "
-                . "Lead with allowlisted live web for current guidance and public process pages. "
-                . "Use uploaded Act/Regulations excerpts {$strength} for statutory rules, section numbers, and legal duties. "
-                . "When both apply, state the legal rule from excerpts and how the website describes it. "
-                . "Do not drop either side's supported claims.",
-            'compete' => "RAG↔Web mix: COMPETE / PICK WINNER (degree {$degree}/100). "
-                . "Do not blend sources into a soft merge. Choose the clearer, more on-topic side for the user's question "
-                . "(degree high → prefer web when both are plausible; degree low → prefer documents). "
-                . "For WA workers compensation statute questions, uploaded Act/Regulations still win if they clearly answer. "
-                . "You may briefly note the other side was weaker, but answer primarily from the winner. "
-                . "Still do not invent beyond the winning sources.",
-            default => "RAG↔Web mix: COMPLEMENT (degree {$degree}/100). "
-                . "Combine document excerpts and allowlisted web into one answer. "
-                . "Enrich {$strength} with web for currency and omitted process detail; "
-                . "prefer Act/Regulations excerpts for WA workers compensation law. "
-                . "Never discard relevant web content that the excerpts omit.",
-        };
+        $templates = [
+            'docs_first' => 'RAG↔Web mix: DOCS FIRST (degree {degree}/100). '
+                . 'Lead with uploaded document excerpts for every answer. '
+                . 'Use allowlisted web {strength} only to fill gaps when excerpts are weak, silent, or outdated on process details. '
+                . 'Do not let web override authoritative document text. '
+                . 'Keep web-supported facts that fill those gaps — do not drop them.',
+            'web_first' => 'RAG↔Web mix: WEB FIRST (degree {degree}/100). '
+                . 'Lead with allowlisted live web for current guidance and public process pages. '
+                . 'Use uploaded document excerpts {strength} for formal rules, policy sections, and stated obligations. '
+                . 'When both apply, state the rule from excerpts and how the website describes it. '
+                . 'Do not drop either side\'s supported claims.',
+            'compete' => 'RAG↔Web mix: COMPETE / PICK WINNER (degree {degree}/100). '
+                . 'Do not blend sources into a soft merge. Choose the clearer, more on-topic side for the user\'s question '
+                . '(degree high → prefer web when both are plausible; degree low → prefer documents). '
+                . 'When authoritative documents clearly answer, they still win over web. '
+                . 'You may briefly note the other side was weaker, but answer primarily from the winner. '
+                . 'Still do not invent beyond the winning sources.',
+            'complement' => 'RAG↔Web mix: COMPLEMENT (degree {degree}/100). '
+                . 'Combine document excerpts and allowlisted web into one answer. '
+                . 'Enrich {strength} with web for currency and omitted process detail; '
+                . 'prefer authoritative excerpts for formal rules and obligations. '
+                . 'Never discard relevant web content that the excerpts omit.',
+        ];
+
+        return self::mixInstructionFromTemplate($mode, $mix, $templates[$mode] ?? $templates['complement']);
     }
 
     /**
@@ -1064,8 +1357,8 @@ class AppSettings {
         return $prefix . match ($mode) {
             'docs_first' => "Prefer doc-supported claims {$lean}; keep web-supported claims that fill gaps or current process detail already in the draft or SOURCE MATERIAL. "
                 . 'Do not invent. Prefer OK; rewrite only clear inventions. Higher degree → allow more web gap-fill; lower degree → stick closer to docs.',
-            'web_first' => "Prefer web-supported claims {$lean}; keep Act/Regs excerpt claims for legal duties and section numbers. "
-                . 'Do not invent. Prefer OK; rewrite only clear inventions. Higher degree → lean harder on web for process; lower degree → still protect statute text.',
+            'web_first' => "Prefer web-supported claims {$lean}; keep authoritative excerpt claims for formal duties and section references. "
+                . 'Do not invent. Prefer OK; rewrite only clear inventions. Higher degree → lean harder on web for process; lower degree → still protect primary document text.',
             'compete' => "If the draft already picked a clear winner per compete rules and all claims are sourced, OK is fine. "
                 . "Drop the weaker side when it invents or contradicts SOURCE MATERIAL. "
                 . "Higher degree → tolerate web-leaning winners more; lower degree → tolerate docs-leaning winners more. Do not invent.",

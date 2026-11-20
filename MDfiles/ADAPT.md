@@ -42,11 +42,22 @@ Do these first; many deployments need little else.
 1. Copy the project; create DB; copy `includes/config.example.php` → `includes/config.php`.
 2. Set DeepSeek API key + admin password hash; run `install.php`; lock installer.
 3. Do **not** copy WANDA’s Act/Regs uploads unless that is your domain.
-4. Optional: after tuning one environment, **Export all settings** and **Import settings** on the new host (admin card). Chunk export is backup-only (no import yet) — re-upload your own corpus.
+4. Optional: **Admin → Apply preset** (`customer-kiosk`, `staff-handbook`, or `wa-workers-comp`) or **Export all settings** → **Import** on another host. Presets do not upload documents — ingest your own corpus.
+5. Chunk export is backup-only (no import yet).
 
-### 3.2 Branding in config
+### 3.2 Branding: Admin vs config
 
-Edit `includes/config.php` → `app`:
+**Prefer Admin → Your assistant & prompts** for day-to-day copy. Precedence: **Admin (DB)** → **`includes/config.php`** → code fallback.
+
+| Admin field | Role |
+|-------------|------|
+| Plain / Docs & Web system prompts | Chat personas (`resolveSystemPrompt` / `resolveRagSystemPrompt`) |
+| Source hierarchy | Injected into excerpt grounding (non-L7 path) |
+| Excerpt rules (docs / docs+web) | Full override of `Retrieval::buildContext()` mandatory rules |
+| Related questions | Override follow-up block when Related is on |
+| Mix lines (complement / docs_first / web_first / compete) | Override RAG↔Web system text; use `{degree}` and `{strength}` |
+
+Optional **config** defaults for first install — edit `includes/config.php` → `app`:
 
 | Key | Example for a cafe franchise |
 |-----|------------------------------|
@@ -153,7 +164,7 @@ If you skip the code path, rely on tags + Adaptive RAG + clear prompts.
 
 ### 5.4 Grounding blurb
 
-`Retrieval::buildContext()` speaks about Act/Regulations. For a non-legal SMB, rewrite that block to:
+Default excerpt rules are entity-neutral in PHP; use Admin **excerpt rules** and **source hierarchy**, or `includes/prompts/L7_answer.txt` for legislation-heavy retrieval. For a non-legal SMB, prefer Admin overrides over WANDA-only preset copy. Adjust grounding by:
 
 - Answer only from excerpts  
 - Name policy/section titles when present  

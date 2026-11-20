@@ -4,6 +4,19 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-20 — Presets + admin prompt overrides
+
+**Done**
+
+- `assistant_branding` extended: grounding_rules, grounding_rules_web, followups_instruction, mix_complement/docs_first/web_first/compete
+- Neutral default mix/HQ/follow-ups in PHP; WA copy in `data/presets/wa-workers-comp.json`
+- `api/presets.php` + Admin Apply preset; `data/presets/.htaccess` deny web
+- Docs: CHANGELOG, README, handover, ADAPT, ARCHITECTURE, TESTING, AREA, this log
+
+**Ops**
+
+- Deploy `includes/Settings.php`, `Retrieval.php`, `helpers.php`, `admin.php`, `assets/admin.js`, `api/presets.php`, `data/`
+
 ## 2026-11-17 — Structure parse / chunk / search_text pipeline
 
 **Done**

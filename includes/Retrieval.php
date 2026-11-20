@@ -2097,7 +2097,7 @@ class Retrieval {
                 $rules = "DOCUMENT EXCERPTS (legislation / compliance grounding):\n" . $l7 . "\n\n";
                 if ($allowWeb) {
                     $rules .= "Additional: You may also use LIVE ALLOWLISTED WEB / URL blocks elsewhere in this system prompt for process detail, "
-                        . "but never invent law from general knowledge. Prefer Act/Regs excerpts for legal duties.\n\n";
+                        . "but never invent obligations from general knowledge. Prefer legislation/compliance excerpts for formal duties.\n\n";
                 }
             } else {
                 $useL7 = false;
@@ -2105,33 +2105,11 @@ class Retrieval {
         }
 
         if (!$useL7) {
-            if ($allowWeb) {
-                $rules = "DOCUMENT EXCERPTS (part of combined Docs + live web grounding):\n"
-                    . "Grounding rules (mandatory):\n"
-                    . "- Combine these excerpts with any LIVE ALLOWLISTED WEB / URL blocks in this system prompt into one answer. "
-                    . "Do not discard relevant web content.\n"
-                    . "- For WA workers compensation law, prefer Act/Regulations excerpts when present; "
-                    . "use web pages to enrich with current guidance, process steps, and anything the excerpts omit.\n"
-                    . "- Do not invent beyond excerpts, attached DeepSeek files, and allowlisted web/URL text.\n"
-                    . "- If neither excerpts nor allowlisted web/URL text cover the question, say so clearly.\n"
-                    . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
-                    . "Name section/regulation numbers when the excerpts support them.\n\n";
-            } else {
-                $rules = "DOCUMENT EXCERPTS (authoritative for this answer):\n"
-                    . "Grounding rules (mandatory):\n"
-                    . "- Answer ONLY from these excerpts and any attached DeepSeek-parsed files. "
-                    . "Do not use outside legal knowledge, guesses, or general Australian/WA law that is not in the excerpts.\n"
-                    . "- If the excerpts only partly cover the question, answer the covered part and clearly say what is missing.\n"
-                    . "- If nothing relevant is in the excerpts or attached files, say you cannot find it in the uploaded documents. "
-                    . "Do not invent sections, time limits, dollar amounts, or duties.\n"
-                    . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
-                    . "Hierarchy: the Act and Regulations are the legal source; fact sheets and guides are practical guidance only — "
-                    . "if both appear, state the legal rule from Act/Regs first and you may note the guide as how WorkCover explains it.\n"
-                    . "If both Act and Regulations excerpts are present and both apply, cover both. "
-                    . "Name section, regulation, part, or division numbers in plain words when the excerpts support them. "
-                    . "Prefer quoting or closely paraphrasing the relevant rule/text. "
-                    . "Review all excerpts for related sections, definitions, exceptions, procedures, or Act↔Regulations cross-references.\n\n";
-            }
+            $rules = class_exists('AppSettings')
+                ? AppSettings::groundingRulesForContext($allowWeb)
+                : ($allowWeb
+                    ? "DOCUMENT EXCERPTS (part of combined Docs + live web grounding):\n\n"
+                    : "DOCUMENT EXCERPTS (authoritative for this answer):\n\n");
         }
         $context = $rules . implode("\n\n---\n\n", $blocks);
         return ['context' => $context, 'citations' => $citations, 'sources' => $sources];
