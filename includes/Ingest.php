@@ -1221,7 +1221,7 @@ class Ingest {
                 [
                     [
                         'role' => 'system',
-                        'content' => 'You name documents for a Western Australian workers compensation RAG library. '
+                        'content' => 'You name documents for an organisation document library used in search. '
                             . 'Reply with ONLY a short plain-text title (3–10 words). No quotes, no punctuation at the end, no markdown.',
                     ],
                     [

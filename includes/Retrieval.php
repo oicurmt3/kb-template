@@ -85,37 +85,24 @@ class Retrieval {
     }
 
     /**
-     * Expand WA workers-comp everyday phrases into retrieval-friendly terms.
+     * Expand everyday phrases into retrieval-friendly terms (tune via tags + Admin; WA vertical uses preset).
      */
     public static function expandQuerySynonyms(string $query): string {
         $q = trim($query);
         if ($q === '') return $q;
         $map = [
-            'time off' => 'incapacity weekly payments',
-            'time off work' => 'incapacity weekly payments',
-            'sick pay' => 'weekly payments incapacity',
-            'sick leave' => 'incapacity weekly payments',
-            'wage' => 'weekly payments earnings',
-            'wages' => 'weekly payments earnings',
-            'pay' => 'weekly payments',
-            'doctor' => 'medical certificate treating practitioner',
-            'gp' => 'medical certificate treating practitioner',
-            'injury at work' => 'injury management workers compensation claim',
-            'hurt at work' => 'injury management workers compensation claim',
-            'fired' => 'dismissal termination of employment',
-            'sacked' => 'dismissal termination of employment',
-            'return to work' => 'return to work injury management',
-            'light duties' => 'return to work suitable employment',
-            'rehab' => 'rehabilitation return to work',
-            'insurance' => 'insurer workers compensation',
-            'claim form' => 'claim for compensation',
-            'medical expenses' => 'medical and health expenses',
-            'journey' => 'journey claim travel to work',
-            'stress' => 'psychological injury mental',
-            'bullying' => 'psychological injury',
-            'deadline' => 'time limit prescribed period',
-            'how long' => 'time limit duration period',
-            'who pays' => 'liable employer insurer',
+            'refund' => 'returns refund policy',
+            'return policy' => 'returns refund exchange',
+            'opening hours' => 'trading hours open close',
+            'closing time' => 'trading hours open close',
+            'how long' => 'time limit duration period deadline',
+            'deadline' => 'time limit due date',
+            'sick day' => 'leave absence unplanned',
+            'time off' => 'leave absence time off',
+            'password reset' => 'account login access credentials',
+            'book a' => 'booking appointment schedule',
+            'who do i contact' => 'contact support escalation',
+            'warranty' => 'guarantee warranty claim',
         ];
         $lower = mb_strtolower($q);
         $extra = [];
@@ -143,17 +130,13 @@ class Retrieval {
         if ($availableTags === [] || trim($query) === '') return [];
         $hay = mb_strtolower($query);
         $syn = [
-            'act' => ['act', 'legislation', 'statute', 'wcima'],
-            'regulations' => ['regulation', 'regulations', 'regs', 'reg.'],
-            'worker' => ['worker', 'employee', 'i was hurt', 'my injury', 'i injured'],
-            'employer' => ['employer', 'business', 'my staff', 'my worker', 'company'],
-            'insurer' => ['insurer', 'insurance', 'claim agent'],
-            'return-to-work' => ['return to work', 'rtw', 'light duties', 'suitable duties'],
-            'injury-management' => ['injury management', 'rehab', 'rehabilitation'],
-            'medical' => ['doctor', 'medical', 'certificate', 'gp', 'treatment'],
-            'weekly-payments' => ['weekly payment', 'wages', 'pay', 'incapacity', 'time off'],
-            'claim' => ['claim', 'lodge', 'notify', 'notification'],
-            'dispute' => ['dispute', 'conciliation', 'arbitration', 'appeal'],
+            'policy' => ['policy', 'rule', 'must', 'shall', 'requirement'],
+            'faq' => ['faq', 'question', 'how do i', 'how to'],
+            'hr' => ['hr', 'human resources', 'leave', 'payroll', 'staff'],
+            'safety' => ['safety', 'hazard', 'incident', 'whs', 'osha'],
+            'returns' => ['return', 'refund', 'exchange', 'money back'],
+            'handbook' => ['handbook', 'manual', 'employee guide'],
+            'customer' => ['customer', 'client', 'shopper', 'guest'],
         ];
         $scores = [];
         foreach ($availableTags as $tag) {
@@ -232,9 +215,9 @@ class Retrieval {
                 [
                     [
                         'role' => 'system',
-                        'content' => 'You rewrite WA workers compensation chat questions for document search. '
+                        'content' => 'You rewrite chat questions into standalone document-search queries. '
                             . 'Reply with ONLY compact JSON: {"query":"...","tags":["..."]}. '
-                            . 'query = one standalone search question with key legal terms (section/regulation names when known). '
+                            . 'query = one clear search question using vocabulary that might appear in policies or handbooks. '
                             . 'tags = 0–3 tags from the provided list only. No markdown.',
                     ],
                     [

@@ -1370,7 +1370,7 @@
       d +
       '), while Act/Regulations stay the legal authority. ' +
       'Web content that the PDFs omit should be kept, not thrown away. ' +
-      'Best everyday setting for WorkCover Docs mode.'
+      'Best everyday setting for Docs & Web mode.'
     );
   }
 

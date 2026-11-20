@@ -1,6 +1,6 @@
-# Adapting WANDA to another business or entity
+# Adapting kb-template to your business or entity
 
-This app is a **document-grounded chatbot shell**. The WA workers compensation branding and legal tuning are layers on top. You can retarget it to a club, school, council, clinic, retailer, franchise, or any SMB that answers questions from a trusted document set.
+This repo is a **document-grounded chatbot shell**. Default install copy is entity-neutral; use Admin branding, presets, and your corpus to retarget it to a club, school, council, clinic, retailer, franchise, or any SMB that answers questions from a trusted document set.
 
 Related: [ACCURACY.md](ACCURACY.md) (how grounding works), [DEPLOY.md](DEPLOY.md) (hosting), [SECURITY.md](SECURITY.md).
 
@@ -122,7 +122,7 @@ Still small diffs; keeps “WorkCover” from confusing users.
 | Area | Files | Change |
 |------|-------|--------|
 | Composer label | `assets/admin.js` (`workcover: '…'`), `assets/chat.js` placeholders | e.g. `Knowledge base`, `Handbook`, `Ask Docs` |
-| Conversation prefix | `api/chat.php` (`[WorkCover]`) | e.g. `[Docs]` |
+| Conversation prefix | `api/chat.php` (default `[Docs]`) | Your label, e.g. `[Handbook]` |
 | Admin hints | `admin.php` copy | Remove Act/Regs-specific wording |
 | Default intro | `Settings.php` → `defaultUiConfig()['intro']` | New brand welcome |
 | Page titles | `index.php` / `login.php` use `app.title` | Usually automatic |

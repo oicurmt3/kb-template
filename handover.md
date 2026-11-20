@@ -1,8 +1,8 @@
-# Handover — WANDA
+# Handover — kb-template
 
 ## What this app is
 
-WANDA answers WA workers compensation questions. **Docs & Web** (composer / feature key `workcover`) retrieves chunks from uploaded documents (Act, Regulations, guides, fact sheets) **and** enriches with allowlisted live web; DeepSeek answers are grounded on those sources. Blend behaviour is controlled by **Admin → RAG ↔ Web mix**. Without Docs & Web it is a general chat (optional **Web only**) with the configured system prompt.
+**kb-template** is a document-grounded chatbot shell for any business. **Docs & Web** (composer / internal feature key `workcover`) retrieves chunks from uploaded documents **and** enriches with allowlisted live web; DeepSeek answers are grounded on those sources. Blend behaviour is controlled by **Admin → RAG ↔ Web mix**. Without Docs & Web it is a general chat (optional **Web only**) with the configured system prompt. Vertical copy (e.g. WA workers comp) belongs in **presets** / Admin branding, not hardcoded defaults.
 
 ## Do not break
 
@@ -88,7 +88,7 @@ See `MDfiles/ACCURACY.md` §F / §2.1 for the process method (independent runs, 
 | Deep **off** by default; **on** for hard questions | API thinking cost/latency |
 | Tags **shown** + docs well-tagged | Better focus + auto-tags |
 | Answer length **medium** | Enough room for legal nuance |
-| Web hosts = WorkCover domains only | Avoid off-topic / wrong-jurisdiction pages |
+| Web hosts = your official domains only | Avoid off-topic or untrusted pages |
 
 ## Next risks / debt
 

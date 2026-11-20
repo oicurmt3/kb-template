@@ -42,5 +42,5 @@ Touch targets ~44px minimum on mobile.
 ## Content rules
 
 - Model answers are **plain text** (no Markdown styling expected in bubbles)
-- Brand name **WANDA** is the product identity in intro / titles
+- **App display name** comes from Admin branding / `config.php` title (per deployment)
 - Prefer calm professional UI over dense “dashboard” chrome on the public chat

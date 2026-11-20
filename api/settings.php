@@ -95,7 +95,7 @@ try {
                 $hosts = AppSettings::normalizeHosts($body['allowed_hosts']);
             }
             if ($hosts === []) {
-                json_error('Add at least one valid domain (e.g. workcover.wa.gov.au)');
+                json_error('Add at least one valid domain (e.g. www.example.com)');
             }
             AppSettings::set(
                 AppSettings::KEY_WEB_ALLOWED_HOSTS,

@@ -1,4 +1,4 @@
-﻿# How WANDA keeps answers accurate and relevant
+﻿# How kb-template keeps answers accurate and relevant
 
 This doc explains the full path from a user question to a grounded answer, and **how every admin / composer setting changes that path**.
 
@@ -8,18 +8,18 @@ Code anchors: `api/chat.php`, `includes/Retrieval.php`, `includes/Settings.php`,
 
 ## 1. Goal
 
-When **WorkCover** is on, WANDA should:
+When **Docs & Web** is on, the assistant should:
 
-1. Find the **most relevant** chunks from the uploaded corpus (Act, Regulations, guides, fact sheets).
+1. Find the **most relevant** chunks from the uploaded corpus (policies, handbooks, guides, etc.).
 2. Answer **only** from those excerpts (and optional attached DeepSeek-parsed files / URL / paste).
-3. Prefer **Act/Regulations** over guides when both appear.
-4. Say clearly when the documents do **not** cover the question — never invent sections, time limits, or duties.
+3. Prefer **authoritative** documents over informal guides when both appear (see Admin source hierarchy).
+4. Say clearly when the documents do **not** cover the question — never invent sections, time limits, or obligations.
 
-When WorkCover is off, there is **no document grounding** — the model uses the general system prompt and chat history only.
+When Docs & Web is off, there is **no document grounding** — the model uses the general system prompt and chat history only.
 
 ---
 
-## 2. End-to-end pipeline (WorkCover on)
+## 2. End-to-end pipeline (Docs & Web on)
 
 ```
 User message

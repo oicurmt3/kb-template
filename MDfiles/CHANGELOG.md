@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-20 — Generic defaults (template pass)
+
+- Neutral `config.example.php`, help copy, web host fallbacks, query rewrite/title prompts, default synonyms/tags
+- `api/chat.php` uses `AppSettings::resolve*Prompt`; conversation prefix `[Docs]`
+- Docs: handover, ADAPT, ACCURACY intro, AGENTS, DESIGN
+
 ## 2026-11-20 — Business presets + admin prompt overrides
 
 - **Assistant & prompts:** optional admin overrides for excerpt grounding (docs / docs+web), related-questions instruction, and per-mode RAG↔Web mix lines (`{degree}`, `{strength}` placeholders). Stored in `assistant_branding`; export/import round-trip.

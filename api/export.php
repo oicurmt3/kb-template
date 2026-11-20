@@ -30,7 +30,7 @@ try {
             $payload = [
                 'export' => 'settings',
                 'exported_at' => gmdate('c'),
-                'app' => (string)($appCfg['title'] ?? 'WANDA'),
+                'app' => (string)($appCfg['title'] ?? 'Document assistant'),
                 'effective' => [
                     'allowed_hosts' => AppSettings::allowedHostsFromConfig($webCfg),
                     'simple_explain_age' => AppSettings::simpleExplainAge(),
@@ -70,7 +70,7 @@ try {
             $payload = [
                 'export' => 'chunks',
                 'exported_at' => gmdate('c'),
-                'app' => (string)(($config['app']['title'] ?? 'WANDA')),
+                'app' => (string)(($config['app']['title'] ?? 'Document assistant')),
                 'document_count' => count($docs),
                 'chunk_count' => count($chunks),
                 'documents' => $docs,

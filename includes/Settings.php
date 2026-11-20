@@ -1395,7 +1395,7 @@ class AppSettings {
     public static function allowedHostsFromConfig(array $webCfg): array {
         $merged = self::mergeWebConfig($webCfg);
         $hosts = self::normalizeHosts($merged['allowed_hosts'] ?? []);
-        return $hosts !== [] ? $hosts : ['workcover.wa.gov.au'];
+        return $hosts !== [] ? $hosts : ['www.example.com'];
     }
 
     /**

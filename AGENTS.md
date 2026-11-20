@@ -1,4 +1,4 @@
-# Agents — WANDA repo
+# Agents — kb-template repo
 
 ## Default
 

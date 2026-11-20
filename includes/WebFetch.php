@@ -20,7 +20,7 @@ class WebFetch {
         $this->timeout = max(5, (int)($webCfg['timeout'] ?? 30));
         $this->maxContextChars = max(1000, (int)($webCfg['max_context_chars'] ?? 12000));
         $this->searchResults = max(1, min(50, (int)($webCfg['search_results'] ?? 5)));
-        $hosts = $webCfg['allowed_hosts'] ?? ['workcover.wa.gov.au'];
+        $hosts = $webCfg['allowed_hosts'] ?? ['www.example.com'];
         $this->allowedHosts = [];
         if (is_array($hosts)) {
             foreach ($hosts as $h) {
@@ -29,7 +29,7 @@ class WebFetch {
             }
         }
         if ($this->allowedHosts === []) {
-            $this->allowedHosts = ['workcover.wa.gov.au'];
+            $this->allowedHosts = ['www.example.com'];
         }
     }
 

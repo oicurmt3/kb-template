@@ -148,8 +148,8 @@ $appTitle = AppSettings::appDisplayTitle($appCfg);
           <span id="web-hosts-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">One hostname per line (subdomains allowed). Web search and URL fetch are limited to these domains. Example: <code>workcover.wa.gov.au</code></p>
-          <textarea id="web-hosts" class="settings-textarea" rows="5" placeholder="workcover.wa.gov.au" spellcheck="false"></textarea>
+          <p class="hint">One hostname per line (subdomains allowed). Web search and URL fetch are limited to these domains. Example: <code>www.example.com</code></p>
+          <textarea id="web-hosts" class="settings-textarea" rows="5" placeholder="www.example.com" spellcheck="false"></textarea>
           <p class="hint" style="margin-top:14px"><strong>Document Source URLs</strong> — when a retrieved upload has a Source URL on an allowlisted host, fetch that live page as web enrichment (same allowlist). Citation links still work either way.</p>
           <div class="inline" style="margin-top:8px;flex-wrap:wrap" role="group" aria-label="Document Source URL web fetch">
             <label class="mode-toggle"><input type="radio" name="doc-source-url-web" id="doc-source-url-web-on" value="1" checked> <span>Include</span></label>
@@ -207,7 +207,7 @@ $appTitle = AppSettings::appDisplayTitle($appCfg);
           <span id="adaptive-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">When <strong>on</strong>, WorkCover retrieval can shrink context for focused questions (prompt + tags). When <strong>off</strong>, uses the original fixed-size RAG. Chat accuracy also uses query rewrite, synonym expansion, auto focus tags, weak-hit grounding, and an HQ faithfulness check — leave Adaptive <strong>on</strong> for best results.</p>
+          <p class="hint">When <strong>on</strong>, Docs mode retrieval can shrink context for focused questions (prompt + tags). When <strong>off</strong>, uses the original fixed-size RAG. Chat accuracy also uses query rewrite, synonym expansion, auto focus tags, weak-hit grounding, and an optional faithfulness check — leave Adaptive <strong>on</strong> for best results.</p>
           <div class="inline" style="margin-top:10px" role="group" aria-label="Adaptive RAG">
             <label class="mode-toggle"><input type="radio" name="adaptive-retrieval" id="adaptive-retrieval-off" value="0" checked> <span>Off (legacy)</span></label>
             <label class="mode-toggle"><input type="radio" name="adaptive-retrieval" id="adaptive-retrieval-on" value="1"> <span>On</span></label>
@@ -359,7 +359,7 @@ $appTitle = AppSettings::appDisplayTitle($appCfg);
           </div>
           <div class="paste-ingest">
             <h3 class="paste-ingest-title">Or paste text</h3>
-            <p class="hint">Uses the <strong>Document details</strong> above (title, department, tags, source URL), then chunks for WorkCover RAG.</p>
+            <p class="hint">Uses the <strong>Document details</strong> above (title, department, tags, source URL), then chunks for document search.</p>
             <textarea id="paste-text" class="settings-textarea paste-text" rows="8" placeholder="Paste Act excerpts, guidance notes, or any text to index…" spellcheck="true"></textarea>
             <div class="inline meta-fields" style="margin-top:8px">
               <label class="hint" for="paste-format">Format</label>

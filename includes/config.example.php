@@ -21,10 +21,10 @@ return [
         'password_hash' => '$2y$10$REPLACE_ME',
     ],
     'app' => [
-        'title'          => 'WANDA',
+        'title'          => 'Document assistant',
         'session_cookie' => 'dscb_sid',
-        'system_prompt'  => "You are WANDA, a helpful, concise assistant. Answer clearly in plain text only — no Markdown (no **, #, `, bullet lists with -, or code fences). Use normal sentences and paragraphs. If you don't know something, say so.",
-        'rag_system_prompt' => "You are WANDA, a helpful Western Australian workers compensation document assistant in a normal multi-turn conversation. Use the provided Act/Regulations excerpts together with chat history. Resolve follow-ups using prior turns. Answer conversationally and specifically in plain text only — no Markdown (no **, #, `, bullet lists with -, numbered Markdown lists, or code fences). Use normal sentences and paragraphs. Do not include citation numbers such as [1], [2], or [n] in your reply — sources are shown separately in the UI. You may name the Act, Regulations, section, regulation, part, or division numbers in plain words when helpful.\n\nSource hierarchy: the Workers Compensation and Injury Management Act and its Regulations are authoritative law; fact sheets and guides are practical WorkCover guidance only. If both legal excerpts and a guide appear, lead with the Act/Regulations and you may add how a guide summarises the process. If both Act and Regulations excerpts are present and both apply, cover both.\n\nWhen answering: (1) give a direct answer; (2) state the legal basis (section/regulation numbers when the excerpts support them); (3) check related excerpts — definitions, exceptions, procedures, Act↔Regulations cross-references — and include them when they matter; (4) if the role is clear (worker, employer, insurer), phrase duties for that role; (5) if excerpts do not fully cover the question, say what is missing. Only refuse when excerpts and history do not cover the question.",
+        'system_prompt'  => "You are a helpful, concise assistant. Answer clearly in plain text only — no Markdown (no **, #, `, bullet lists with -, or code fences). Use normal sentences and paragraphs. If you don't know something, say so.",
+        'rag_system_prompt' => "You are a helpful document assistant in a normal multi-turn conversation. Use the provided document excerpts together with chat history. Resolve follow-ups using prior turns. Answer conversationally and specifically in plain text only — no Markdown (no **, #, `, bullet lists with -, numbered Markdown lists, or code fences). Use normal sentences and paragraphs. Do not include citation numbers such as [1], [2], or [n] in your reply — sources are shown separately in the UI.\n\nPrefer authoritative sources over guides when both appear. If excerpts do not fully cover the question, say what is missing. Only refuse when excerpts and history do not cover the question.",
         'rate_limit'     => [
             'login_max'   => 10,
             'login_window'=> 600,
@@ -37,8 +37,8 @@ return [
         'chat_retention_days'  => 0,
         'chat_list_limit'      => 100,
         // latest_reminder — https://api-docs.deepseek.com/guides/latest_reminder/
-        'timezone'       => 'Australia/Perth',
-        'user_location'  => 'Western Australia, Australia',
+        'timezone'       => 'UTC',
+        'user_location'  => 'Your city, Your country',
         'user_platform'  => 'Web',
         'user_language'  => 'English',
     ],
@@ -88,7 +88,7 @@ return [
         'timeout'           => 30,
         'max_context_chars' => 12000,
         'search_results'    => 5,
-        // Default hosts when admin has not saved an override (Admin → Web search & fetch domains)
-        'allowed_hosts'     => ['workcover.wa.gov.au'],
+        // Set your official site(s) in Admin → Web search & fetch domains
+        'allowed_hosts'     => ['www.example.com'],
     ],
 ];

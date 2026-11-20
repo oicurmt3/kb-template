@@ -104,7 +104,7 @@
     setElHidden(document.getElementById('tool-workcover'), !featureVisible('workcover'));
     setElHidden(document.getElementById('tool-hq'), !featureVisible('hq'));
     setElHidden(document.getElementById('tool-think'), !featureVisible('deep_thinking'));
-    // Web is folded into WorkCover/Docs mode; standalone Web only when WorkCover is off
+    // Web is folded into Docs mode; standalone Web only when Docs & Web is off
     const ragOn = featureVisible('workcover')
       ? !!(document.getElementById('mode-rag') && document.getElementById('mode-rag').checked)
       : featureDefaultOn('workcover');
@@ -194,7 +194,7 @@
         btn.hidden = true;
         return;
       }
-      // Folded into WorkCover — hide separate Web control while Docs mode is on
+      // Folded into Docs & Web — hide separate Web control while Docs mode is on
       if (id === 'web-search' && currentMode() === 'rag') {
         btn.hidden = true;
         return;
@@ -867,7 +867,7 @@
       conversation_id: conversationId,
       message,
       mode: currentMode(),
-      // WorkCover/Docs always includes allowlisted web on the server; toggle only for chat mode
+      // Docs & Web always includes allowlisted web on the server; toggle only for chat mode
       web_search: currentMode() === 'rag'
         ? true
         : (featureVisible('web_search')

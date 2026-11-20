@@ -86,7 +86,7 @@ try {
         $mode = 'chat';
     }
 
-    // WorkCover/Docs mode = RAG + allowlisted live web (one combined grounded pipeline)
+    // Docs & Web mode = RAG + allowlisted live web (one combined grounded pipeline)
     if ($mode === 'rag' && !empty($webCfg['enabled'])) {
         $webSearch = true;
     }
@@ -103,7 +103,7 @@ try {
         $conv = DB::one('SELECT id FROM conversations WHERE id = ? AND session_id = ?', [$convId, $sid]);
         if (!$conv) throw new RuntimeException('Conversation not found');
     } else {
-        $prefix = $mode === 'rag' ? '[WorkCover] ' : '';
+        $prefix = $mode === 'rag' ? '[Docs] ' : '';
         DB::run(
             'INSERT INTO conversations (session_id, title) VALUES (?, ?)',
             [$sid, mb_substr($prefix . $message, 0, 60)]
@@ -158,7 +158,8 @@ try {
         ];
     }
 
-    $systemPrompt = $config['app']['system_prompt'];
+    $appCfg = $config['app'] ?? [];
+    $systemPrompt = AppSettings::resolveSystemPrompt($appCfg);
     $citations = [];
     $webNotes = [];
     $prep = ['rewritten' => false, 'inferred_tags' => [], 'query' => $message];
@@ -168,15 +169,7 @@ try {
     $docSourceWebUsed = false;
 
     if ($mode === 'rag') {
-        $systemPrompt = $config['app']['rag_system_prompt'] ?? (
-            "You are WANDA, a helpful workers compensation document assistant in a multi-turn conversation. "
-            . "Use the Act/Regulations excerpts with chat history. Answer follow-ups in context. "
-            . "Write plain text only — no Markdown. Do not put citation numbers like [1] or [2] in the reply. "
-            . "Act and Regulations are authoritative; fact sheets/guides are guidance only. "
-            . "If both Act and Regulations apply, cover both and name section/regulation numbers when supported. "
-            . "Also consider related sections, definitions, exceptions, and Act↔Regulations cross-references. "
-            . "Only refuse when excerpts and history do not cover the question."
-        );
+        $systemPrompt = AppSettings::resolveRagSystemPrompt($appCfg);
 
         $ragCfg = $config['rag'] ?? [];
         $topK = (int)($ragCfg['top_k'] ?? 14);
@@ -247,7 +240,7 @@ try {
             $actTitles = $retrievalMeta['activated_titles'] ?? [];
             if (is_array($actTitles) && $actTitles !== []) {
                 $systemPrompt .= "\n\nRetrieval focused on: " . implode('; ', $actTitles)
-                    . ". Prefer these sources; do not invent other instruments.";
+                    . ". Prefer these sources; do not invent other documents.";
             }
             $webNotes[] = 'Adaptive RAG: ' . ($retrievalMeta['mode'] ?? 'slim')
                 . ' (top_k=' . (int)($retrievalMeta['top_k'] ?? 0) . ')';
@@ -257,15 +250,15 @@ try {
             if (!empty($quality['weak'])) {
                 if ($allowWebContext) {
                     $systemPrompt .= "\n\nRetrieval confidence is LOW for this question in the uploaded documents. "
-                        . "Prefer excerpts for any WA workers compensation law they clearly support. "
-                        . "For other topics, use allowlisted web/URL context when it is provided below. "
-                        . "Do not invent legal rules, section numbers, time limits, or duties. "
+                    . "Prefer uploaded document excerpts when they clearly support the answer. "
+                    . "Use allowlisted web/URL context when it is provided below. "
+                    . "Do not invent rules, section numbers, time limits, or obligations. "
                         . "If sources are thin, say what is missing rather than guessing.";
                 } else {
                     $systemPrompt .= "\n\nRetrieval confidence is LOW for this question. "
                         . "Only state what the excerpts clearly support. If unsure, say the uploaded documents "
                         . "do not clearly answer this and suggest refining the question or focus tags. "
-                        . "Do not invent legal rules, section numbers, time limits, or duties.";
+                        . "Do not invent rules, section numbers, time limits, or obligations.";
                 }
                 $webNotes[] = 'Retrieval: weak (score=' . round((float)$quality['max_score'], 2) . ')';
             } else {
@@ -275,12 +268,12 @@ try {
         } else {
             if ($allowWebContext) {
                 $systemPrompt .= "\n\nNo document excerpts matched this turn. "
-                    . "Do not invent Act/Regulations content. "
+                    . "Do not invent document content. "
                     . "If allowlisted web/URL context is provided below, you may answer from that text. "
                     . "Otherwise say the uploaded documents do not cover this and suggest different wording or focus tags.";
             } else {
                 $systemPrompt .= "\n\nNo document excerpts matched this turn. "
-                    . "Do not invent Act/Regulations content. "
+                    . "Do not invent document content. "
                     . "Use chat history only if it already contains the answer; otherwise say nothing relevant "
                     . "was found in the uploaded documents and suggest trying different wording or focus tags.";
             }
@@ -468,7 +461,7 @@ try {
             $hostsLabel = implode(', ', $wf->allowedHosts());
             if ($sr['ok'] && $sr['text'] !== '') {
                 if ($mode === 'rag') {
-                    $webBlock = "LIVE ALLOWLISTED WEB ENRICHMENT (hosts: {$hostsLabel}) — part of Docs/WorkCover mode:\n"
+                    $webBlock = "LIVE ALLOWLISTED WEB ENRICHMENT (hosts: {$hostsLabel}) — part of Docs & Web mode:\n"
                         . $sr['text'];
                     $systemPrompt .= "\n\n" . $webBlock;
                     $webNotes[] = 'Web+RAG: ' . count($sr['results']) . ' results (' . $hostsLabel . ')'

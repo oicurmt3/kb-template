@@ -3,7 +3,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/includes/bootstrap.php';
 ensure_session_cookie();
 $loggedIn = admin_is_logged_in();
-$appTitle = (string)($config['app']['title'] ?? 'WANDA');
+$appCfg = $config['app'] ?? [];
+$appTitle = AppSettings::appDisplayTitle($appCfg);
+$uiBranding = AppSettings::publicUiBranding($appCfg);
+$docsModeLabel = (string)($uiBranding['docs_mode_label'] ?? 'Docs & Web');
 $simpleExplainAge = AppSettings::simpleExplainAge();
 $uiConfig = AppSettings::uiConfig();
 $uiConfig['simple_explain_age'] = $simpleExplainAge;
@@ -41,7 +44,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
       <div class="help-modal-body">
         <section>
           <h3>What is <?= htmlspecialchars($appTitle) ?>?</h3>
-          <p><?= htmlspecialchars($appTitle) ?> is a Western Australian workers compensation assistant. Ask questions in everyday language and get answers grounded in uploaded WorkCover documents when <strong>Docs &amp; Web</strong> is on.</p>
+          <p><?= htmlspecialchars($appTitle) ?> answers from your organisation’s uploaded documents when <strong><?= htmlspecialchars($docsModeLabel) ?></strong> is on, and can enrich answers with allowlisted live web pages when admin enables them.</p>
         </section>
         <section>
           <h3>Toolbar icons</h3>
@@ -50,7 +53,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>
               </span>
-              <span><strong>Docs &amp; Web</strong> — uploaded Acts/Regulations/guides <em>plus</em> live search of admin-allowed domains (web is included automatically; no separate Web switch while this is on).</span>
+              <span><strong>Docs &amp; Web</strong> — your uploaded policies, handbooks, and guides <em>plus</em> live search of admin-allowed domains (web is included automatically; no separate Web switch while this is on).</span>
             </li>
             <li>
               <span class="help-icon tool-btn" aria-hidden="true">
@@ -80,11 +83,11 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
         </section>
         <section>
           <h3>Focus tags</h3>
-          <p>When <strong>Docs &amp; Web</strong> is on, open <strong>More</strong> (or use Focus tags on desktop) to narrow retrieval to topics like act, regulations, worker, or employer.</p>
+          <p>When <strong>Docs &amp; Web</strong> is on, open <strong>More</strong> (or use Focus tags on desktop) to narrow retrieval to document tags your admin set (e.g. policy, faq, hr).</p>
         </section>
         <section>
           <h3>Faithfulness check</h3>
-          <p>When the answer used uploaded documents, allowlisted web/URL, or attached file text, WANDA can run a second source check after streaming. Admin Faithfulness slider defaults to off. Low settings never replace your streamed answer; only high strictness may apply a small surgical fix. This is separate from HQ and Deep.</p>
+          <p>When the answer used uploaded documents, allowlisted web/URL, or attached file text, the assistant can run a second source check after streaming. Admin Faithfulness slider defaults to off. Low settings never replace your streamed answer; only high strictness may apply a small surgical fix. This is separate from HQ and Deep.</p>
         </section>
         <section>
           <h3>Sources &amp; related questions</h3>
@@ -100,7 +103,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
             <li>Ask follow-ups in the same chat — history is used for context.</li>
             <li>Enter sends; Shift+Enter starts a new line.</li>
             <li>URL context and File attach are separate — clear each with its own control.</li>
-            <li>This is guidance only, not legal advice.</li>
+            <li>Answers are based on your documents and configured sources — not professional advice unless your organisation says otherwise.</li>
           </ul>
         </section>
       </div>

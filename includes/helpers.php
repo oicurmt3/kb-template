@@ -158,7 +158,7 @@ function followups_instruction(): string {
 }
 
 /**
- * DeepSeek latest_reminder content for WA / Web / English.
+ * DeepSeek latest_reminder content (date, location, platform, language).
  * Format: date,weekday,location,platform,language
  * @see https://api-docs.deepseek.com/guides/latest_reminder/
  */
@@ -172,7 +172,7 @@ function latest_reminder_content(?array $appCfg = null): string {
     $now = new DateTimeImmutable('now', $tz);
     $date = $now->format('Y-m-d');
     $weekday = $now->format('l'); // Monday
-    $location = (string)($appCfg['user_location'] ?? 'Western Australia, Australia');
+    $location = (string)($appCfg['user_location'] ?? 'Your city, Your country');
     $platform = (string)($appCfg['user_platform'] ?? 'Web');
     $language = (string)($appCfg['user_language'] ?? 'English');
     return "{$date},{$weekday},{$location},{$platform},{$language}";

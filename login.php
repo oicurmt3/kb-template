@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 $token = csrf_token();
-$appTitle = (string)($config['app']['title'] ?? 'WANDA');
+$appTitle = AppSettings::appDisplayTitle($config['app'] ?? []);
 ?>
 <!doctype html>
 <html lang="en">
