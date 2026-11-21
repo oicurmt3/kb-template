@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-21 — Docs / Web independent + presets & admin UX
+
+- **Docs** and **Web** are separate composer toggles (no longer folded together). Backend no longer forces web when `mode=rag`.
+- More business presets (`extends` `_assistant-base`, full `assistant_branding` replace); excerpt rules shown from built-in defaults in admin.
+- Chat wait lines; File attach MIME via `detect_mime_type()` (shared hosts without fileinfo); Web icon visibility fix (`is-feature-hidden`).
+- Settings API returns/saves `assistant_branding`; preset apply refreshes the admin form.
+
 ## 2026-11-20 — Generic defaults (template pass)
 
 - Neutral `config.example.php`, help copy, web host fallbacks, query rewrite/title prompts, default synonyms/tags

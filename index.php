@@ -6,7 +6,10 @@ $loggedIn = admin_is_logged_in();
 $appCfg = $config['app'] ?? [];
 $appTitle = AppSettings::appDisplayTitle($appCfg);
 $uiBranding = AppSettings::publicUiBranding($appCfg);
-$docsModeLabel = (string)($uiBranding['docs_mode_label'] ?? 'Docs & Web');
+$docsModeLabel = (string)($uiBranding['docs_mode_label'] ?? 'Docs');
+if ($docsModeLabel === '') {
+    $docsModeLabel = 'Docs';
+}
 $simpleExplainAge = AppSettings::simpleExplainAge();
 $uiConfig = AppSettings::uiConfig();
 $uiConfig['simple_explain_age'] = $simpleExplainAge;
@@ -44,7 +47,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
       <div class="help-modal-body">
         <section>
           <h3>What is <?= htmlspecialchars($appTitle) ?>?</h3>
-          <p><?= htmlspecialchars($appTitle) ?> answers from your organisation’s uploaded documents when <strong><?= htmlspecialchars($docsModeLabel) ?></strong> is on, and can enrich answers with allowlisted live web pages when admin enables them.</p>
+          <p><?= htmlspecialchars($appTitle) ?> answers from your organisation’s uploaded documents when <strong><?= htmlspecialchars($docsModeLabel) ?></strong> is on. Turn on <strong>Web</strong> separately to include allowlisted live web pages.</p>
         </section>
         <section>
           <h3>Toolbar icons</h3>
@@ -53,7 +56,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>
               </span>
-              <span><strong>Docs &amp; Web</strong> — your uploaded policies, handbooks, and guides <em>plus</em> live search of admin-allowed domains (web is included automatically; no separate Web switch while this is on).</span>
+              <span><strong><?= htmlspecialchars($docsModeLabel) ?></strong> — search your uploaded documents (policies, handbooks, guides). Independent of Web.</span>
             </li>
             <li>
               <span class="help-icon tool-btn" aria-hidden="true">
@@ -71,7 +74,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
               <span class="help-icon tool-btn is-on" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
               </span>
-              <span><strong>Web only</strong> — only shown when Docs &amp; Web is off; searches admin-allowed domains. With Docs &amp; Web on, that live search is included automatically.</span>
+              <span><strong>Web</strong> — live search of admin-allowed domains only (not the open internet). Works alone or together with Docs.</span>
             </li>
             <li>
               <span class="help-icon tool-btn" aria-hidden="true">
@@ -83,7 +86,7 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
         </section>
         <section>
           <h3>Focus tags</h3>
-          <p>When <strong>Docs &amp; Web</strong> is on, open <strong>More</strong> (or use Focus tags on desktop) to narrow retrieval to document tags your admin set (e.g. policy, faq, hr).</p>
+          <p>When <strong><?= htmlspecialchars($docsModeLabel) ?></strong> is on, open <strong>More</strong> (or use Focus tags on desktop) to narrow retrieval to document tags your admin set (e.g. policy, faq, hr).</p>
         </section>
         <section>
           <h3>Faithfulness check</h3>
@@ -190,9 +193,9 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
         <button type="submit" id="send" class="btn btn-primary" aria-label="Send">➤</button>
       </div>
       <div class="composer-tools" role="toolbar" aria-label="Chat modes">
-        <button type="button" class="tool-btn" id="tool-workcover" data-for="mode-rag" aria-pressed="true" title="Docs & Web">
+        <button type="button" class="tool-btn" id="tool-workcover" data-for="mode-rag" aria-pressed="true" title="<?= htmlspecialchars($docsModeLabel) ?>">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>
-          <span class="tool-label">Docs &amp; Web</span>
+          <span class="tool-label"><?= htmlspecialchars($docsModeLabel) ?></span>
         </button>
         <button type="button" class="tool-btn" id="tool-hq" data-for="mode-hq" aria-pressed="false" title="HQ (off = Basic)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m-8 11H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11zm7-1c0 .55-.45 1-1 1h-.75v1.5h-1.5V15H14c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1h3c.55 0 1 .45 1 1zm-3.5-.5h2v-3h-2z"/></svg>
@@ -202,9 +205,9 @@ $uiConfig['simple_explain_age'] = $simpleExplainAge;
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21h6v-1.5H9V21zm3-19C7.03 2 3.2 5.6 3.02 10.5c-.1 2.7 1.1 5.1 3.1 6.6.6.45.9 1.1.9 1.9V19h10v-.01c0-.8.3-1.44.9-1.89 2-1.5 3.2-3.9 3.1-6.6C20.8 5.6 16.97 2 12 2zm0 15c-.55 0-1-.45-1-1h2c0 .55-.45 1-1 1zm4.05-3.35c-.7.52-1.2 1.2-1.4 1.95h-5.3c-.2-.75-.7-1.43-1.4-1.95C6.6 12.5 5.9 11 6 9.35 6.15 6.4 8.7 4 12 4s5.85 2.4 6 5.35c.1 1.65-.6 3.15-1.95 4.3z"/></svg>
           <span class="tool-label">Deep think</span>
         </button>
-        <button type="button" class="tool-btn" id="tool-web" data-for="web-search" aria-pressed="false" title="Web only">
+        <button type="button" class="tool-btn" id="tool-web" data-for="web-search" aria-pressed="false" title="Web (allowlisted)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-          <span class="tool-label">Web only</span>
+          <span class="tool-label">Web</span>
         </button>
         <button type="button" class="tool-btn tool-more" id="open-options" aria-expanded="false" aria-controls="composer-options" title="More options">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>

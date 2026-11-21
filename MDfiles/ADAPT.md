@@ -15,7 +15,7 @@ Related: [ACCURACY.md](ACCURACY.md) (how grounding works), [DEPLOY.md](DEPLOY.md
 | Retrieval, Adaptive RAG, weak-hit grounding | Synonym map, tag synonyms, source hierarchy wording |
 | Automatic faithfulness check + HQ style / Deep thinking | `system_prompt` / `rag_system_prompt` |
 | Admin ingest, tags, Retrieval test, settings export/import | Web allowlist hosts |
-| Feature toggles (Default / Show-Hide), RAG↔Web mix | Label “Docs & Web” (`workcover` key) → your product mode name (optional code tweak) |
+| Feature toggles (Default / Show-Hide), RAG↔Web mix | Label “Docs” (`workcover` key) and “Web” (`web_search`) are independent; rename Docs via Admin branding `docs_mode_label` |
 
 You do **not** need embeddings, Node, or a rewrite of the architecture for a typical SMB knowledge base.
 
@@ -51,7 +51,7 @@ Do these first; many deployments need little else.
 
 | Admin field | Role |
 |-------------|------|
-| Plain / Docs & Web system prompts | Chat personas (`resolveSystemPrompt` / `resolveRagSystemPrompt`) |
+| Plain / Docs system prompts | Chat personas (`resolveSystemPrompt` / `resolveRagSystemPrompt`) |
 | Source hierarchy | Injected into excerpt grounding (non-L7 path) |
 | Excerpt rules (docs / docs+web) | Full override of `Retrieval::buildContext()` mandatory rules |
 | Related questions | Override follow-up block when Related is on |

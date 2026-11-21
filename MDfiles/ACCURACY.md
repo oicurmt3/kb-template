@@ -8,18 +8,19 @@ Code anchors: `api/chat.php`, `includes/Retrieval.php`, `includes/Settings.php`,
 
 ## 1. Goal
 
-When **Docs & Web** is on, the assistant should:
+When **Docs** is on, the assistant should:
 
 1. Find the **most relevant** chunks from the uploaded corpus (policies, handbooks, guides, etc.).
 2. Answer **only** from those excerpts (and optional attached DeepSeek-parsed files / URL / paste).
 3. Prefer **authoritative** documents over informal guides when both appear (see Admin source hierarchy).
 4. Say clearly when the documents do **not** cover the question — never invent sections, time limits, or obligations.
 
-When Docs & Web is off, there is **no document grounding** — the model uses the general system prompt and chat history only.
+When **Web** is on (alone or with Docs), allowlisted live pages may also ground the answer.  
+When Docs is off, there is **no document RAG** — the model uses the general system prompt and chat history (plus Web / URL / File if those are on).
 
 ---
 
-## 2. End-to-end pipeline (Docs & Web on)
+## 2. End-to-end pipeline (Docs on)
 
 ```
 User message
@@ -53,7 +54,8 @@ User message
 | **HQ** | Richer / more precise wording in the first answer | Post-stream rewrite; faithfulness |
 | **Deep** | DeepSeek API `thinking: enabled` (chain-of-thought before answer) | Source faithfulness audit |
 | **Faithfulness** | Admin slider (default **off**); ≥55 may surgically rewrite vs packed sources | Style; gutting a good stream (rewrites must stay ≥85% length) |
-| **Docs & Web** | RAG + allowlisted web (Docs mode) | — |
+| **Docs** | Uploaded RAG (`mode=rag`) | Does not force Web |
+| **Web** | Allowlisted live search (independent) | Open internet |
 
 ### Stage details
 
@@ -212,7 +214,7 @@ Important: “more web weight” means the check **protects web more** (treats w
 
 Cost: second flash call only when degree ≥55 and not skipped. Degrees 1–50 do not replace the stream.
 
-**Note:** Live web still only hits admin-allowlisted hosts. Docs & Web mode always tries to enrich RAG with that web (when `web.enabled` in config). Open internet search is intentionally disabled.
+**Note:** Live web still only hits admin-allowlisted hosts, and only when the **Web** toggle (or locked default) is on. Open internet search is intentionally disabled.
 
 ---
 
@@ -237,10 +239,10 @@ When **Show**: user’s toggle wins for that request.
 
 | Feature | Default meaning | Effect on accuracy / relevance |
 |---------|-----------------|--------------------------------|
-| **Docs & Web** (`workcover`) | On → `mode=rag` **plus** allowlisted live web enrichment; Off → general chat | **Largest switch.** On = uploaded docs RAG **combined with** live search of admin-allowed hosts. Off = no doc retrieval. Standalone **Web only** toggle only appears when Docs & Web is off. Triggers faithfulness when excerpts (and/or web) exist. |
+| **Docs** (`workcover`) | On → `mode=rag` (uploaded corpus); Off → no doc retrieval | **Largest switch for corpus grounding.** Independent of Web. Triggers faithfulness when excerpts exist. |
 | **HQ** | On = richer language; Off = Basic | **Style only** (`hqInstruction` vs simple explain). Does **not** run the post-stream faithfulness check. |
 | **Deep think** | Composer toggle + admin policy (manual / auto / always) + per-chat cap | DeepSeek API thinking / CoT when the turn resolves on. Extra latency/cost. Does **not** replace faithfulness. Auto is conservative (long/multi-part only); toggle forces on under auto. Prefer Manual with Short answers. |
-| **Web only** | Only when Docs & Web is **off** | Allowlisted live search without RAG. Still provides grounding → faithfulness may run if slider &gt; 0. When Docs & Web is on, that same search is automatic inside Docs mode. |
+| **Web** (`web_search`) | Always available when Show (with or without Docs) | Allowlisted live search. Alone = web-only; with Docs = enrichment + RAG↔Web mix. Still provides grounding → faithfulness may run if slider &gt; 0. |
 | **Faithfulness** | Admin slider 0–100 (default **0**) | Off by default. 1–50 never replaces stream; ≥55 surgical rewrite only. Document Source URL live fetch is a separate Web-settings Include/Exclude. |
 
 ### 3.2 Visibility-only features (Show / Hide only)
@@ -304,7 +306,8 @@ These often matter **more** than toggles:
 
 ### Public kiosk (workers / employers)
 
-- Docs & Web: Default **on**, Show  
+- Docs: Default **on**, Show; Web: Default **off** or **on** per deployment  
+
 - HQ: Default **off**, Show (Basic language)  
 - Deep: Default **off**, Hide or Show  
 - Web: Default **off**, Show optional  
@@ -315,17 +318,19 @@ These often matter **more** than toggles:
 
 ### Staff / legal support desk
 
-- Docs & Web: Default **on** (faithfulness automatic)  
+- Docs: Default **on** (faithfulness when grounded)  
 - HQ: Default **on** (precise language)  
 - Deep: **on** for hard multi-instrument questions (API thinking)  
 - Web: **on** with tight hosts for site procedures  
+
 - Tags: **Show**; keep corpus tags tidy  
 - Adaptive RAG: **on**  
 - Answer length: **medium** or **long**  
 
 ### Maximum anti-hallucination
 
-1. Docs & Web **on** (faithfulness runs on docs+web grounding)  
+1. Docs **on** (and Web if needed); faithfulness runs when grounding exists  
+
 2. Adaptive RAG **on**  
 3. HQ **on** for precise terms (optional style)  
 4. Deep **on** for hard questions (optional API thinking)  
@@ -337,13 +342,14 @@ These often matter **more** than toggles:
 
 ## 5. What each mode combination does
 
-| Docs & Web | HQ | Deep think | Web only | Result |
-|-----------|----|------|----------------|--------|
-| Off | * | * | Off | General chat; no faithfulness (no grounding) |
-| Off | * | * | On | Web grounding + **faithfulness** on web text |
-| On | Off | Off | *(folded in)* | RAG+web, Basic language, **faithfulness** |
-| On | On | Off | *(folded in)* | RAG+web, precise style, **faithfulness** |
-| On | * | On | *(folded in)* | Same + DeepSeek API thinking, then **faithfulness** |
+| Docs | Web | HQ | Deep think | Result |
+|------|-----|----|------|--------|
+| Off | Off | * | * | General chat; no faithfulness (no grounding) |
+| Off | On | * | * | Web grounding + **faithfulness** on web text |
+| On | Off | Off | Off | Docs only, Basic language, **faithfulness** |
+| On | On | Off | Off | Docs+web, Basic language, **faithfulness** |
+| On | On | On | Off | Docs+web, precise style, **faithfulness** |
+| On | * | * | On | Same + DeepSeek API thinking, then **faithfulness** |
 
 Faithfulness is independent of HQ/Deep whenever grounding exists.
 
@@ -352,10 +358,10 @@ Faithfulness is independent of HQ/Deep whenever grounding exists.
 ## 6. Debugging accuracy
 
 1. **Admin → Retrieval test** — same rewrite → synonyms → tags → search path; inspect search query, quality score, weak flag, and each **matched chunk** (title, header_path, score, text).  
-2. Chat with Docs & Web on — expand Sources; check titles and excerpt counts.  
+2. Chat with Docs on — expand Sources; check titles and excerpt counts.  
 3. Read SSE / UI notes when exposed (`Query rewrite`, `Auto tags`, `Retrieval: weak`, `Faithfulness: ok|corrected|kept draft|skipped`).  
 4. If wrong section: improve document tags/titles, or ask with section number (legal-ref bonus).  
-5. If invented law: confirm Docs & Web (or web grounding) was on; check weak/no-hit notes; confirm `Faithfulness:` ran; check `Deep:` note / admin Deep policy (auto may already be on for hard questions).  
+5. If invented claims: confirm Docs and/or Web grounding was on; check weak/no-hit notes; confirm `Faithfulness:` ran; check `Deep:` note / admin Deep policy (auto may already be on for hard questions).  
 6. If follow-up missed context: ensure chat history messages exist (same conversation); rewrite needs prior user turns.
 
 For systematic fixes, use **§7** (tune corpus → tags → synonyms → tag inference). Prefer that over adding embeddings.
@@ -372,7 +378,7 @@ Lexical retrieval improves most when the **right text exists**, is **tagged**, a
 2. Run each in **Admin → Retrieval test** (same path as chat).  
 3. For each miss, fix **one** layer — in order: **corpus → tags → synonyms → tag inference**.  
 4. Re-test until the top hit is the right Act/Regs/guide section.  
-5. Spot-check the same prompts in chat with Docs & Web on and Sources on.
+5. Spot-check the same prompts in chat with Docs on and Sources on.
 
 ### 7.2 Corpus (biggest lever)
 

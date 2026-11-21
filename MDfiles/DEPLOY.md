@@ -17,7 +17,7 @@ Shared cPanel hosting over HTTPS. Webroot = project root (contains `index.php`, 
    - Lock installer
 6. Confirm `.htaccess` is active (Apache + `AllowOverride`).
 7. Open `/` and `/login.php` over HTTPS.
-8. Admin → expand **Upload documents** → stage files → **Upload** Act/Regs/guides → Retrieval test → smoke chat with Docs & Web on.
+8. Admin → expand **Upload documents** → stage files → **Upload** → Retrieval test → smoke chat with **Docs** on (add **Web** if allowlisted hosts are configured).
 9. Optional: **Export all settings** / **Export all chunks** after a good baseline so you can restore settings on another host.
 
 ## Existing DB upgrade (structure parse)

@@ -86,10 +86,10 @@
   const $dismissOnboarding = document.getElementById('dismiss-onboarding');
 
   const UI_FEATURE_LABELS = {
-    workcover: 'Docs & Web',
+    workcover: 'Docs',
     hq: 'HQ',
     deep_thinking: 'Deep think',
-    web_search: 'Web only',
+    web_search: 'Web',
     tags: 'Focus tags',
     url_context: 'URL context',
     file_context: 'File attach',
@@ -108,13 +108,13 @@
   function uiFeatureLabelHtml(key) {
     switch (key) {
       case 'workcover':
-        return '<span class="feat-kw feat-kw-docs">Docs &amp; Web</span>';
+        return '<span class="feat-kw feat-kw-docs">Docs</span>';
       case 'hq':
         return '<span class="feat-kw feat-kw-hq">HQ</span>';
       case 'deep_thinking':
         return '<span class="feat-kw feat-kw-deep">Deep think</span>';
       case 'web_search':
-        return '<span class="feat-kw feat-kw-web">Web only</span>';
+        return '<span class="feat-kw feat-kw-web">Web</span>';
       case 'tags':
         return '<span class="feat-kw feat-kw-tags">Focus tags</span>';
       case 'url_context':
@@ -148,23 +148,19 @@
     if (!state) return '';
     const show = state.visibility === 'show';
     const on = !!state.defaultOn;
-    const docs = all && all.workcover;
-    const docsLockedOn = docs && docs.visibility === 'hide' && docs.defaultOn;
-    const docsLockedOff = docs && docs.visibility === 'hide' && !docs.defaultOn;
-    const docsCanOff = docs && (docs.visibility === 'show' || !docs.defaultOn);
 
     switch (state.key) {
       case 'workcover':
         if (show && on) {
-          return 'Chat shows Docs & Web; starts on. On = uploaded docs (RAG) plus allowlisted live web together.';
+          return 'Chat shows Docs; starts on. On = uploaded docs (RAG) only. Turn Web on separately for allowlisted live web.';
         }
         if (show && !on) {
-          return 'Chat shows Docs & Web; starts off (plain chat). Turning it on adds docs + allowlisted web.';
+          return 'Chat shows Docs; starts off. Turning Docs on searches uploaded documents (no web unless Web is also on).';
         }
         if (!show && on) {
-          return 'Docs & Web locked on — users always get docs + allowlisted web. No toggle. Web only has no effect while this stays locked on.';
+          return 'Docs locked on — users always get document retrieval. Web remains an independent toggle.';
         }
-        return 'Docs & Web locked off — no document retrieval. Allowlisted web only via Web only (if enabled below).';
+        return 'Docs locked off — no document retrieval. Allowlisted web only via Web (if enabled below).';
 
       case 'hq':
         if (show && on) {
@@ -191,31 +187,20 @@
         return 'Deep think toggle hidden and locked off — only Admin → Deep policy (Auto/Always) can enable thinking.';
 
       case 'web_search':
-        if (docsLockedOn) {
-          return 'No effect while Docs & Web is locked on — allowlisted web is already included with docs.';
-        }
         if (show && on) {
-          return docsCanOff
-            ? 'Web only starts on when Docs & Web is off. Same allowlisted hosts as Docs & Web — not open internet.'
-            : 'Web only starts on. Allowlisted hosts only — not open internet.';
+          return 'Web starts on. Allowlisted hosts only — not open internet. Works alone or with Docs.';
         }
         if (show && !on) {
-          return docsLockedOff
-            ? 'Web only shown; starts off. This is the only way to use allowlisted live web while Docs & Web stays locked off.'
-            : 'Web only starts off when Docs & Web is off. Same allowlisted hosts — not open internet.';
+          return 'Web starts off. Users can turn on allowlisted live web with or without Docs.';
         }
         if (!show && on) {
-          return docsLockedOff
-            ? 'Web only locked on — allowlisted live web always runs while Docs & Web is locked off.'
-            : 'Web only locked on whenever Docs & Web is off. Toggle hidden.';
+          return 'Web locked on — allowlisted live web always runs. Toggle hidden.';
         }
-        return docsLockedOff
-          ? 'Web only locked off — no docs and no allowlisted web (plain chat only).'
-          : 'Web only locked off — when Docs & Web is off, answers stay plain chat with no allowlisted web.';
+        return 'Web locked off — no allowlisted live web (Docs can still run alone).';
 
       case 'tags':
         return show
-          ? 'Users can narrow Docs & Web retrieval with focus tags (More menu / pills).'
+          ? 'Users can narrow Docs retrieval with focus tags (More menu / pills).'
           : 'Focus tags hidden from chat.';
 
       case 'url_context':
@@ -1370,7 +1355,7 @@
       d +
       '), while Act/Regulations stay the legal authority. ' +
       'Web content that the PDFs omit should be kept, not thrown away. ' +
-      'Best everyday setting for Docs & Web mode.'
+      'Best everyday setting when Docs and Web are both on.'
     );
   }
 
@@ -1517,7 +1502,7 @@
   }
 
   function applyDocsModeLabel(label) {
-    const t = (label || '').trim() || 'Docs & Web';
+    const t = (label || '').trim() || 'Docs';
     UI_FEATURE_LABELS.workcover = t;
     updateUiFeaturesSummaryHint();
   }
@@ -1525,7 +1510,30 @@
   function updateBrandingSummaryHint(b) {
     if (!$brandingSummaryHint || !b) return;
     const title = (b.app_title || '').trim() || '(config title)';
-    $brandingSummaryHint.textContent = title + ' · ' + ((b.docs_mode_label || 'Docs & Web').trim() || 'Docs & Web');
+    $brandingSummaryHint.textContent = title + ' · ' + ((b.docs_mode_label || 'Docs').trim() || 'Docs');
+  }
+
+  function brandingFieldValue(stored, effective) {
+    const s = (stored || '').trim();
+    return s !== '' ? stored : effective || '';
+  }
+
+  function setBrandingOverrideField(el, stored, effective) {
+    if (!el) return;
+    const eff = (effective || '').trim();
+    const val = brandingFieldValue(stored, effective);
+    el.value = val || eff;
+    el.dataset.builtinDefault = eff || val;
+  }
+
+  function collectBrandingOverrideField(el) {
+    if (!el) return '';
+    const v = el.value || '';
+    const builtin = el.dataset.builtinDefault || '';
+    if (builtin && v.trim() === builtin.trim()) {
+      return '';
+    }
+    return v;
   }
 
   function applyAssistantBranding(b) {
@@ -1537,9 +1545,21 @@
     if ($brandSystemPrompt) $brandSystemPrompt.value = b.system_prompt || '';
     if ($brandRagPrompt) $brandRagPrompt.value = b.rag_system_prompt || '';
     if ($brandSourceHierarchy) $brandSourceHierarchy.value = b.source_hierarchy || '';
-    if ($brandGroundingRules) $brandGroundingRules.value = b.grounding_rules || '';
-    if ($brandGroundingRulesWeb) $brandGroundingRulesWeb.value = b.grounding_rules_web || '';
-    if ($brandFollowups) $brandFollowups.value = b.followups_instruction || '';
+    setBrandingOverrideField(
+      $brandGroundingRules,
+      b.grounding_rules,
+      b.grounding_rules_effective
+    );
+    setBrandingOverrideField(
+      $brandGroundingRulesWeb,
+      b.grounding_rules_web,
+      b.grounding_rules_web_effective
+    );
+    setBrandingOverrideField(
+      $brandFollowups,
+      b.followups_instruction,
+      b.followups_instruction_effective
+    );
     if ($brandMixComplement) $brandMixComplement.value = b.mix_complement || '';
     if ($brandMixDocsFirst) $brandMixDocsFirst.value = b.mix_docs_first || '';
     if ($brandMixWebFirst) $brandMixWebFirst.value = b.mix_web_first || '';
@@ -1560,9 +1580,9 @@
       system_prompt: ($brandSystemPrompt && $brandSystemPrompt.value) || '',
       rag_system_prompt: ($brandRagPrompt && $brandRagPrompt.value) || '',
       source_hierarchy: ($brandSourceHierarchy && $brandSourceHierarchy.value) || '',
-      grounding_rules: ($brandGroundingRules && $brandGroundingRules.value) || '',
-      grounding_rules_web: ($brandGroundingRulesWeb && $brandGroundingRulesWeb.value) || '',
-      followups_instruction: ($brandFollowups && $brandFollowups.value) || '',
+      grounding_rules: collectBrandingOverrideField($brandGroundingRules),
+      grounding_rules_web: collectBrandingOverrideField($brandGroundingRulesWeb),
+      followups_instruction: collectBrandingOverrideField($brandFollowups),
       mix_complement: ($brandMixComplement && $brandMixComplement.value) || '',
       mix_docs_first: ($brandMixDocsFirst && $brandMixDocsFirst.value) || '',
       mix_web_first: ($brandMixWebFirst && $brandMixWebFirst.value) || '',
@@ -1580,6 +1600,31 @@
     updateUiFeaturesSummaryHint();
   }
 
+  async function loadAssistantBranding() {
+    if (
+      !$brandAppTitle &&
+      !$brandGroundingRules &&
+      !$saveBranding
+    ) {
+      return;
+    }
+    try {
+      const r = await fetch(api('settings.php'), { credentials: 'same-origin' }).then((x) => x.json());
+      if (r.error) {
+        setBrandingStatus(r.error, true);
+        return;
+      }
+      if (r.assistant_branding) {
+        applyAssistantBranding(r.assistant_branding);
+        setBrandingStatus(
+          r.assistant_branding.source === 'admin' ? 'Loaded (admin)' : 'Loaded (defaults)'
+        );
+      }
+    } catch (e) {
+      setBrandingStatus(e.message || 'Failed to load assistant', true);
+    }
+  }
+
   async function loadWebHosts() {
     if (
       !$webHosts &&
@@ -1588,7 +1633,8 @@
       !$saveAdaptive &&
       !$saveDeepPolicy &&
       !$saveFaithfulness &&
-      !$saveUiFeatures
+      !$saveUiFeatures &&
+      !$saveBranding
     ) {
       return;
     }
@@ -2242,9 +2288,33 @@
     let msg = 'Imported: ' + bits;
     if ((r.skipped || []).length) msg += ' · skipped ' + r.skipped.join(', ');
     setExportStatus(msg);
+    if (r.effective) {
+      applySettingsPayload(r.effective);
+    }
+    await loadAssistantBranding();
     await loadWebHosts();
     await loadChats();
     return true;
+  }
+
+  function applySettingsPayload(r) {
+    if (!r || typeof r !== 'object') return;
+    if (r.assistant_branding) {
+      applyAssistantBranding(r.assistant_branding);
+      setBrandingStatus('Updated from preset or import');
+    }
+    if (typeof r.doc_source_url_web === 'boolean') {
+      applyDocSourceUrlWeb(r.doc_source_url_web);
+    }
+    if (r.answer_length) applyAnswerLength(r.answer_length);
+    if (typeof r.adaptive_retrieval === 'boolean') applyAdaptiveRetrieval(r.adaptive_retrieval);
+    if (r.rag_web_mix) applyRagWebMix(r.rag_web_mix);
+    if (r.deep_thinking_policy) applyDeepPolicy(r.deep_thinking_policy);
+    if (r.faithfulness) applyFaithfulness(r.faithfulness);
+    if (r.ui) {
+      applyUiConfig(r.ui);
+      updateUiFeaturesSummaryHint();
+    }
   }
 
   async function importSettingsFromFile(file) {
@@ -2302,9 +2372,12 @@
       }).then((x) => x.json());
       if (r.error) throw new Error(r.error);
       const preset = r.preset;
-      const data = preset && preset.effective ? preset : { effective: preset };
+      const effective =
+        preset && typeof preset.effective === 'object' && preset.effective !== null
+          ? preset.effective
+          : preset;
       await postSettingsImport(
-        data,
+        { effective },
         'Apply preset “' + label + '”? This overwrites matching admin settings (not your document library).'
       );
     } catch (e) {
@@ -2325,6 +2398,7 @@
   }
 
   loadChats();
+  loadAssistantBranding();
   loadWebHosts();
   loadDocuments();
   loadPresetsList();

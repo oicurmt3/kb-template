@@ -4,6 +4,20 @@ Agents append short dated blocks when the user asks. Others read first before mu
 
 ---
 
+## 2026-11-21 — Docs/Web independent + sync
+
+**Done**
+
+- Docs (`workcover`) and Web (`web_search`) independent in chat UI + `api/chat.php` (no force-web-on-RAG)
+- Presets: `extends` / `_assistant-base`, full branding replace, more vertical presets
+- Admin branding form shows effective excerpt rules; settings API returns branding
+- File attach MIME via `detect_mime_type()`; chat wait lines; Web icon `is-feature-hidden` fix
+- MD suite updated (README, handover, ACCURACY, ARCHITECTURE, TESTING, DESIGN, ADAPT, DEPLOY, CHANGELOG)
+
+**Ops**
+
+- Deploy chat/admin assets, `api/chat.php`, `api/settings.php`, `api/presets.php`, `api/context.php`, `includes/helpers.php`, `includes/DeepSeek.php`, `includes/Settings.php`, `data/presets/`
+
 ## 2026-11-20 — Presets + admin prompt overrides
 
 **Done**

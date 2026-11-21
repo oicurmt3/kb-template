@@ -1,8 +1,8 @@
 # kb-template — document-grounded chatbot template
 
-Plain PHP + vanilla JS for **any** business or team that needs answers from **your** documents: policies, handbooks, FAQs, guides. With **Docs & Web** on, the assistant uses RAG (retrieval-augmented generation) over your uploaded corpus, optional allowlisted live web, and DeepSeek streaming chat. No Node, no build step — suited to **cPanel over HTTPS**.
+Plain PHP + vanilla JS for **any** business or team that needs answers from **your** documents: policies, handbooks, FAQs, guides. Turn on **Docs** for RAG over your corpus and/or **Web** for allowlisted live search — independent toggles — plus DeepSeek streaming chat. No Node, no build step — suited to **cPanel over HTTPS**.
 
-After install, set branding and prompts in **Admin → Your assistant & prompts**, ingest your files, and optionally **Apply preset** (`customer-kiosk`, `staff-handbook`, or add your own under `data/presets/`). Full retargeting guide: **[MDfiles/ADAPT.md](MDfiles/ADAPT.md)**.
+After install, set branding and prompts in **Admin → Your assistant & prompts**, ingest your files, and optionally **Apply preset** under `data/presets/` (kiosk, handbook, financial, healthcare, and more). Full retargeting guide: **[MDfiles/ADAPT.md](MDfiles/ADAPT.md)**.
 
 ## Stack
 
@@ -23,24 +23,24 @@ After install, set branding and prompts in **Admin → Your assistant & prompts*
 
 | Control | Role |
 |---------|------|
-| **Docs & Web** | Docs mode: uploaded RAG **plus** allowlisted live web (blend via admin RAG↔Web mix) |
+| **Docs** | Uploaded corpus RAG (`mode=rag`). Independent of Web |
+| **Web** | Allowlisted live search/fetch. Alone or with Docs |
 | **HQ** | Richer / more precise language only (off = Basic / simple explain) |
 | **Deep think** | DeepSeek API thinking (chain-of-thought) before the answer |
-| **Web only** | Allowlisted live search/fetch — only when Docs & Web is **off** |
-| **Tags** | Focus retrieval on document tags |
+| **Tags** | Focus retrieval on document tags (when Docs is on) |
 | **URL / File** | Inline Options: allowlisted URL; File = local text or DeepSeek OCR/Files for PDF/Office |
-| **Sources** | Show citation chips after RAG answers |
+| **Sources** | Show citation chips after grounded answers |
 | **Related** | Follow-up suggestion chips |
 
 Accuracy pipeline (rewrite → synonyms → tags → scored retrieval → grounded prompt → optional **Faithfulness** audit) is documented in **[MDfiles/ACCURACY.md](MDfiles/ACCURACY.md)**.
 
-**Roles:** HQ = style · Deep think = API thinking · Faithfulness = admin-slidered source audit (default **off**; surgical only at high degree) · Docs & Web = RAG + allowlisted web.
+**Roles:** HQ = style · Deep think = API thinking · Faithfulness = admin-slidered source audit (default **off**; surgical only at high degree) · **Docs** = RAG · **Web** = allowlisted live web · both on → RAG↔Web mix.
 
 ### Admin (summary)
 
 - Collapsible cards (closed by default): chats, export/import, settings, upload, documents, chunks, retrieval test
-- **Your assistant & prompts:** display copy plus plain / Docs & Web system prompts (Admin overrides `config.php` when non-empty); optional excerpt rules, follow-ups, mix-line overrides
-- **Business presets** (`data/presets/`) apply bundled settings via Export/import; does not change uploaded documents
+- **Your assistant & prompts:** display copy, Docs button label, plain / Docs system prompts (Admin overrides `config.php` when non-empty); excerpt rules (shows built-in defaults when empty), follow-ups, mix-line overrides
+- **Business presets** (`data/presets/`, `extends` + full branding replace) via Export/import; does not change uploaded documents
 - **Export / import settings** JSON; **export all chunks** (no chunk import yet)
 - Upload: stage files → **Upload** button; paste → **Add & chunk**
 - Documents: **Re-parse** → **Continue** → **Re-chunk** (structure Markdown then chunk; run `sql/alter_rag_structure.sql` on existing DBs)

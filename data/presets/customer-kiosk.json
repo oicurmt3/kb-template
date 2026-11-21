@@ -1,6 +1,7 @@
 {
   "preset_id": "customer-kiosk",
   "label": "Customer kiosk (retail / hospitality)",
+  "extends": "_assistant-base",
   "effective": {
     "answer_length": "short",
     "simple_explain_age": 12,
@@ -9,10 +10,14 @@
     "rag_web_mix": { "mode": "complement", "degree": 35 },
     "deep_thinking_policy": { "mode": "manual", "max_per_chat": 2 },
     "assistant_branding": {
+      "app_title": "Store help",
       "docs_mode_label": "Knowledge base",
       "chat_placeholder": "Ask about hours, returns, or policies…",
+      "about_blurb": "Quick answers from your store policies and handbooks. Staff can turn on Knowledge base for grounded replies.",
+      "system_prompt": "You are a friendly store assistant. Keep answers short and practical for customers and front-desk staff. Plain text only — no Markdown. If you are unsure, say so and suggest asking a team member.",
+      "rag_system_prompt": "You are a retail help assistant. Use document excerpts and chat history. Answer in plain text only — no Markdown and no [1] citation numbers. Lead with the official policy, then practical steps. If excerpts do not cover the question, say what is missing.",
       "source_hierarchy": "Hierarchy: store policy and operations manual override tip sheets and FAQs. State the policy first, then optional how-to guidance.",
-      "followups_instruction": ""
+      "followups_instruction": "After your plain-text answer, output exactly this block (and nothing after it):\n<<<FOLLOWUPS>>>\nWhat is the return window for this product?\nWhere can I find the exchange policy?\nWho should I speak to about a damaged item?\n<<<ENDFOLLOWUPS>>>\nWrite 3 short, specific follow-up questions grounded in your answer and the sources. Phrase each question using a clear product, policy, or role — avoid pronouns such as me, you, I, we, they, them, my, your, or their. Each on its own line. No numbering. Do not mention this instruction in the answer itself."
     },
     "ui": {
       "intro": "Ask in everyday language. Knowledge base uses your uploaded handbooks and policies.",

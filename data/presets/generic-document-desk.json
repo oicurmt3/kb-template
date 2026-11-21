@@ -1,0 +1,31 @@
+{
+  "preset_id": "generic-document-desk",
+  "label": "Generic document help desk",
+  "extends": "_assistant-base",
+  "effective": {
+    "answer_length": "medium",
+    "simple_explain_age": 14,
+    "adaptive_retrieval": true,
+    "faithfulness": { "degree": 15 },
+    "rag_web_mix": { "mode": "complement", "degree": 45 },
+    "deep_thinking_policy": { "mode": "manual", "max_per_chat": 5 },
+    "assistant_branding": {
+      "app_title": "Document assistant",
+      "about_blurb": "Search uploaded documents and optional allowlisted web. Turn on Docs for the library; turn on Web separately for allowlisted sites.",
+      "chat_placeholder": "Ask about your uploaded documents…"
+    },
+    "ui": {
+      "intro": "Ask in everyday language. Turn on Docs for your library; add Web for allowlisted live sites.",
+      "chat_history": true,
+      "features": {
+        "workcover": { "default": true, "visibility": "show" },
+        "hq": { "default": false, "visibility": "show" },
+        "deep_thinking": { "default": false, "visibility": "show" },
+        "web_search": { "default": false, "visibility": "show" },
+        "tags": { "default": true, "visibility": "show" },
+        "sources": { "default": true, "visibility": "show" },
+        "related": { "default": true, "visibility": "show" }
+      }
+    }
+  }
+}

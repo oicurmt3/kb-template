@@ -41,6 +41,7 @@ try {
                     'faithfulness' => AppSettings::faithfulness(),
                     'doc_source_url_web' => AppSettings::docSourceUrlWebEnabled(),
                     'ui' => AppSettings::uiConfig(),
+                    'assistant_branding' => AppSettings::assistantBranding(),
                     'chat_limits' => AppSettings::chatLimits($appCfg),
                 ],
                 'raw' => $rawRows,

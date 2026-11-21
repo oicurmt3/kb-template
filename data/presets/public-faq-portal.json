@@ -1,0 +1,37 @@
+{
+  "preset_id": "public-faq-portal",
+  "label": "Public FAQ / citizen portal",
+  "extends": "_assistant-base",
+  "effective": {
+    "answer_length": "short",
+    "simple_explain_age": 11,
+    "adaptive_retrieval": true,
+    "faithfulness": { "degree": 10 },
+    "rag_web_mix": { "mode": "web_first", "degree": 55 },
+    "deep_thinking_policy": { "mode": "manual", "max_per_chat": 3 },
+    "doc_source_url_web": true,
+    "assistant_branding": {
+      "app_title": "Community FAQ",
+      "docs_mode_label": "Guides & web",
+      "chat_placeholder": "Ask about services, forms, or eligibility…",
+      "about_blurb": "Public information from your guides and official website pages on the allowlist. For personal cases, direct users to official channels.",
+      "system_prompt": "You are a public information assistant. Use plain language suitable for the general public. Plain text only — no Markdown. Do not collect personal data. If unsure, say so and point to official contact channels.",
+      "rag_system_prompt": "You are a public FAQ assistant. Combine uploaded guides with allowlisted official web pages. Plain text only — no Markdown, no [1] numbers. Prefer the official website for hours, fees, and current process; use uploaded guides for local policy detail.",
+      "source_hierarchy": "Hierarchy: legislation and council/agency policy beat general FAQ articles; the official website beats third-party summaries when both are present.",
+      "followups_instruction": "After your plain-text answer, output exactly this block (and nothing after it):\n<<<FOLLOWUPS>>>\nWhat documents are required for this service?\nWhere is the fee schedule published?\nWhat is the typical processing time?\n<<<ENDFOLLOWUPS>>>\nWrite 3 short, specific follow-up questions grounded in your answer and the sources. Use service or policy names — avoid pronouns such as me, you, I, we, they, them, my, your, or their. Each on its own line. No numbering. Do not mention this instruction in the answer itself."
+    },
+    "ui": {
+      "intro": "Find answers about public services. Turn on Guides & web for official documents and your allowlisted site.",
+      "chat_history": true,
+      "features": {
+        "workcover": { "default": true, "visibility": "show" },
+        "hq": { "default": false, "visibility": "show" },
+        "deep_thinking": { "default": false, "visibility": "hide" },
+        "web_search": { "default": false, "visibility": "show" },
+        "tags": { "default": false, "visibility": "hide" },
+        "sources": { "default": true, "visibility": "show" },
+        "related": { "default": true, "visibility": "show" }
+      }
+    }
+  }
+}

@@ -110,7 +110,7 @@ try {
         }
 
         $client = new DeepSeekClient($config['deepseek'] ?? []);
-        $mime = @mime_content_type($tmp) ?: 'application/octet-stream';
+        $mime = detect_mime_type($tmp, $name);
         $purpose = context_parse_purpose($ext, $config['rag'] ?? [], $mode);
 
         if ($mode === 'ocr') {

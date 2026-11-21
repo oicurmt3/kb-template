@@ -1,6 +1,7 @@
 {
   "preset_id": "staff-handbook",
   "label": "Staff / internal handbook",
+  "extends": "_assistant-base",
   "effective": {
     "answer_length": "medium",
     "simple_explain_age": 14,
@@ -9,9 +10,14 @@
     "rag_web_mix": { "mode": "docs_first", "degree": 65 },
     "deep_thinking_policy": { "mode": "manual", "max_per_chat": 8 },
     "assistant_branding": {
+      "app_title": "Staff handbook",
       "docs_mode_label": "Handbook",
+      "chat_placeholder": "Ask about leave, conduct, safety, or procedures…",
+      "about_blurb": "Internal handbook assistant for employees. Handbook mode grounds answers in uploaded policies and procedures.",
+      "system_prompt": "You are an internal HR and operations assistant for employees. Be clear and professional. Plain text only — no Markdown. Do not invent policy; if unsure, say so.",
+      "rag_system_prompt": "You are an internal handbook assistant. Use document excerpts and chat history for employees. Plain text only — no Markdown and no [1] citation numbers. Prefer official policy over informal notes. If excerpts only partly answer, state what is missing.",
       "source_hierarchy": "Hierarchy: official policy and the employee handbook override team notes and FAQ articles. Use FAQs only for practical steps, not to override policy.",
-      "chat_placeholder": "Ask about leave, conduct, safety, or procedures…"
+      "followups_instruction": "After your plain-text answer, output exactly this block (and nothing after it):\n<<<FOLLOWUPS>>>\nWhat is the notice period for this type of leave?\nWhere does the handbook define misconduct?\nWhat safety reporting steps apply here?\n<<<ENDFOLLOWUPS>>>\nWrite 3 short, specific follow-up questions grounded in your answer and the sources. Phrase each question using a clear policy topic or role (employee, manager, HR) — avoid pronouns such as me, you, I, we, they, them, my, your, or their. Each on its own line. No numbering. Do not mention this instruction in the answer itself."
     },
     "ui": {
       "intro": "Internal handbook assistant — answers are grounded in uploaded policies unless you turn Docs mode off.",

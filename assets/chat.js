@@ -46,6 +46,34 @@
   let pendingContext = { text: '', label: '', url: '', file_id: '' };
   let availableTags = [];
   let selectedTags = new Set();
+  let waitTimer = null;
+  let waitLineIdx = 0;
+
+  /** Rotating lines shown until the first answer tokens arrive. */
+  const WAIT_LINES = [
+    'Warming up the document hamster…',
+    'Checking under the policy cushions…',
+    'Asking the excerpts nicely…',
+    'Untangling a comma from a clause…',
+    'Searching the library with tiny flashlights…',
+    'Convincing the model this is not a trick question…',
+    'Herding footnotes into a neat queue…',
+    'Brewing a short, useful answer…',
+    'Polishing the first sentence…',
+    'Still looking — the good bits hide in the middle…',
+    'Counting to three before peeking at the sources…',
+    'Almost there — shaking the knowledge tree…',
+    'Dusting off a dusty definition…',
+    'Negotiating with a stubborn paragraph…',
+    'Feeding the search engine a biscuit…',
+    'Alphabetising the chaos…',
+    'Whispering to the indexes…',
+    'Straightening a bent bullet point…',
+    'Looking both ways before crossing a cross-reference…',
+    'Teaching a synonym to behave…',
+    'Rummaging in the “maybe useful” drawer…',
+    'Pretending this is a calm, orderly process…',
+  ];
 
   const MODE_KEY = 'dscb_mode';
   const WEB_KEY = 'dscb_web';
@@ -104,14 +132,7 @@
     setElHidden(document.getElementById('tool-workcover'), !featureVisible('workcover'));
     setElHidden(document.getElementById('tool-hq'), !featureVisible('hq'));
     setElHidden(document.getElementById('tool-think'), !featureVisible('deep_thinking'));
-    // Web is folded into Docs mode; standalone Web only when Docs & Web is off
-    const ragOn = featureVisible('workcover')
-      ? !!(document.getElementById('mode-rag') && document.getElementById('mode-rag').checked)
-      : featureDefaultOn('workcover');
-    setElHidden(
-      document.getElementById('tool-web'),
-      ragOn || !featureVisible('web_search')
-    );
+    setElHidden(document.getElementById('tool-web'), !featureVisible('web_search'));
     setElHidden($tagPills, !tagsShow);
 
     setElHidden($contextSlotUrl, !urlShow);
@@ -191,15 +212,10 @@
       const id = btn.getAttribute('data-for');
       const feat = CHECKBOX_FEATURE[id] || null;
       if (feat && !featureVisible(feat)) {
-        btn.hidden = true;
+        setElHidden(btn, true);
         return;
       }
-      // Folded into Docs & Web — hide separate Web control while Docs mode is on
-      if (id === 'web-search' && currentMode() === 'rag') {
-        btn.hidden = true;
-        return;
-      }
-      if (id === 'web-search') btn.hidden = false;
+      setElHidden(btn, false);
       const el = id ? document.getElementById(id) : null;
       const on = !!(el && el.checked);
       btn.classList.toggle('is-on', on);
@@ -325,10 +341,12 @@
     try { localStorage.setItem(MODE_KEY, currentMode()); } catch { /* ignore */ }
     updatePlaceholder();
     renderTagPills();
+    applyFeatureVisibility();
     syncToolButtons();
   });
   $webSearch.addEventListener('change', () => {
     try { localStorage.setItem(WEB_KEY, $webSearch.checked ? '1' : '0'); } catch { /* ignore */ }
+    updatePlaceholder();
     syncToolButtons();
   });
   if ($deepThinking) {
@@ -348,10 +366,25 @@
     });
   }
 
+  function webSearchOn() {
+    if (!featureVisible('web_search')) {
+      return featureDefaultOn('web_search');
+    }
+    return !!($webSearch && $webSearch.checked);
+  }
+
   function updatePlaceholder() {
-    $input.placeholder = currentMode() === 'rag'
-      ? 'Ask about docs + allowlisted live web — follow-ups are fine…'
-      : 'Send a message…';
+    const docs = currentMode() === 'rag';
+    const web = webSearchOn();
+    if (docs && web) {
+      $input.placeholder = 'Ask about docs + allowlisted web — follow-ups are fine…';
+    } else if (docs) {
+      $input.placeholder = 'Ask about your uploaded documents…';
+    } else if (web) {
+      $input.placeholder = 'Ask using allowlisted live web…';
+    } else {
+      $input.placeholder = 'Send a message…';
+    }
   }
   updatePlaceholder();
   renderTagPills();
@@ -814,7 +847,43 @@
 
   function setMessageText(el, text) {
     const body = el.querySelector('.msg-body') || el;
+    body.classList.remove('msg-wait');
     body.textContent = text;
+  }
+
+  function stopWaitLines(el) {
+    if (waitTimer) {
+      clearInterval(waitTimer);
+      waitTimer = null;
+    }
+    if (el) {
+      const body = el.querySelector('.msg-body');
+      if (body) body.classList.remove('msg-wait');
+    }
+  }
+
+  function nextWaitLine() {
+    if (WAIT_LINES.length < 2) return WAIT_LINES[0] || '';
+    let next = waitLineIdx;
+    while (next === waitLineIdx) {
+      next = Math.floor(Math.random() * WAIT_LINES.length);
+    }
+    waitLineIdx = next;
+    return WAIT_LINES[waitLineIdx];
+  }
+
+  function startWaitLines(el) {
+    stopWaitLines(el);
+    const body = el.querySelector('.msg-body');
+    if (!body) return;
+    waitLineIdx = -1;
+    body.classList.add('msg-wait');
+    body.textContent = nextWaitLine();
+    waitTimer = setInterval(() => {
+      if (body.classList.contains('msg-wait')) {
+        body.textContent = nextWaitLine();
+      }
+    }, 2400);
   }
 
   /** Note under an assistant bubble (e.g. faithfulness check replaced the streamed draft). */
@@ -857,6 +926,7 @@
 
     const assistantEl = addMessage('assistant', '');
     assistantEl.classList.add('streaming');
+    startWaitLines(assistantEl);
 
     let accumulated = '';
     let citations = null;
@@ -867,12 +937,7 @@
       conversation_id: conversationId,
       message,
       mode: currentMode(),
-      // Docs & Web always includes allowlisted web on the server; toggle only for chat mode
-      web_search: currentMode() === 'rag'
-        ? true
-        : (featureVisible('web_search')
-          ? !!($webSearch && $webSearch.checked)
-          : featureDefaultOn('web_search')),
+      web_search: webSearchOn(),
       deep_thinking: featureVisible('deep_thinking')
         ? !!($deepThinking && $deepThinking.checked)
         : featureDefaultOn('deep_thinking'),
@@ -919,8 +984,10 @@
       // Clear one-shot attachments after successful send
       clearPendingContext();
     } catch (e) {
+      stopWaitLines(assistantEl);
       setMessageText(assistantEl, 'Error: ' + e.message);
     } finally {
+      stopWaitLines(assistantEl);
       assistantEl.classList.remove('streaming');
       // Fallback: parse follow-ups from streamed text if server list is empty
       if ((!suggestions || !suggestions.length) && accumulated) {
@@ -959,10 +1026,12 @@
         if (obj.conversation_id) conversationId = obj.conversation_id;
         if (obj.citations) citations = obj.citations;
       } else if (event === 'delta' && obj.content) {
+        if (!accumulated) stopWaitLines(assistantEl);
         accumulated += obj.content;
         setMessageText(assistantEl, visibleAnswer(accumulated));
         scrollBottom();
       } else if (event === 'error') {
+        stopWaitLines(assistantEl);
         setMessageText(assistantEl, visibleAnswer(accumulated) + '\n[error] ' + (obj.message || 'unknown'));
       } else if (event === 'title' && obj.title) {
         // Sidebar refreshes on done; title is already saved server-side

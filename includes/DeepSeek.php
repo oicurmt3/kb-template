@@ -214,9 +214,11 @@ class DeepSeekClient {
             return ['ok' => false, 'file_id' => null, 'filename' => null, 'purpose' => null, 'bytes' => null, 'error' => 'CURLFile required', 'status' => 0];
         }
 
-        $cfile = $mime
-            ? new CURLFile($absPath, $mime, $filename)
-            : new CURLFile($absPath, mime_content_type($absPath) ?: 'application/octet-stream', $filename);
+        $cfile = new CURLFile(
+            $absPath,
+            $mime !== '' && $mime !== null ? $mime : detect_mime_type($absPath, $filename),
+            $filename
+        );
 
         // purpose must be sent before file (DeepSeek requirement)
         $ch = curl_init($this->baseUrl . '/files');
@@ -293,7 +295,9 @@ class DeepSeekClient {
             return $empty;
         }
 
-        $mimeType = $mime ?: (@mime_content_type($absPath) ?: 'application/octet-stream');
+        $mimeType = ($mime !== '' && $mime !== null)
+            ? $mime
+            : detect_mime_type($absPath, $filename);
         $cfile = new CURLFile($absPath, $mimeType, $filename);
 
         $ch = curl_init($this->baseUrl . '/v1/tools/ocr');

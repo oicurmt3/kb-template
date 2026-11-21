@@ -15,6 +15,7 @@ try {
         $ageRaw = AppSettings::get(AppSettings::KEY_SIMPLE_EXPLAIN_AGE);
         $lenRaw = AppSettings::get(AppSettings::KEY_ANSWER_LENGTH);
         $uiRaw = AppSettings::get(AppSettings::KEY_UI);
+        $brandingRaw = AppSettings::get(AppSettings::KEY_ASSISTANT_BRANDING);
         json_out([
             'allowed_hosts' => $hosts,
             'hosts_text' => AppSettings::hostsToText($hosts),
@@ -39,6 +40,8 @@ try {
             'ui_feature_keys' => AppSettings::uiFeatureKeys(),
             'ui_toggle_keys' => AppSettings::uiToggleFeatureKeys(),
             'ui_visibility_only_keys' => AppSettings::uiVisibilityOnlyKeys(),
+            'assistant_branding' => AppSettings::assistantBrandingForAdmin(),
+            'assistant_branding_source' => ($brandingRaw !== null && $brandingRaw !== '') ? 'admin' : 'default',
         ]);
     }
 
@@ -68,8 +71,11 @@ try {
         $hasFaithfulness = array_key_exists('faithfulness', $body);
         $hasDocSourceUrlWeb = array_key_exists('doc_source_url_web', $body);
         $hasUi = array_key_exists('ui', $body);
+        $hasAssistantBranding = array_key_exists('assistant_branding', $body);
         $ui = AppSettings::uiConfig();
         $updatedUi = false;
+        $assistantBranding = AppSettings::assistantBranding();
+        $updatedAssistantBranding = false;
         $ragWebMix = AppSettings::ragWebMix();
         $updatedRagWebMix = false;
         $deepPolicy = AppSettings::deepThinkingPolicy();
@@ -83,9 +89,9 @@ try {
         if (
             !$hasHosts && !$hasAge && !$hasLength && !$hasAdaptive && !$hasRagWebMix
             && !$hasDeepPolicy && !$hasDeepStatsReset && !$hasFaithfulness
-            && !$hasDocSourceUrlWeb && !$hasUi
+            && !$hasDocSourceUrlWeb && !$hasUi && !$hasAssistantBranding
         ) {
-            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, deep_thinking_policy, reset_deep_thinking_stats, faithfulness, doc_source_url_web, and/or ui');
+            json_error('Provide hosts, simple_explain_age, answer_length, adaptive_retrieval, rag_web_mix, deep_thinking_policy, reset_deep_thinking_stats, faithfulness, doc_source_url_web, ui, and/or assistant_branding');
         }
 
         if ($hasHosts) {
@@ -186,7 +192,17 @@ try {
             $updatedUi = true;
         }
 
+        if ($hasAssistantBranding) {
+            if (!is_array($body['assistant_branding'])) {
+                json_error('assistant_branding must be an object');
+            }
+            AppSettings::saveAssistantBranding($body['assistant_branding']);
+            $updatedAssistantBranding = true;
+        }
+
         $uiRaw = AppSettings::get(AppSettings::KEY_UI);
+        $brandingRaw = AppSettings::get(AppSettings::KEY_ASSISTANT_BRANDING);
+        $assistantBranding = AppSettings::assistantBrandingForAdmin();
         json_out([
             'ok' => true,
             'allowed_hosts' => $hosts,
@@ -216,6 +232,8 @@ try {
             'doc_source_url_web_source' => AppSettings::docSourceUrlWebSource(),
             'ui' => $ui,
             'ui_source' => ($uiRaw !== null && $uiRaw !== '') ? 'admin' : 'default',
+            'assistant_branding' => $assistantBranding,
+            'assistant_branding_source' => ($brandingRaw !== null && $brandingRaw !== '') ? 'admin' : 'default',
             'updated_hosts' => $updatedHosts,
             'updated_doc_source_url_web' => $updatedDocSourceUrlWeb,
             'updated_age' => $updatedAge,
@@ -225,6 +243,7 @@ try {
             'updated_deep_thinking_policy' => $updatedDeepPolicy,
             'updated_faithfulness' => $updatedFaithfulness,
             'updated_ui' => $updatedUi,
+            'updated_assistant_branding' => $updatedAssistantBranding,
         ]);
     }
 

@@ -1,0 +1,36 @@
+{
+  "preset_id": "legal-compliance",
+  "label": "Legal & compliance library",
+  "extends": "_assistant-base",
+  "effective": {
+    "answer_length": "medium",
+    "simple_explain_age": 16,
+    "adaptive_retrieval": true,
+    "faithfulness": { "degree": 40 },
+    "rag_web_mix": { "mode": "docs_first", "degree": 80 },
+    "deep_thinking_policy": { "mode": "manual", "max_per_chat": 6 },
+    "assistant_branding": {
+      "app_title": "Compliance library",
+      "docs_mode_label": "Policy & law",
+      "chat_placeholder": "Ask about policies, obligations, or definitions…",
+      "about_blurb": "Summaries grounded in your compliance corpus. Not legal advice — answers cite what your uploaded sources say.",
+      "system_prompt": "You are a compliance research assistant. Be precise and neutral. Plain text only — no Markdown. You do not provide legal advice; summarise what the user's materials say and note when professional advice is needed.",
+      "rag_system_prompt": "You are a compliance document assistant. Use excerpts and history only. Plain text — no Markdown, no [1] numbers. Quote or paraphrase binding policy and legislative excerpts before summaries or FAQs. If excerpts conflict, name both and prefer the more authoritative source per the hierarchy block.",
+      "source_hierarchy": "Hierarchy: statute, regulation, and board-approved policy are authoritative; implementation guides and training slides are explanatory only. Never let a summary override quoted binding text.",
+      "followups_instruction": "After your plain-text answer, output exactly this block (and nothing after it):\n<<<FOLLOWUPS>>>\nWhich section defines the reporting obligation?\nWhat exceptions appear in the policy?\nHow does the guidance describe record retention?\n<<<ENDFOLLOWUPS>>>\nWrite 3 short, specific follow-up questions grounded in your answer and the sources. Use precise document or section topics — avoid pronouns such as me, you, I, we, they, them, my, your, or their. Each on its own line. No numbering. Do not mention this instruction in the answer itself."
+    },
+    "ui": {
+      "intro": "Compliance library — answers follow your uploaded authorities. Verify critical decisions with qualified counsel.",
+      "chat_history": true,
+      "features": {
+        "workcover": { "default": true, "visibility": "show" },
+        "hq": { "default": true, "visibility": "show" },
+        "deep_thinking": { "default": false, "visibility": "show" },
+        "web_search": { "default": false, "visibility": "show" },
+        "tags": { "default": true, "visibility": "show" },
+        "sources": { "default": true, "visibility": "show" },
+        "related": { "default": true, "visibility": "show" }
+      }
+    }
+  }
+}

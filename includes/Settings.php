@@ -560,7 +560,7 @@ class AppSettings {
             $features[$key] = ['default' => $defaultOn, 'visibility' => 'show'];
         }
         return [
-            'intro' => "Hi — ask a question in everyday language. Turn on Docs & Web for answers grounded in your uploaded documents and allowlisted websites.",
+            'intro' => "Hi — ask a question in everyday language. Turn on Docs for uploaded documents; turn on Web for allowlisted live websites.",
             'chat_history' => true,
             'features' => $features,
         ];
@@ -738,7 +738,15 @@ class AppSettings {
         }
 
         if (isset($effective['assistant_branding']) && is_array($effective['assistant_branding'])) {
-            self::saveAssistantBranding($effective['assistant_branding']);
+            $brandingIn = $effective['assistant_branding'];
+            $fullReplace = !empty($effective['assistant_branding_full'])
+                || !empty($brandingIn['_full']);
+            if ($fullReplace) {
+                unset($brandingIn['_full']);
+                self::replaceAssistantBranding($brandingIn);
+            } else {
+                self::saveAssistantBranding($brandingIn);
+            }
             $updated[] = 'assistant_branding';
         }
 
@@ -765,7 +773,7 @@ class AppSettings {
                 'faithfulness' => self::faithfulness(),
                 'doc_source_url_web' => self::docSourceUrlWebEnabled(),
                 'ui' => self::uiConfig(),
-                'assistant_branding' => self::assistantBranding(),
+                'assistant_branding' => self::assistantBrandingForAdmin(),
                 'chat_limits' => self::chatLimits($appCfg),
             ],
         ];
@@ -987,7 +995,7 @@ class AppSettings {
     public static function defaultAssistantBranding(): array {
         return [
             'app_title' => '',
-            'docs_mode_label' => 'Docs & Web',
+            'docs_mode_label' => 'Docs',
             'chat_placeholder' => 'Ask a question…',
             'about_blurb' => '',
             'system_prompt' => '',
@@ -1072,9 +1080,73 @@ class AppSettings {
         return $saved;
     }
 
-    /** Default excerpt grounding block (docs only, no live web). */
-    public static function defaultGroundingRulesDocs(): string {
-        $hierarchy = self::sourceHierarchyForGrounding();
+    /**
+     * Replace stored assistant branding (presets). Unlisted string keys reset to defaults (empty).
+     *
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
+    public static function replaceAssistantBranding(array $input): array {
+        $current = self::defaultAssistantBranding();
+        foreach (self::BRANDING_STRING_KEYS as $k) {
+            if (array_key_exists($k, $input) && is_string($input[$k])) {
+                $current[$k] = mb_substr(trim($input[$k]), 0, $k === 'about_blurb' ? 4000 : 12000);
+            }
+        }
+        if (array_key_exists('onboarding_dismissed', $input)) {
+            $current['onboarding_dismissed'] = self::truthy($input['onboarding_dismissed']);
+        }
+        if (trim((string)($current['grounding_rules'] ?? '')) === '') {
+            $current['grounding_rules'] = self::groundingRulesTextFromBranding($current, false);
+        }
+        if (trim((string)($current['grounding_rules_web'] ?? '')) === '') {
+            $current['grounding_rules_web'] = self::groundingRulesTextFromBranding($current, true);
+        }
+        self::set(
+            self::KEY_ASSISTANT_BRANDING,
+            json_encode($current, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
+        return self::assistantBranding();
+    }
+
+    /**
+     * Branding for admin UI — includes resolved defaults when overrides are empty.
+     *
+     * @return array<string,mixed>
+     */
+    public static function assistantBrandingForAdmin(): array {
+        $b = self::assistantBranding();
+        $b['grounding_rules_effective'] = self::groundingRulesTextFromBranding($b, false);
+        $b['grounding_rules_web_effective'] = self::groundingRulesTextFromBranding($b, true);
+        $follow = trim((string)($b['followups_instruction'] ?? ''));
+        $b['followups_instruction_effective'] = $follow !== ''
+            ? (string)$b['followups_instruction']
+            : self::defaultFollowupsInstruction();
+        return $b;
+    }
+
+    /**
+     * Resolve excerpt-rules text from a branding array (admin / presets — no extra DB read).
+     *
+     * @param array<string,mixed> $branding
+     */
+    public static function groundingRulesTextFromBranding(array $branding, bool $allowWeb): string {
+        $key = $allowWeb ? 'grounding_rules_web' : 'grounding_rules';
+        $custom = trim((string)($branding[$key] ?? ''));
+        if ($custom !== '') {
+            return $custom;
+        }
+        if ($allowWeb) {
+            return self::defaultGroundingRulesWeb();
+        }
+        $hierarchy = trim((string)($branding['source_hierarchy'] ?? ''));
+        if ($hierarchy === '') {
+            $hierarchy = self::defaultSourceHierarchyText();
+        }
+        return self::defaultGroundingRulesDocsForHierarchy($hierarchy);
+    }
+
+    public static function defaultGroundingRulesDocsForHierarchy(string $hierarchy): string {
         return "DOCUMENT EXCERPTS (authoritative for this answer):\n"
             . "Grounding rules (mandatory):\n"
             . "- Answer ONLY from these excerpts and any attached DeepSeek-parsed files. "
@@ -1083,10 +1155,16 @@ class AppSettings {
             . "- If nothing relevant is in the excerpts or attached files, say you cannot find it in the uploaded documents. "
             . "Do not invent section numbers, time limits, dollar amounts, or obligations.\n"
             . "- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n"
+            . "- Do not diagnose, prescribe, or give personal medical or legal advice unless the excerpts explicitly provide general information.\n"
             . $hierarchy . "\n"
             . "Name section, clause, part, or page references in plain words when the excerpts support them. "
             . "Prefer quoting or closely paraphrasing the relevant rule or text. "
             . "Review all excerpts for related definitions, exceptions, procedures, or cross-references.\n\n";
+    }
+
+    /** Default excerpt grounding block (docs only, no live web). */
+    public static function defaultGroundingRulesDocs(): string {
+        return self::defaultGroundingRulesDocsForHierarchy(self::sourceHierarchyForGrounding());
     }
 
     /** Default excerpt grounding when live allowlisted web may also be used. */
@@ -1219,13 +1297,13 @@ class AppSettings {
         $about = trim((string)($b['about_blurb'] ?? ''));
         if ($about === '') {
             $title = self::appDisplayTitle($appCfg);
-            $label = trim((string)($b['docs_mode_label'] ?? 'Docs & Web')) ?: 'Docs & Web';
+            $label = trim((string)($b['docs_mode_label'] ?? 'Docs')) ?: 'Docs';
             $about = "{$title} helps staff and customers find answers from your uploaded documents. "
-                . "Turn on {$label} for grounded answers plus allowlisted live web.";
+                . "Turn on {$label} for document-grounded answers; turn on Web separately for allowlisted live web.";
         }
         return [
             'app_title' => self::appDisplayTitle($appCfg),
-            'docs_mode_label' => trim((string)($b['docs_mode_label'] ?? 'Docs & Web')) ?: 'Docs & Web',
+            'docs_mode_label' => trim((string)($b['docs_mode_label'] ?? 'Docs')) ?: 'Docs',
             'chat_placeholder' => trim((string)($b['chat_placeholder'] ?? '')) ?: 'Ask a question…',
             'about_blurb' => $about,
         ];

@@ -5,24 +5,27 @@
 1. `/install.php` locked; `/` loads; admin login works.
 2. Admin page: all cards **collapsed** by default; expand Documents → list loads.
 3. Retrieval test with a known Act phrase → matched chunks + quality score.
-4. New chat, **Docs & Web** on:
-   - Ask a section-level question → Sources appear (if enabled); allowlisted web may enrich
+4. New chat, **Docs** on / **Web** off:
+   - Ask a section-level question → Sources appear (if enabled); no live web enrichment
    - Ask a vague follow-up → rewrite should still retrieve sensible chunks
-5. Docs & Web **off** → general reply, no Sources; optional **Web only**.
-6. Docs & Web (or Web only) answer with grounding → if Faithfulness slider is 0, notes `Faithfulness: off` and the streamed answer stays. At ≥55, notes may show `ok` / `corrected` / `kept draft (shrink|hedge|…)`. HQ = language only. Deep policy default **manual**.
-7. Web only **on** (Docs & Web off) with allowed host only; disallowed URL rejected.
+5. Docs **off**, Web **off** → general reply, no Sources.
+5a. Docs **off**, Web **on** → allowlisted web only; disallowed host rejected.
+5b. Docs **on**, Web **on** → RAG + allowlisted web; mix notes may appear.
+6. Docs and/or Web answer with grounding → if Faithfulness slider is 0, notes `Faithfulness: off` and the streamed answer stays. At ≥55, notes may show `ok` / `corrected` / `kept draft (shrink|hedge|…)`. HQ = language only. Deep policy default **manual**.
+7. Toggle Docs off then on — **Web** icon stays visible (independent).
 8. Admin → Export settings → Import same file → forms reload with same values.
-8a. Admin → Export/import → choose **customer-kiosk** (or other) preset → Apply → confirm toggles/branding update; documents unchanged.
-8b. Assistant & prompts → save custom **Docs & Web** prompt → chat obeys Admin text even if `config.php` differs (clear field to fall back).
+8a. Admin → Export/import → choose a business preset → Apply → **Your assistant & prompts** fills (including excerpt rules); documents unchanged.
+8b. Assistant & prompts → save custom Docs prompt → chat obeys Admin text even if `config.php` differs (clear field to fall back).
 9. Admin → Export chunks → JSON has `documents` + `chunks` counts.
 10. Upload: select files → pending list → **Upload** (not auto); paste still **Add & chunk**.
 10a. After `alter_rag_structure.sql`: one Act PDF → **Re-parse** → **Continue** until `parsed` → **Re-chunk** → status `ready`; Retrieval test finds section text with `header_path`.
 10b. `api/health.php` shows no missing `domain_set` / `pipeline_stage` hints.
-11. Admin → Deep thinking: save Auto + max 3; ask a long multi-part Docs & Web question → `Deep: on (auto_on…)`; Reset Deep stats clears counters.
+11. Admin → Deep thinking: save Auto + max 3; ask a long multi-part Docs question → `Deep: on (auto_on…)`; Reset Deep stats clears counters.
 12. Admin → Faithfulness: set 0 → `Faithfulness: off` (stream unchanged). Set 40 → `Faithfulness: ok` but bubble unchanged. Set 80 → surgical `corrected` only if rewrite keeps ≥85% length; hedge/shrink → `kept draft`.
 13. Admin → Web settings: Exclude document Source URLs → notes `Doc source URL fetch excluded`; Include + allowlisted Source URL on a hit doc → `Doc source URL: …`.
-14. Options → URL / File: compact inline rows; File text `.txt` → Ready · N chars; PDF → Ready · OCR; disallowed host URL rejected.
-15. Admin → Chat UI features: change Docs & Web / Web only Default or Show-Hide → per-row hints update live.
+14. Options → URL / File: compact inline rows; File text `.txt` → Ready · N chars; PDF → Ready · OCR (works without `mime_content_type`); disallowed host URL rejected.
+15. Admin → Chat UI features: change Docs / Web Default or Show-Hide → per-row hints update live.
+16. Chat wait: before first tokens, rotating witty status lines appear then clear.
 
 ## Accuracy checklist
 
@@ -62,7 +65,7 @@ php -l includes/StructureParse.php
 - Plain chat with no web/URL/attach → no faithfulness rewrite
 - Citation numbers must not appear in bubble text
 - Pasted ingest appears in Documents list
-- Docs & Web on must not hide allowlisted web enrichment; Web only only when Docs & Web off
+- Docs on + Web off = docs only; Web icon remains visible; Docs on + Web on still enriches from allowlist
 - Settings import rejects chunks export files; unknown keys ignored
 - Deep cap: after max Deep turns in one chat, notes show `Deep: off (capped…)` until a new chat
 - Doc Source URL Exclude → no live fetch; Include + allowlisted URL on hit → fetch note

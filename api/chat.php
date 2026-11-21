@@ -86,10 +86,7 @@ try {
         $mode = 'chat';
     }
 
-    // Docs & Web mode = RAG + allowlisted live web (one combined grounded pipeline)
-    if ($mode === 'rag' && !empty($webCfg['enabled'])) {
-        $webSearch = true;
-    }
+    // Docs (RAG) and allowlisted Web are independent toggles
     $ragWebMix = AppSettings::ragWebMix();
     $maxCtx = (int)($webCfg['max_context_chars'] ?? 12000);
     if (mb_strlen($extraContext) > $maxCtx) {
@@ -461,7 +458,7 @@ try {
             $hostsLabel = implode(', ', $wf->allowedHosts());
             if ($sr['ok'] && $sr['text'] !== '') {
                 if ($mode === 'rag') {
-                    $webBlock = "LIVE ALLOWLISTED WEB ENRICHMENT (hosts: {$hostsLabel}) — part of Docs & Web mode:\n"
+                    $webBlock = "LIVE ALLOWLISTED WEB ENRICHMENT (hosts: {$hostsLabel}) — Docs + Web together:\n"
                         . $sr['text'];
                     $systemPrompt .= "\n\n" . $webBlock;
                     $webNotes[] = 'Web+RAG: ' . count($sr['results']) . ' results (' . $hostsLabel . ')'

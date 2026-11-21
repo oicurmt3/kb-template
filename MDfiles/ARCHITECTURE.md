@@ -16,10 +16,10 @@ Browser (index.php + chat.js)
     → POST api/chat.php (JSON)
         → session cookie + rate limit
         → resolve UI features (Settings)
-        → if Docs & Web: Retrieval → system prompt excerpts
-        → optional WebFetch (always with Docs & Web when web.enabled; else Web only)
+        → if Docs (mode=rag): Retrieval → system prompt excerpts
+        → if Web: WebFetch allowlisted search (independent of Docs)
         → optional turn File attach (api/context.php: local text / OCR / Files file_id)
-        → RAG↔Web mix instructions
+        → RAG↔Web mix instructions when Docs + Web (or URL / doc-source web)
         → DeepSeek chatStream → SSE deltas
         → optional DeepSeek API thinking (Deep policy + toggle)
         → optional Faithfulness if slider > 0 and grounding (default off; ≥55 surgical rewrite only; skip Files stubs / attached Files)
@@ -96,13 +96,20 @@ Ingest/faithfulness/parse system prompts remain under `includes/prompts/` and `R
 | `GET api/export.php?type=settings` | JSON download: `effective` + `raw` settings rows |
 | `GET api/export.php?type=chunks` | JSON download: all documents + all chunks |
 | `POST api/export.php` | Import settings only (`type=settings`, body `data` or preset `effective`) |
-| `GET api/presets.php` | List bundled presets |
-| `GET api/presets.php?id=` | Load one preset JSON |
+| `GET api/presets.php` | List bundled presets (`_*.json` hidden) |
+| `GET api/presets.php?id=` | Load one preset JSON (`extends` merge) |
 | `data/presets/` | Preset files (web-denied via `.htaccess`) |
 
 ## Modes
 
-- `chat` — general assistant (`app.system_prompt`); optional **Web only**
-- `rag` — Docs & Web mode (`app.rag_system_prompt` + retrieved excerpts + allowlisted web + mix)
+- `chat` — general assistant (`app.system_prompt`); optional **Web**
+- `rag` — **Docs** on (`app.rag_system_prompt` + retrieved excerpts); **Web** may also be on (allowlisted search + mix)
+
+| Docs | Web | Result |
+|------|-----|--------|
+| Off | Off | Plain chat |
+| On | Off | Docs only (RAG) |
+| Off | On | Web only (allowlisted) |
+| On | On | Docs + Web (mix applies) |
 
 See [ACCURACY.md](ACCURACY.md) for the RAG accuracy path.

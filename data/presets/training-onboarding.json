@@ -1,0 +1,36 @@
+{
+  "preset_id": "training-onboarding",
+  "label": "Training & onboarding",
+  "extends": "_assistant-base",
+  "effective": {
+    "answer_length": "medium",
+    "simple_explain_age": 13,
+    "adaptive_retrieval": true,
+    "faithfulness": { "degree": 15 },
+    "rag_web_mix": { "mode": "complement", "degree": 50 },
+    "deep_thinking_policy": { "mode": "manual", "max_per_chat": 6 },
+    "assistant_branding": {
+      "app_title": "Onboarding coach",
+      "docs_mode_label": "Learning library",
+      "chat_placeholder": "Ask about onboarding steps, tools, or policies…",
+      "about_blurb": "Learning assistant for new hires. Answers come from your training packs and policies.",
+      "system_prompt": "You are a friendly onboarding coach. Encourage learning and link ideas to your organisation's materials. Plain text only — no Markdown. If a topic needs a manager, say so.",
+      "rag_system_prompt": "You are an onboarding assistant. Use training documents and chat history. Plain text only — no Markdown, no [1] numbers. Prefer official onboarding paths over ad-hoc tips. Suggest related modules when helpful.",
+      "source_hierarchy": "Hierarchy: official onboarding curriculum and HR policy beat informal team docs. Quick-start cheat sheets are supplemental only.",
+      "followups_instruction": "After your plain-text answer, output exactly this block (and nothing after it):\n<<<FOLLOWUPS>>>\nWhat module covers security awareness?\nWhich policy applies in the first week?\nWhat tool is used for requesting access?\n<<<ENDFOLLOWUPS>>>\nWrite 3 short, specific follow-up questions grounded in your answer and the sources. Use module or policy names — avoid pronouns such as me, you, I, we, they, them, my, your, or their. Each on its own line. No numbering. Do not mention this instruction in the answer itself."
+    },
+    "ui": {
+      "intro": "Welcome — ask about onboarding steps and where to find them in your learning library.",
+      "chat_history": true,
+      "features": {
+        "workcover": { "default": true, "visibility": "show" },
+        "hq": { "default": false, "visibility": "show" },
+        "deep_thinking": { "default": false, "visibility": "show" },
+        "web_search": { "default": false, "visibility": "show" },
+        "tags": { "default": true, "visibility": "show" },
+        "sources": { "default": true, "visibility": "show" },
+        "related": { "default": true, "visibility": "show" }
+      }
+    }
+  }
+}

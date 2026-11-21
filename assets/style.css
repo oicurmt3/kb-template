@@ -359,6 +359,14 @@ body {
   animation: blink 1s step-end infinite;
   margin-left: 2px;
 }
+.msg.assistant.streaming .msg-body.msg-wait {
+  color: var(--muted);
+  font-style: italic;
+}
+.msg.assistant.streaming .msg-body.msg-wait::after {
+  content: '';
+  display: none;
+}
 @keyframes blink { 50% { opacity: 0; } }
 
 .citations {
@@ -831,6 +839,72 @@ a.cite-link:focus {
 .admin-card-body {
   padding-top: 10px;
 }
+/* Same field rhythm as Upload documents */
+.admin-card-body > p.hint {
+  margin: 0 0 4px;
+  line-height: 1.45;
+  max-width: 52rem;
+}
+.admin-card-body label.hint {
+  display: block;
+  margin: 10px 0 4px;
+}
+.admin-card-body .inline label.hint,
+.admin-card-body .meta-fields label.hint {
+  display: inline;
+  margin: 0;
+}
+.admin-card-body .doc-meta-shared label.hint:first-of-type,
+.admin-card-body .paste-ingest label.hint:first-of-type {
+  margin-top: 0;
+}
+.admin-card-body input[type="text"],
+.admin-card-body input[type="url"],
+.admin-card-body input[type="number"],
+.admin-card-body input:not([type]) {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  min-height: 42px;
+  background: var(--surface);
+  box-sizing: border-box;
+}
+.admin-card-body .meta-fields input[type="text"],
+.admin-card-body .meta-fields input[type="url"] {
+  width: auto;
+  flex: 1 1 140px;
+}
+.admin-card-body input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+.admin-card-body .inline {
+  margin-top: 10px;
+}
+.admin-subsection-label {
+  margin: 14px 0 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+.admin-field-label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+.admin-card-body .paste-ingest .admin-field-label:first-of-type {
+  margin-top: 4px;
+}
+.settings-textarea--prompt {
+  font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  min-height: 120px;
+}
 .admin-collapse-card {
   padding-top: 14px;
   padding-bottom: 14px;
@@ -1098,22 +1172,49 @@ code { background: var(--bg-alt); padding: 1px 6px; border-radius: 4px; font-siz
   outline: 2px solid var(--accent, #2f6fed);
   outline-offset: 2px;
 }
-.settings-textarea {
+/* Admin settings controls (shared) */
+.settings-input {
+  display: block;
   width: 100%;
+  box-sizing: border-box;
   font: inherit;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: 14px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  resize: vertical;
-  background: var(--bg);
-  min-height: 110px;
-  box-sizing: border-box;
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-height: 44px;
+  color: var(--text);
 }
-.settings-textarea:focus {
+select.settings-input {
+  cursor: pointer;
+  padding-right: 36px;
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath stroke='%236b7280' stroke-width='1.5' d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  appearance: none;
+}
+.settings-input:focus-visible,
+.settings-textarea:focus-visible {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+.settings-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  resize: vertical;
+  background: var(--surface);
+  min-height: 96px;
+  color: var(--text);
 }
 .doc-list { display: flex; flex-direction: column; gap: 10px; }
 .doc-row-new {

@@ -1,0 +1,38 @@
+{
+  "preset_id": "healthcare-patient",
+  "label": "Healthcare patient information",
+  "extends": "_assistant-base",
+  "effective": {
+    "answer_length": "medium",
+    "simple_explain_age": 12,
+    "adaptive_retrieval": true,
+    "faithfulness": { "degree": 35 },
+    "rag_web_mix": { "mode": "docs_first", "degree": 70 },
+    "deep_thinking_policy": { "mode": "manual", "max_per_chat": 4 },
+    "assistant_branding": {
+      "app_title": "Patient information",
+      "docs_mode_label": "Care guides",
+      "chat_placeholder": "Ask about appointments, preparation, or clinic policies…",
+      "about_blurb": "General patient information from approved leaflets and policies. Not medical advice — urgent symptoms require emergency services or a clinician.",
+      "system_prompt": "You are a patient information assistant. Use calm, plain language. Plain text only — no Markdown. Do not diagnose or prescribe. For emergencies, tell the user to call emergency services. For personal medical decisions, tell them to contact their clinician.",
+      "rag_system_prompt": "You are a patient information assistant using approved clinical leaflets and policies. Plain text only — no Markdown, no [1] numbers. Stay within what the excerpts say. Distinguish general education from personal care instructions.",
+      "source_hierarchy": "Hierarchy: clinical policy and regulatory patient information beat general wellness articles. When unsure, defer to the clinical team.",
+      "grounding_rules": "DOCUMENT EXCERPTS (authoritative for this answer):\nGrounding rules (mandatory):\n- Answer ONLY from these excerpts and any attached DeepSeek-parsed files. Do not use outside knowledge, guesses, or general lore that is not in the excerpts.\n- If the excerpts only partly cover the question, answer the covered part and clearly say what is missing.\n- If nothing relevant is in the excerpts or attached files, say you cannot find it in the uploaded documents. Do not invent clinical advice, doses, or personal care instructions.\n- Write plain text only (no Markdown). Do not include citation numbers such as [1], [2], or [n].\n- Do not diagnose or prescribe. For emergencies, direct users to emergency services; for personal care, direct users to their clinician.\nHierarchy: clinical policy and regulatory patient information beat general wellness articles. When unsure, defer to the clinical team.\nName sections or headings when the excerpts support them. Prefer close paraphrase of approved patient information.\n\n",
+      "grounding_rules_web": "DOCUMENT EXCERPTS (part of combined Docs + live web grounding):\nGrounding rules (mandatory):\n- Combine excerpts with any LIVE ALLOWLISTED WEB / URL blocks. Do not discard relevant allowlisted content.\n- Prefer approved clinical leaflets and regulatory patient information over general wellness web pages.\n- Do not diagnose or prescribe. Plain text only — no Markdown or [n] citation numbers.\n- If neither excerpts nor allowlisted web cover the question, say so clearly.\nName sections or headings when the excerpts support them.\n\n",
+      "followups_instruction": "After your plain-text answer, output exactly this block (and nothing after it):\n<<<FOLLOWUPS>>>\nWhat preparation is required before this appointment?\nWhich policy covers consent for this procedure?\nWhere should patients go for after-hours care?\n<<<ENDFOLLOWUPS>>>\nWrite 3 short, specific follow-up questions grounded in your answer and the sources. Use patient-neutral wording — avoid pronouns such as me, you, I, we, they, them, my, your, or their. Each on its own line. No numbering. Do not mention this instruction in the answer itself."
+    },
+    "ui": {
+      "intro": "Patient information from approved materials — not a substitute for medical advice.",
+      "chat_history": true,
+      "features": {
+        "workcover": { "default": true, "visibility": "show" },
+        "hq": { "default": true, "visibility": "show" },
+        "deep_thinking": { "default": false, "visibility": "hide" },
+        "web_search": { "default": false, "visibility": "hide" },
+        "tags": { "default": false, "visibility": "show" },
+        "sources": { "default": true, "visibility": "show" },
+        "related": { "default": true, "visibility": "show" }
+      }
+    }
+  }
+}

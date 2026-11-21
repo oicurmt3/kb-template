@@ -29,7 +29,7 @@ $appTitle = AppSettings::appDisplayTitle($appCfg);
         <li>Set your <strong>assistant name</strong> and chat intro below.</li>
         <li>Add <strong>allowed web domains</strong> (if you want live web with documents).</li>
         <li><strong>Upload documents</strong>, then Re-parse / Re-chunk if you use structure parsing.</li>
-        <li>Open chat and ask a test question with <strong>Docs &amp; Web</strong> on.</li>
+        <li>Open chat and ask a test question with <strong>Docs</strong> on (add <strong>Web</strong> if you want allowlisted live pages too).</li>
       </ol>
       <div class="inline" style="margin-top:10px">
         <button type="button" id="dismiss-onboarding" class="btn btn-secondary">Dismiss checklist</button>
@@ -43,42 +43,58 @@ $appTitle = AppSettings::appDisplayTitle($appCfg);
           <span id="branding-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">Customise how the chat looks and how the AI answers. Empty prompt fields use <code>config.php</code> defaults (handy for first install). Export/import settings includes these fields.</p>
-          <label class="hint" for="brand-app-title">Display name</label>
-          <input type="text" id="brand-app-title" class="settings-input" maxlength="120" placeholder="e.g. Acme Help Desk">
-          <label class="hint" for="brand-docs-label" style="margin-top:10px">Docs mode button label</label>
-          <input type="text" id="brand-docs-label" class="settings-input" maxlength="60" placeholder="Docs &amp; Web">
-          <label class="hint" for="brand-chat-placeholder" style="margin-top:10px">Question box placeholder</label>
-          <input type="text" id="brand-chat-placeholder" class="settings-input" maxlength="160" placeholder="Ask a question…">
-          <label class="hint" for="brand-about" style="margin-top:10px">Help panel — what is this?</label>
-          <textarea id="brand-about" class="settings-textarea" rows="3" placeholder="Short plain-English description for users (Help modal)."></textarea>
-          <label class="hint" for="brand-system-prompt" style="margin-top:10px">Plain chat system prompt</label>
-          <textarea id="brand-system-prompt" class="settings-textarea" rows="4" placeholder="Used when Docs &amp; Web is off. Leave empty to use config.php."></textarea>
-          <label class="hint" for="brand-rag-prompt" style="margin-top:10px">Docs &amp; Web system prompt</label>
-          <textarea id="brand-rag-prompt" class="settings-textarea" rows="6" placeholder="Used when document grounding is on. Leave empty to use config.php."></textarea>
-          <label class="hint" for="brand-source-hierarchy" style="margin-top:10px">Source hierarchy (grounding)</label>
-          <textarea id="brand-source-hierarchy" class="settings-textarea" rows="3" placeholder="e.g. Policy manuals are authoritative; how-to guides are practical only. Leave empty for a neutral default."></textarea>
-          <details class="admin-nested-details" style="margin-top:14px">
-            <summary class="hint" style="cursor:pointer">Optional prompt overrides (mix, excerpts, related questions)</summary>
-            <div style="margin-top:10px">
-              <label class="hint" for="brand-grounding-rules">Excerpt rules — docs only (full block)</label>
-              <textarea id="brand-grounding-rules" class="settings-textarea" rows="4" placeholder="Leave empty for the built-in default. Replaces the mandatory rules block before excerpt text when live web is off."></textarea>
-              <label class="hint" for="brand-grounding-rules-web" style="margin-top:10px">Excerpt rules — docs + allowlisted web (full block)</label>
-              <textarea id="brand-grounding-rules-web" class="settings-textarea" rows="4" placeholder="Leave empty for default. Used when Docs mode also fetches allowlisted web."></textarea>
-              <label class="hint" for="brand-followups" style="margin-top:10px">Related questions instruction</label>
-              <textarea id="brand-followups" class="settings-textarea" rows="4" placeholder="Leave empty for neutral examples. Sent when Related is on."></textarea>
-              <p class="hint" style="margin-top:10px">RAG ↔ Web mix lines — use <code>{degree}</code> and <code>{strength}</code>. Leave empty for neutral defaults.</p>
-              <label class="hint" for="brand-mix-complement">Mix: complement</label>
-              <textarea id="brand-mix-complement" class="settings-textarea" rows="2" spellcheck="false"></textarea>
-              <label class="hint" for="brand-mix-docs-first" style="margin-top:8px">Mix: docs first</label>
-              <textarea id="brand-mix-docs-first" class="settings-textarea" rows="2" spellcheck="false"></textarea>
-              <label class="hint" for="brand-mix-web-first" style="margin-top:8px">Mix: web first</label>
-              <textarea id="brand-mix-web-first" class="settings-textarea" rows="2" spellcheck="false"></textarea>
-              <label class="hint" for="brand-mix-compete" style="margin-top:8px">Mix: compete</label>
-              <textarea id="brand-mix-compete" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+          <p class="hint">Customise chat branding and model instructions. Empty prompt fields fall back to <code>config.php</code>. Included in settings export/import.</p>
+
+          <div class="doc-meta-shared">
+            <h3 class="paste-ingest-title">Display &amp; labels</h3>
+            <div class="inline meta-fields">
+              <label class="hint" for="brand-app-title">Display name</label>
+              <input type="text" id="brand-app-title" maxlength="120" placeholder="e.g. Acme Help Desk" title="Shown in the header and browser tab">
+              <label class="hint" for="brand-docs-label">Docs button</label>
+              <input type="text" id="brand-docs-label" maxlength="60" placeholder="Docs" title="Label for the Docs toolbar button">
             </div>
-          </details>
-          <div class="inline" style="margin-top:10px">
+            <label class="hint" for="brand-chat-placeholder">Question box placeholder</label>
+            <input type="text" id="brand-chat-placeholder" maxlength="160" placeholder="Ask a question…">
+            <label class="hint" for="brand-about">Help panel blurb</label>
+            <textarea id="brand-about" class="settings-textarea" rows="3" placeholder="Short description for the user Help modal."></textarea>
+          </div>
+
+          <div class="paste-ingest">
+            <h3 class="paste-ingest-title">System prompts</h3>
+            <p class="hint">Non-empty fields override <code>config.php</code>.</p>
+            <label class="hint" for="brand-system-prompt">Plain chat (Docs off)</label>
+            <textarea id="brand-system-prompt" class="settings-textarea" rows="4" placeholder="General chat persona when Docs is off."></textarea>
+            <label class="hint" for="brand-rag-prompt">Docs mode (Docs on)</label>
+            <textarea id="brand-rag-prompt" class="settings-textarea" rows="6" placeholder="Persona when answers use uploaded documents."></textarea>
+            <label class="hint" for="brand-source-hierarchy">Source hierarchy</label>
+            <textarea id="brand-source-hierarchy" class="settings-textarea" rows="3" placeholder="e.g. Policy manuals over FAQs. Leave empty for neutral default."></textarea>
+          </div>
+
+          <div class="paste-ingest">
+            <h3 class="paste-ingest-title">Excerpt rules (grounding)</h3>
+            <p class="hint">Prepended before document excerpts in the model prompt. Shown below: stored override, or the built-in default when the field is empty. Edit and save to override; clear back to the built-in default snapshot to use runtime defaults again.</p>
+            <label class="admin-field-label" for="brand-grounding-rules">Docs only (no live web)</label>
+            <textarea id="brand-grounding-rules" class="settings-textarea settings-textarea--prompt" rows="8" spellcheck="false" placeholder="Built-in default loads here when empty…"></textarea>
+            <label class="admin-field-label" for="brand-grounding-rules-web">Docs + allowlisted web</label>
+            <textarea id="brand-grounding-rules-web" class="settings-textarea settings-textarea--prompt" rows="8" spellcheck="false" placeholder="Built-in default loads here when empty…"></textarea>
+          </div>
+
+          <div class="paste-ingest">
+            <h3 class="paste-ingest-title">Related questions &amp; RAG ↔ Web mix</h3>
+            <label class="admin-field-label" for="brand-followups">Related questions instruction</label>
+            <textarea id="brand-followups" class="settings-textarea settings-textarea--prompt" rows="6" spellcheck="false" placeholder="Built-in default loads here when empty…"></textarea>
+            <p class="hint admin-subsection-label">RAG ↔ Web mix (one line per mode; use <code>{degree}</code> and <code>{strength}</code>)</p>
+            <label class="hint" for="brand-mix-complement">Complement</label>
+            <textarea id="brand-mix-complement" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+            <label class="hint" for="brand-mix-docs-first">Docs first</label>
+            <textarea id="brand-mix-docs-first" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+            <label class="hint" for="brand-mix-web-first">Web first</label>
+            <textarea id="brand-mix-web-first" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+            <label class="hint" for="brand-mix-compete">Compete</label>
+            <textarea id="brand-mix-compete" class="settings-textarea" rows="2" spellcheck="false"></textarea>
+          </div>
+
+          <div class="inline">
             <button type="button" id="save-assistant-branding" class="btn btn-primary">Save assistant</button>
             <span id="branding-status" class="hint" aria-live="polite"></span>
           </div>
@@ -122,7 +138,7 @@ $appTitle = AppSettings::appDisplayTitle($appCfg);
           <span class="admin-card-summary-title">Export / import</span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">Download JSON backups. <strong>Settings</strong> includes effective values plus raw <code>settings</code> table rows. <strong>Import settings</strong> restores from a previous settings export (overwrites current admin settings). <strong>Business preset</strong> applies bundled toggles and prompt overrides (does not change uploaded documents). <strong>Chunks</strong> export only (no import yet).</p>
+          <p class="hint">Download JSON backups. <strong>Settings</strong> includes effective values plus raw <code>settings</code> table rows. <strong>Import settings</strong> restores from a previous settings export (overwrites current admin settings). <strong>Business preset</strong> applies bundled toggles and the full <strong>Your assistant &amp; prompts</strong> set (display, system prompts, grounding, mix, related questions — does not change uploaded documents). <strong>Chunks</strong> export only (no import yet).</p>
           <label class="hint" for="apply-preset-select" style="margin-top:10px;display:block">Business preset</label>
           <div class="inline" style="flex-wrap:wrap;align-items:center">
             <select id="apply-preset-select" class="settings-input" style="max-width:320px">
@@ -271,7 +287,7 @@ $appTitle = AppSettings::appDisplayTitle($appCfg);
           <span id="rag-web-mix-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">When <strong>Docs &amp; Web</strong> is on, document mode always runs uploaded search plus allowlisted live web. This setting controls whether they <strong>complement</strong>, prefer <strong>docs first</strong>, prefer <strong>web first</strong>, or <strong>compete</strong> (pick a winner), and how strongly (0–100). The <strong>first pass</strong> writes with these rules; the automatic <strong>faithfulness</strong> QA after streaming uses the <strong>same mode + degree</strong> when deciding what to keep or cut (it does not re-run mix — it audits the draft).</p>
+          <p class="hint">When <strong>Docs</strong> and <strong>Web</strong> are both on, this setting controls whether they <strong>complement</strong>, prefer <strong>docs first</strong>, prefer <strong>web first</strong>, or <strong>compete</strong> (pick a winner), and how strongly (0–100). The <strong>first pass</strong> writes with these rules; the automatic <strong>faithfulness</strong> QA after streaming uses the <strong>same mode + degree</strong> when deciding what to keep or cut (it does not re-run mix — it audits the draft).</p>
           <div class="inline" style="margin-top:10px;flex-wrap:wrap" role="group" aria-label="RAG Web mix mode">
             <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-complement" value="complement" checked> <span>Complement</span></label>
             <label class="mode-toggle"><input type="radio" name="rag-web-mode" id="rag-web-docs-first" value="docs_first"> <span>Docs first</span></label>
@@ -296,7 +312,7 @@ $appTitle = AppSettings::appDisplayTitle($appCfg);
           <span id="ui-features-summary-hint" class="admin-card-summary-hint"></span>
         </summary>
         <div class="admin-card-body">
-          <p class="hint">Intro message for new chats, chat history (turn off for multi-user kiosks), and feature controls. <strong>Docs &amp; Web / HQ / Deep think / Web only</strong>: Default + Show/Hide. <strong>Tags / URL / File / Sources / Related</strong>: Show or Hide only. Each row’s hint updates live from the current Default and Show/Hide. <strong>Faithfulness</strong> (source check) is not listed here — it runs from the Faithfulness slider whenever grounding exists.</p>
+          <p class="hint">Intro message for new chats, chat history (turn off for multi-user kiosks), and feature controls. <strong>Docs / HQ / Deep think / Web</strong>: Default + Show/Hide (Docs and Web are independent). <strong>Tags / URL / File / Sources / Related</strong>: Show or Hide only. Each row’s hint updates live from the current Default and Show/Hide. <strong>Faithfulness</strong> (source check) is not listed here — it runs from the Faithfulness slider whenever grounding exists.</p>
           <label class="hint" for="ui-intro">Intro message</label>
           <textarea id="ui-intro" class="settings-textarea" rows="3" placeholder="Welcome message shown at the start of every new chat"></textarea>
           <div class="inline" style="margin-top:10px" role="group" aria-label="Chat history">

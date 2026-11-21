@@ -252,6 +252,56 @@ function normalize_source_url(?string $input): ?string {
 }
 
 /**
+ * Detect MIME type without requiring the fileinfo extension (common on shared hosts).
+ * Tries finfo → mime_content_type → extension map → octet-stream.
+ */
+function detect_mime_type(string $path, string $filename = ''): string {
+    if (class_exists('finfo')) {
+        try {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $detected = $finfo->file($path);
+            if (is_string($detected) && $detected !== '' && $detected !== 'application/octet-stream') {
+                return $detected;
+            }
+        } catch (Throwable $e) {
+            // fall through
+        }
+    }
+    if (function_exists('mime_content_type')) {
+        $detected = @mime_content_type($path);
+        if (is_string($detected) && $detected !== '') {
+            return $detected;
+        }
+    }
+    $ext = strtolower(pathinfo($filename !== '' ? $filename : $path, PATHINFO_EXTENSION));
+    $map = [
+        'md' => 'text/markdown',
+        'txt' => 'text/plain',
+        'csv' => 'text/csv',
+        'json' => 'application/json',
+        'html' => 'text/html',
+        'htm' => 'text/html',
+        'pdf' => 'application/pdf',
+        'doc' => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'ppt' => 'application/vnd.ms-powerpoint',
+        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'xls' => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        'bmp' => 'image/bmp',
+        'tif' => 'image/tiff',
+        'tiff' => 'image/tiff',
+        'epub' => 'application/epub+zip',
+    ];
+    return $map[$ext] ?? 'application/octet-stream';
+}
+
+/**
  * Simple per-IP rate limit using storage/ratelimit/.
  * Returns true if allowed; false if limited.
  */

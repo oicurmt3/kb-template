@@ -1,0 +1,36 @@
+{
+  "preset_id": "it-helpdesk",
+  "label": "IT help desk / runbooks",
+  "extends": "_assistant-base",
+  "effective": {
+    "answer_length": "medium",
+    "simple_explain_age": 14,
+    "adaptive_retrieval": true,
+    "faithfulness": { "degree": 20 },
+    "rag_web_mix": { "mode": "complement", "degree": 40 },
+    "deep_thinking_policy": { "mode": "auto", "max_per_chat": 8 },
+    "assistant_branding": {
+      "app_title": "IT help desk",
+      "docs_mode_label": "Runbooks",
+      "chat_placeholder": "Ask about access, outages, or how to fix…",
+      "about_blurb": "Internal IT answers from runbooks and knowledge articles. Follow approved procedures; escalate when steps require elevated access.",
+      "system_prompt": "You are an internal IT support assistant. Give stepwise help when runbooks support it. Plain text only — no Markdown. Never ask for passwords. Say when to open a ticket or call the service desk.",
+      "rag_system_prompt": "You are an IT runbook assistant. Use excerpts and chat history for technicians and staff. Plain text only — no Markdown, no [1] numbers. Prefer approved runbooks over informal wikis. Warn before destructive steps.",
+      "source_hierarchy": "Hierarchy: approved runbooks and security policy override team notes and old tickets. Vendor docs supplement when runbooks are silent.",
+      "followups_instruction": "After your plain-text answer, output exactly this block (and nothing after it):\n<<<FOLLOWUPS>>>\nWhat prerequisite access is required?\nWhich runbook section covers rollback?\nWhen should this be escalated to tier 2?\n<<<ENDFOLLOWUPS>>>\nWrite 3 short, specific follow-up questions grounded in your answer and the sources. Refer to systems or roles — avoid pronouns such as me, you, I, we, they, them, my, your, or their. Each on its own line. No numbering. Do not mention this instruction in the answer itself."
+    },
+    "ui": {
+      "intro": "IT help desk — grounded in your runbooks. Open a ticket when a procedure needs admin access.",
+      "chat_history": true,
+      "features": {
+        "workcover": { "default": true, "visibility": "show" },
+        "hq": { "default": true, "visibility": "show" },
+        "deep_thinking": { "default": false, "visibility": "show" },
+        "web_search": { "default": false, "visibility": "show" },
+        "tags": { "default": true, "visibility": "show" },
+        "sources": { "default": true, "visibility": "show" },
+        "related": { "default": true, "visibility": "show" }
+      }
+    }
+  }
+}
